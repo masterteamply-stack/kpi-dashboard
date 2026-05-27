@@ -1522,6 +1522,7 @@ const state = {
   webLead: { total: null, thisMonth: null, lastUpdated: null },
   choiceKitOrder: { total: null, count: null, lastUpdated: null },
   channelDiscriber: { total: null, manual: null },
+  openKpiIds: new Set(),  // 열린 KPI 행 ID 보존
   leadDetail: { showDetail: false },
   sb: null,
   tasks: [], owners: [], kpis: [],
@@ -2247,7 +2248,7 @@ function renderKPIAccordion(kpis, tasks) {
     }).join('') : `<tr><td colspan="8" class="accordion-empty">등록된 Task가 없습니다.</td></tr>`;
 
     return `
-    <div class="kpi-accordion-row" onclick="toggleKpiRow(this)" style="position:relative">
+    <div class="kpi-accordion-row" data-kpi-id="${esc(kpi.id)}" onclick="toggleKpiRow(this)" style="position:relative">
       <div class="kpi-row-actions"><button class="kpi-del-btn" onclick="event.stopPropagation();deleteKpi('${esc(kpi.id)}','${esc(kpi.title||'')}')" title="KPI 삭제">×</button></div>
       <div><div class="kpi-chevron">▶</div></div>
       <div class="kpi-name-cell">
@@ -2448,6 +2449,18 @@ function renderKPIAccordion(kpis, tasks) {
   wrap.innerHTML = `<div class="kpi-accordion-wrap">${headerHTML}${rows}</div><div class="kpi-add-row" onclick="openAddKpiModal()"><span style="font-size:16px">＋</span> KPI 추가</div>`;
   state._lastKpis = kpis;
   state._lastKpiTasks = tasks;
+  // 열림 상태 복원
+  if(state.openKpiIds && state.openKpiIds.size > 0) {
+    state.openKpiIds.forEach(id => {
+      const rowEl = wrap.querySelector(`.kpi-accordion-row[data-kpi-id="${id}"]`);
+      if(!rowEl) return;
+      const wrapEl  = rowEl.nextElementSibling;
+      const chevron = rowEl.querySelector('.kpi-chevron');
+      if(wrapEl)  { wrapEl.classList.add('open'); }
+      if(chevron) { chevron.classList.add('open'); }
+      rowEl.classList.add('expanded');
+    });
+  }
   renderTop7KPI(kpis, tasks);
   renderThemeInteractiveChart(kpis, tasks);
   renderRegionOrderChart(tasks);
@@ -2458,12 +2471,17 @@ function renderKPIAccordion(kpis, tasks) {
 }
 
 function toggleKpiRow(rowEl) {
-  const wrap = rowEl.nextElementSibling;
+  const wrap    = rowEl.nextElementSibling;
   const chevron = rowEl.querySelector('.kpi-chevron');
-  const isOpen = wrap.classList.contains('open');
+  const isOpen  = wrap.classList.contains('open');
   wrap.classList.toggle('open', !isOpen);
   chevron.classList.toggle('open', !isOpen);
   rowEl.classList.toggle('expanded', !isOpen);
+  // 열림 상태 보존 (재렌더 후 복원용)
+  const kpiId = rowEl.dataset.kpiId;
+  if(!state.openKpiIds) state.openKpiIds = new Set();
+  if(!isOpen) state.openKpiIds.add(kpiId);
+  else        state.openKpiIds.delete(kpiId);
 }
 
 function isDue(t) { return t.status!=="done"&&t.due_date&&new Date(t.due_date)<todayD(); }
@@ -3113,7 +3131,7 @@ async function saveTaskCellEdit(el) {
   if(dtype === 'number') {
     val = parseFloat(raw);
     if(isNaN(val)) { el.textContent = orig; return; }
-    if(field === 'progress') val = Math.min(100, Math.max(0, Math.round(val)));
+    if(field === 'progress') val = Math.max(0, Math.round(val)); // 실적값: 100 제한 없음
   }
   el.classList.add('cell-saving');
   try {
@@ -3248,8 +3266,7 @@ async function saveTaskSelectEdit(sel) {
     state.tasks = state.tasks.map(t => t.id===taskId ? {...t, [field]:val} : t);
     const s = computeSummary(state.tasks, state._lastKpis||[]);
     renderKPICards(s); renderSummary(s); renderChart(state.tasks);
-    // task_type 변경 시 아코따언 재렌더 (유형 셀렉트 즉시 배지 반영)
-    if(field==='task_type' && state._lastKpis) renderKPIAccordion(state._lastKpis, state.tasks);
+    // task_type은 select 값이 이미 변경됨 → accordion 재렌더 불필요
   } catch(e) { console.error('Select save error:', e); }
   finally { sel.disabled = false; }
 }
