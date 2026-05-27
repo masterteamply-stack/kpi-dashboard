@@ -344,7 +344,7 @@
     .kpi-tasks-table th:first-child{padding-left:48px}
     .kpi-tasks-table td{
       padding:11px 12px 11px 48px;border-bottom:1px solid #e8e4dc;
-      font-size:13px;vertical-align:middle;color:#1a1714;background:#faf8f4;
+      font-size:13px;vertical-align:middle;color:#1a1714 !important;background:#faf8f4;
     }
     .kpi-tasks-table td:first-child{padding-left:48px}
     .kpi-tasks-table tr:last-child td{border-bottom:0}
@@ -352,12 +352,13 @@
     .task-title-cell{font-weight:600;color:#1a1714;font-size:13px}
     .task-note-cell{font-size:11.5px;color:#5a5148;margin-top:2px;line-height:1.4}
     .month-chip{
-      display:inline-block;padding:2px 8px;border-radius:2px;font-size:11px;font-weight:500;
-      background:var(--panel);border:1px solid var(--line);color:var(--text);
+      display:inline-block;padding:2px 8px;border-radius:2px;font-size:11px;font-weight:700;
+      background:#d8e4cc;border:1px solid #b8ccaa;color:#3d5228 !important;
+      display:inline-block} .month-chip_UNUSED{border:1px solid var(--line);color:var(--text);
     }
     .qtr-chip{
-      display:inline-block;padding:2px 8px;border-radius:2px;font-size:11px;
-      background:var(--panel2);border:1px solid var(--line);color:var(--muted);
+      display:inline-block;padding:2px 8px;border-radius:2px;font-size:11px;font-weight:600;
+      background:#e8e4dc;border:1px solid #c8c3b8;color:#3d3830;
     }
     .accordion-empty{padding:20px 48px;color:var(--muted);font-size:12px}
     /* Inline edit */
@@ -1890,8 +1891,8 @@ function renderKPIAccordion(kpis, tasks) {
           />
         </td>
         <td>
-          <div style="font-size:12px;font-weight:700;color:#eef3ff">
-            <span class="cell-editable"
+          <div style="font-size:12px;font-weight:700;color:#1a1714 !important">
+            <span class="cell-editable" style="color:#1a1714"
               contenteditable="true"
               data-task-id="${t.id}"
               data-field="progress"
