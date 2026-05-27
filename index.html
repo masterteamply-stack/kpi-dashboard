@@ -818,6 +818,19 @@
     .member-field-label{font-size:10px;font-weight:700;text-transform:uppercase;
       letter-spacing:.08em;color:#8a8278;margin-bottom:3px}
 
+
+    /* ── Panel collapse ── */
+    .panel-collapse-btn{
+      width:22px;height:22px;border-radius:3px;background:var(--panel2);
+      border:1px solid var(--line);color:var(--muted);font-size:13px;font-weight:700;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;
+      flex-shrink:0;line-height:1;transition:.15s;
+    }
+    .panel-collapse-btn:hover{background:var(--line);color:var(--text)}
+    .panel-content.collapsed{display:none!important}
+    .digital-kpi-card{padding:14px}
+    .digital-kpi-name{font-size:13px;font-weight:700;color:#1a1714;margin-bottom:10px}
+
     /* ── Spinner ── */
     .spinner{
       width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;
@@ -912,15 +925,32 @@
     </div>
   </section>
 
-  <!-- Strategic Theme + Activity Type charts -->
-  <section class="grid" style="grid-template-columns:1.1fr 0.9fr;gap:16px;margin-bottom:18px">
+  <!-- Strategic + Regional + Activity charts -->
+  <section class="grid" style="grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:18px">
     <div class="panel">
-      <h3>전략 영역별 진행 현황</h3>
-      <div id="themeChartWrap" class="theme-chart-wrap"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h3 style="margin-bottom:0">전략 영역별 진행 현황</h3>
+        <button class="panel-collapse-btn" onclick="togglePanel('themePanel',this)">−</button>
+      </div>
+      <div id="themeContent" class="panel-content"><div id="themeChartWrap" class="theme-chart-wrap"></div>
     </div>
     <div class="panel">
-      <h3>활동 유형별 예산 집행</h3>
-      <canvas id="activityChart" height="220"></canvas>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h3 style="margin-bottom:0">지역별 오더 &amp; 마케팅비</h3>
+        <button class="panel-collapse-btn" onclick="togglePanel('regionPanel',this)">−</button>
+      </div>
+      <div id="regionContent" class="panel-content">
+        <canvas id="regionOrderChart" height="220"></canvas>
+      </div>
+    </div>
+    <div class="panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h3 style="margin-bottom:0">활동 유형별 예산 집행</h3>
+        <button class="panel-collapse-btn" onclick="togglePanel('actPanel',this)">−</button>
+      </div>
+      <div id="actContent" class="panel-content">
+        <canvas id="activityChart" height="220"></canvas>
+      </div>
     </div>
   </section>
 
@@ -929,19 +959,22 @@
     <div class="panel">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
         <h3 style="margin-bottom:0">디지털 KPI 추이</h3>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="panel-collapse-btn" onclick="togglePanel('dkpiPanel',this)">−</button>
         <div class="toggle-switch-wrap">
           <button id="dkpiBtnQ" class="toggle-btn active" onclick="switchDkpiView('quarter')">분기별</button>
           <button id="dkpiBtnM" class="toggle-btn" onclick="switchDkpiView('month')">월별</button>
         </div>
       </div>
-      <div class="digital-kpi-grid">
+      <div id="dkpiContent" class="panel-content"><div class="digital-kpi-grid">
         <div class="digital-kpi-card">
           <div class="digital-kpi-name">📊 Engagement (노출/도달)</div>
-          <canvas id="engagementChart" height="180"></canvas>
+          <canvas id="engagementChart" height="130"></canvas>
         </div>
         <div class="digital-kpi-card">
           <div class="digital-kpi-name">👆 Click (광고 클릭)</div>
-          <canvas id="clickChart" height="180"></canvas>
+          <canvas id="clickChart" height="130"></canvas>
         </div>
       </div>
     </div>
@@ -949,8 +982,11 @@
 
   <!-- Owner table -->
   <section class="panel" style="margin-bottom:18px">
-    <h3>담당자별 업무 현황</h3>
-    <div class="table-wrap">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3 style="margin-bottom:0">담당자별 업무 현황</h3>
+      <button class="panel-collapse-btn" onclick="togglePanel('ownerPanel',this)">−</button>
+    </div>
+    <div id="ownerContent" class="panel-content"><div class="table-wrap">
       <table>
         <thead>
           <tr>
@@ -1048,7 +1084,7 @@
             <div class="error-text"></div>
           </div>
           <div class="field" data-field="revenue">
-            <label for="task_revenue">매출</label>
+            <label for="task_revenue">관련 오더</label>
             <input id="task_revenue" name="revenue" type="number" min="0" step="0.01" />
             <div class="error-text"></div>
           </div>
@@ -1495,7 +1531,7 @@ function computeSummary(tasks) {
   const leads    = tasks.reduce((s,t)=>s+Number(t.leads||0),0);
   const avgProg  = total ? tasks.reduce((s,t)=>s+Number(t.progress||0),0)/total : 0;
   const compRate = total ? (done/total)*100 : 0;
-  const roi      = spend>0 ? ((revenue-spend)/spend)*100 : 0;
+  const roi = spend>0 ? (revenue/spend)*100 : 0; // 관련오더/마케팅비용
   return { total,done,inProg,blocked,todo,delayed,budget,spend,revenue,leads,avgProg,compRate,roi };
 }
 
@@ -1539,7 +1575,7 @@ function renderKPICards(s) {
     { label:"평균 진척도", value:fmtPct(s.avgProg),   sub:`차단 ${fmtNum(s.blocked)}건`,    icon:"📈" },
     { label:"지연 업무",   value:fmtNum(s.delayed),   sub:`대기 ${fmtNum(s.todo)}건`,       icon:"⚠️" },
     { label:"총 집행",     value:fmtKRW(s.spend),     sub:`배정 ${fmtKRW(s.budget)}`,       icon:"💰" },
-    { label:"ROI",         value:fmtPct(s.roi),        sub:`매출 ${fmtKRW(s.revenue)}`,      icon:"🚀" }
+    { label:"마케팅 ROI",    value:fmtPct(s.roi),        sub:`오더 ${fmtKRW(s.revenue)}`, icon:"🚀" }
   ];
   el.kpiGrid.innerHTML = items.map(i=>`
     <article class="panel kpi-card">
@@ -1564,7 +1600,7 @@ function renderSummary(s) {
           <div style="font-family:var(--font-display);font-size:22px;font-weight:800;margin-top:4px">${fmtNum(s.leads)}</div>
         </div>
         <div class="panel" style="padding:14px;border-radius:13px">
-          <div class="muted" style="font-size:11px">총 매출</div>
+          <div class="muted" style="font-size:11px">총 관련 오더</div>
           <div style="font-family:var(--font-display);font-size:22px;font-weight:800;margin-top:4px">${fmtKRW(s.revenue)}</div>
         </div>
       </div>
@@ -1934,6 +1970,7 @@ function renderKPIAccordion(kpis, tasks) {
   state._lastKpiTasks = tasks;
   renderTop7KPI(kpis, tasks);
   renderStrategicThemeChart(kpis, tasks);
+  renderRegionOrderChart(tasks);
   renderActivityTypeChart(tasks);
   renderDigitalKpiCharts(kpis, tasks);
   setTimeout(()=>{ window.applyAllSavedWidths(); window.rebuildAccGrid && window.rebuildAccGrid(); }, 0);
@@ -1965,6 +2002,7 @@ async function refreshDashboard() {
       const kpis = state._lastKpis||[];
       const tasks = state._lastKpiTasks||[];
       renderStrategicThemeChart(kpis, tasks);
+      renderRegionOrderChart(tasks);
       renderActivityTypeChart(tasks);
       renderDigitalKpiCharts(kpis, tasks);
     }, 100);
@@ -2468,7 +2506,7 @@ function renderDrawerEditForm(task) {
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="field"><label>집행 금액</label><input id="de_spend" type="number" min="0" value="${task.spend??0}" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" /></div>
-        <div class="field"><label>매출</label><input id="de_revenue" type="number" min="0" value="${task.revenue??0}" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" /></div>
+        <div class="field"><label>관련 오더 (ORDER)</label><input id="de_revenue" type="number" min="0" value="${task.revenue??0}" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" /></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="field"><label>시작일</label><input id="de_start" type="date" value="${task.started_at||''}" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" /></div>
@@ -3887,6 +3925,91 @@ async function addMemberRow(btn) {
   openMemberModal();
 }
 
+
+// ── Panel collapse/expand ──
+function togglePanel(panelId, btn) {
+  const contentId = panelId.replace('Panel','Content');
+  const content   = document.getElementById(contentId);
+  if(!content) return;
+  const isCollapsed = content.classList.toggle('collapsed');
+  if(btn) btn.textContent = isCollapsed ? '+' : '−';
+  btn.title = isCollapsed ? '펼치기' : '접기';
+  try { const s=JSON.parse(localStorage.getItem('panel_st')||'{}'); s[panelId]=isCollapsed; localStorage.setItem('panel_st',JSON.stringify(s)); } catch(e){}
+}
+function restorePanelStates() {
+  try {
+    const s = JSON.parse(localStorage.getItem('panel_st')||'{}');
+    Object.entries(s).forEach(([pid,col])=>{
+      if(col){
+        const el=document.getElementById(pid.replace('Panel','Content'));
+        if(el) el.classList.add('collapsed');
+        const btns=document.querySelectorAll(`button[onclick*="'${pid}'"]`);
+        btns.forEach(b=>{b.textContent='+';b.title='펼치기';});
+      }
+    });
+  } catch(e){}
+}
+
+// ── Regional Orders & Marketing Cost Chart ──
+function renderRegionOrderChart(tasks) {
+  const ctx = document.getElementById('regionOrderChart');
+  if(!ctx) return;
+
+  const MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const regionMap = {};
+
+  for(const t of tasks) {
+    const r  = (t.region||'KR').toUpperCase();
+    const mo = t.started_at ? new Date(t.started_at).getMonth() : -1;
+    if(mo < 0) continue;
+    if(!regionMap[r]) regionMap[r] = { orders: new Array(12).fill(0), spend: new Array(12).fill(0) };
+    regionMap[r].orders[mo] += Number(t.revenue||0);
+    regionMap[r].spend[mo]  += Number(t.spend||0);
+  }
+
+  const regions = Object.keys(regionMap).sort();
+  if(!regions.length) { ctx.style.display='none'; return; }
+  ctx.style.display='';
+
+  const RCOLS = {KR:'rgba(92,107,74,.75)',JP:'rgba(74,107,124,.75)',
+    CN:'rgba(158,74,58,.75)',US:'rgba(184,150,46,.75)',
+    EU:'rgba(124,86,140,.75)',MENA:'rgba(80,120,160,.75)'};
+  const getC = r => RCOLS[r]||'rgba(100,100,100,.7)';
+
+  const totalSpend = new Array(12).fill(0);
+  regions.forEach(r => regionMap[r].spend.forEach((v,i)=>totalSpend[i]+=v));
+
+  const datasets = regions.map(r=>({
+    label: r+' 오더', data: regionMap[r].orders,
+    backgroundColor: getC(r), borderRadius:3, stack:'orders'
+  }));
+  datasets.push({
+    type:'line', label:'마케팅 비용',
+    data: totalSpend, borderColor:'#9e4a3a', borderWidth:2,
+    pointRadius:3, pointBackgroundColor:'#9e4a3a',
+    fill:false, tension:.3, borderDash:[4,3]
+  });
+
+  if(window._rOChart) window._rOChart.destroy();
+  window._rOChart = new Chart(ctx, {
+    type:'bar', data:{labels:MONTHS, datasets},
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{labels:{color:'#6b6259',font:{size:10},boxWidth:10}},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtKRW(c.parsed.y)}`}}
+      },
+      scales:{
+        x:{stacked:true, ticks:{color:'#8a8278',font:{size:10}}, grid:{color:'rgba(60,50,40,.05)'}},
+        y:{stacked:true, beginAtZero:true,
+          ticks:{color:'#8a8278',font:{size:10},
+            callback:v=>v>=1000000?`${(v/1000000).toFixed(1)}M`:v>=1000?`${(v/1000).toFixed(0)}K`:v
+          }, grid:{color:'rgba(60,50,40,.06)'}}
+      }
+    }
+  });
+}
+
 // ── 14. Init ───────────────────────────────────────────────
 (async function init() {
   const url=window.__SUPABASE_URL__, key=window.__SUPABASE_ANON_KEY__;
@@ -3894,6 +4017,7 @@ async function addMemberRow(btn) {
   try {
     state.sb = createClient(url, key);
     renderTypeManagerPanel();
+    restorePanelStates();
     setStatus("Supabase 연결 중…");
     await refreshDashboard();
     setupRealtime();
