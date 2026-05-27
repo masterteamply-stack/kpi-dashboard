@@ -1239,8 +1239,18 @@ async function fetchMeta() {
     state.sb.from("owners").select("id,name,team").order("name"),
     state.sb.from("kpis").select("id,title,unit,target_value").order("title")
   ]);
-  if(e1) throw e1; if(e2) throw e2;
-  state.owners = owners||[]; state.kpis = kpis||[];
+  if(e1) {
+    // teams_webhook_url 컬럼 없으면 fallback
+    if(e1.message && e1.message.includes('teams_webhook_url')) {
+      const { data: owners2, error: e3 } = await state.sb.from("owners").select("id,name,team").order("name");
+      if(e3) throw e3;
+      state.owners = (owners2||[]).map(o=>({...o, teams_webhook_url:null}));
+    } else { throw e1; }
+  } else {
+    state.owners = owners||[];
+  }
+  if(e2) throw e2;
+  state.kpis = kpis||[];
 }
 
 async function hydrateFilters() {
@@ -2490,11 +2500,21 @@ function updateMentionTags(content) {
 // fetchMeta override to include teams_webhook_url
 async function fetchMetaWithWebhook() {
   const [{ data: owners, error: e1 }, { data: kpis, error: e2 }] = await Promise.all([
-    state.sb.from("owners").select("id,name,team,teams_webhook_url,email").order("name"),
+    state.sb.from("owners").select("id,name,team,teams_webhook_url").order("name"),
     state.sb.from("kpis").select("id,title,kpi_key,statement,owners,progress_status,q1_target,q2_target,q3_target,q4_target,q1_result,unit,strategic_theme").order("kpi_key")
   ]);
-  if(e1) throw e1; if(e2) throw e2;
-  state.owners = owners||[]; state.kpis = kpis||[];
+  if(e1) {
+    // teams_webhook_url 컬럼 없으면 fallback
+    if(e1.message && e1.message.includes('teams_webhook_url')) {
+      const { data: owners2, error: e3 } = await state.sb.from("owners").select("id,name,team").order("name");
+      if(e3) throw e3;
+      state.owners = (owners2||[]).map(o=>({...o, teams_webhook_url:null}));
+    } else { throw e1; }
+  } else {
+    state.owners = owners||[];
+  }
+  if(e2) throw e2;
+  state.kpis = kpis||[];
 }
 
 // ── Teams 웹훅 설정 모달 ──
