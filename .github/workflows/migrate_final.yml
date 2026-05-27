@@ -1,0 +1,31 @@
+name: Migrate teams webhook column
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/migrate_final.yml']
+
+jobs:
+  run-sql:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add teams_webhook_url column
+        run: |
+          QUERY=$(python3 -c "
+import json
+sql = open('add_webhook_col.sql').read()
+print(json.dumps({'query': sql}))
+")
+          curl -s -X POST \
+            -H \"Authorization: Bearer ${{ secrets.SUPABASE_TOKEN }}\" \
+            -H \"Content-Type: application/json\" \
+            -d \"$QUERY\" \
+            \"https://api.supabase.com/v1/projects/oehfptlkpqlpruaqogkk/database/query\" \
+          | python3 -c \"
+import sys,json
+r=json.load(sys.stdin)
+if isinstance(r,list): print('✅ Rows:', len(r), r[-1] if r else '')
+else: print('Response:', r)
+\"
