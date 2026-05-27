@@ -964,6 +964,52 @@
     input[type="date"]#de_start::-webkit-calendar-picker-indicator,
     input[type="date"]#de_due::-webkit-calendar-picker-indicator{cursor:pointer}
 
+
+    /* ── KPI Budget Modal ── */
+    .budget-modal{width:min(1080px,100%);max-height:88vh;overflow:auto;
+      background:#fdfcf9;border:1px solid #d4cec5;border-radius:10px;
+      box-shadow:0 16px 48px rgba(60,50,40,.18)}
+    .budget-modal-header{padding:22px 24px 14px;border-bottom:1px solid #e8e4dc;
+      display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+    .budget-table-wrap{overflow-x:auto;padding:0 24px 16px}
+    .budget-table{width:100%;border-collapse:collapse;font-size:12px}
+    .budget-table th{padding:8px 10px;background:#eceae3;border:1px solid #d4cec5;
+      font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+      color:#5a5148;white-space:nowrap;text-align:center}
+    .budget-table th.region-col{text-align:left;min-width:100px}
+    .budget-table td{padding:6px 8px;border:1px solid #e8e4dc;vertical-align:middle;text-align:center}
+    .budget-table td.region-name{text-align:left;font-weight:600;color:#1a1714;
+      background:#f5f2ed;min-width:100px;padding:6px 12px}
+    .budget-table td.total-col{background:#f0ede6;font-weight:700;color:#1a1714}
+    .budget-table td.actual-col{background:#e8eddf;color:#3d5228;font-weight:600}
+    .budget-table tr.total-row td{background:#eceae3;font-weight:700}
+    .budget-input{
+      width:100%;background:transparent;border:none;text-align:right;
+      font-size:12px;color:#1a1714;font-family:var(--font-body);outline:none;
+      padding:2px 4px;border-radius:2px;min-width:70px;
+    }
+    .budget-input:focus{background:#fff;box-shadow:0 0 0 2px rgba(92,107,74,.2)}
+    .budget-input::placeholder{color:#c4bdb3;font-size:11px}
+    .budget-summary-bar{
+      display:grid;grid-template-columns:repeat(3,1fr);gap:12px;
+      padding:14px 24px;background:#f5f2ed;border-top:1px solid #e8e4dc;
+    }
+    .budget-summary-card{background:#fdfcf9;border:1px solid #e2ddd6;border-radius:4px;padding:12px}
+    .budget-summary-label{font-size:10px;font-weight:700;text-transform:uppercase;
+      letter-spacing:.08em;color:#8a8278;margin-bottom:5px}
+    .budget-summary-val{font-size:18px;font-weight:700;color:#1a1714}
+    .kpi-budget-btn{
+      display:inline-flex;align-items:center;gap:3px;
+      padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;
+      background:#f5f0e0;border:1px solid #d4c090;color:#7a6010;
+      cursor:pointer;margin-left:6px;vertical-align:middle;white-space:nowrap;
+      transition:all .15s;
+    }
+    .kpi-budget-btn:hover{background:#ede5c8;border-color:#b8a040}
+    .add-region-row{
+      display:flex;gap:8px;align-items:center;padding:8px 24px 16px;
+    }
+
     /* ── Spinner ── */
     .spinner{
       width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;
@@ -1627,7 +1673,7 @@ async function fetchAttachments(taskId) {
 async function fetchKpisWithTasks() {
   const { data: kpis, error: ke } = await state.sb
     .from('kpis')
-    .select('id,title,kpi_key,statement,owners,progress_status,q1_target,q2_target,q3_target,q4_target,q1_result,q2_result,unit,strategic_theme')
+    .select('id,title,kpi_key,statement,owners,progress_status,q1_target,q2_target,q3_target,q4_target,q1_result,q2_result,unit,strategic_theme,budget_plan')
     .order('kpi_key');
   if(ke) throw ke;
 
@@ -1931,6 +1977,7 @@ function renderKPIAccordion(kpis, tasks) {
             title="클릭하여 제목 수정"
           >${esc(kpi.title||'')}</span>
           <span class="accordion-task-count" onclick="event.stopPropagation();openKpiDetail('${esc(kpi.id)}')" style="cursor:pointer" title="상세 보기">${taskCount}</span>
+          <span class="kpi-budget-btn" onclick="event.stopPropagation();openKpiBudgetModal('${esc(kpi.id)}')" title="예산 배분 설정">💰 예산</span>
         </div>
         <div class="kpi-statement">
           <span class="kpi-editable" contenteditable="true"
@@ -4551,6 +4598,334 @@ async function saveTaskDateEdit(input) {
     input.style.borderColor = '#9e4a3a';
     console.error('Date save error:', e);
   }
+}
+
+
+// ── KPI 예산 배분 모달 ──
+const DEFAULT_REGIONS = ['Global','KR','JP','US','EU','MENA','CN','APAC','LA'];
+
+function getKpiBudget(kpi) {
+  try { return kpi.budget_plan ? JSON.parse(kpi.budget_plan) : {}; }
+  catch(e) { return {}; }
+}
+
+function openKpiBudgetModal(kpiId) {
+  const kpi   = (state._lastKpis||[]).find(k=>k.id===kpiId);
+  const tasks = (state._lastKpiTasks||[]).filter(t=>t.kpi_id===kpiId);
+  if(!kpi) return;
+
+  const budgetData = getKpiBudget(kpi);
+  // { "KR": {"앰배서더": 5000000, "소셜미디어": 3000000}, ... }
+
+  const types   = getMktgTypes();
+  const regions = [...new Set([...DEFAULT_REGIONS,
+    ...Object.keys(budgetData)
+  ])];
+
+  // 실제 집행: task.spend by task_type (집계)
+  const actualSpendByType = {};
+  const actualSpendByRegion = {};
+  let totalActual = 0;
+  for(const t of tasks) {
+    const tp = t.task_type||'미분류';
+    const rg = (t.region||'KR').toUpperCase();
+    actualSpendByType[tp]   = (actualSpendByType[tp]||0)   + Number(t.spend||0);
+    actualSpendByRegion[rg] = (actualSpendByRegion[rg]||0) + Number(t.spend||0);
+    totalActual += Number(t.spend||0);
+  }
+
+  // 총 배분 예산 계산
+  let totalAllocated = 0;
+  for(const r of regions) {
+    for(const tp of types) {
+      totalAllocated += Number((budgetData[r]||{})[tp]||0);
+    }
+  }
+
+  // 테이블 헤더
+  const thTypes = types.map(tp => {
+    const actual = actualSpendByType[tp]||0;
+    return `<th title="실집행: ${fmtKRW(actual)}">${esc(tp)}</th>`;
+  }).join('');
+
+  // 테이블 행
+  const trRows = regions.map(r => {
+    const rActual  = actualSpendByRegion[r.toUpperCase()]||0;
+    let rowTotal   = 0;
+    const tds = types.map(tp => {
+      const val = Number((budgetData[r]||{})[tp]||0);
+      rowTotal += val;
+      return `<td>
+        <input class="budget-input" type="number" min="0" step="100000"
+          data-region="${esc(r)}" data-type="${esc(tp)}"
+          value="${val||''}" placeholder="0"
+          onchange="updateBudgetTotal('${esc(kpiId)}')"
+        />
+      </td>`;
+    }).join('');
+    return `<tr>
+      <td class="region-name">${esc(r)}</td>
+      ${tds}
+      <td class="total-col">${fmtKRW(rowTotal)}</td>
+      <td class="actual-col" title="이 지역 Task 집행 합계">${fmtKRW(rActual)}</td>
+    </tr>`;
+  }).join('');
+
+  // 합계 행
+  const colTotals = types.map(tp => {
+    let sum = 0;
+    regions.forEach(r => sum += Number((budgetData[r]||{})[tp]||0));
+    return `<td class="total-col" id="colTotal_${esc(kpiId)}_${esc(tp)}">${fmtKRW(sum)}</td>`;
+  }).join('');
+
+  const modal = document.createElement('div');
+  modal.className = 'modal-backdrop open';
+  modal.style.zIndex = '1100';
+  modal.id = 'budgetModal_'+kpiId;
+  modal.innerHTML = `
+    <div class="budget-modal">
+      <div class="budget-modal-header">
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8a8278;margin-bottom:4px">
+            KPI 예산 배분 설정
+          </div>
+          <div style="font-size:20px;font-weight:800;color:#1a1714;margin-bottom:4px">${esc(kpi.title||'')}</div>
+          <div style="font-size:12px;color:#6b6259">${esc(kpi.statement||'')}</div>
+        </div>
+        <button class="modal-close" onclick="this.closest('.modal-backdrop').remove()">×</button>
+      </div>
+
+      <div class="budget-summary-bar">
+        <div class="budget-summary-card">
+          <div class="budget-summary-label">총 배분 예산</div>
+          <div class="budget-summary-val" id="bSummaryAllocated_${esc(kpiId)}">${fmtKRW(totalAllocated)}</div>
+        </div>
+        <div class="budget-summary-card">
+          <div class="budget-summary-label">실제 집행 (Task 합산)</div>
+          <div class="budget-summary-val" style="color:#5c6b4a">${fmtKRW(totalActual)}</div>
+        </div>
+        <div class="budget-summary-card">
+          <div class="budget-summary-label">집행율</div>
+          <div class="budget-summary-val" style="color:${totalAllocated>0&&totalActual/totalAllocated>=0.8?'#9e4a3a':'#5c6b4a'}">
+            ${totalAllocated>0?Math.round(totalActual/totalAllocated*100)+'%':'–'}
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:14px 24px 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:12px;font-weight:600;color:#1a1714">지역 추가:</span>
+        <input id="newRegionInput_${esc(kpiId)}" type="text" placeholder="지역/나라 코드 (예: TW)"
+          maxlength="10"
+          style="background:#fff;border:1px solid #e2ddd6;border-radius:3px;padding:5px 10px;
+            font-size:12px;outline:none;font-family:var(--font-body);width:140px"
+          onkeydown="if(event.key==='Enter')addBudgetRegion('${esc(kpiId)}')"
+        />
+        <button class="btn btn-secondary" style="font-size:11px;padding:5px 10px"
+          onclick="addBudgetRegion('${esc(kpiId)}')">추가</button>
+        <span style="font-size:11px;color:#8a8278;margin-left:8px">금액 입력 후 저장 버튼을 눌러주세요 (단위: 원)</span>
+      </div>
+
+      <div class="budget-table-wrap">
+        <table class="budget-table" id="budgetTable_${esc(kpiId)}">
+          <thead>
+            <tr>
+              <th class="region-col">지역 / 유형</th>
+              ${thTypes}
+              <th style="background:#e8e4dc">합계</th>
+              <th style="background:#d8e4cc">실집행</th>
+            </tr>
+          </thead>
+          <tbody id="budgetTbody_${esc(kpiId)}">${trRows}</tbody>
+          <tfoot>
+            <tr class="total-row">
+              <td class="region-name" style="font-size:11px">합계</td>
+              ${colTotals}
+              <td class="total-col" id="grandTotal_${esc(kpiId)}">${fmtKRW(totalAllocated)}</td>
+              <td class="actual-col">${fmtKRW(totalActual)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="modal-footer" style="justify-content:space-between;gap:12px">
+        <div id="budgetSaveMsg_${esc(kpiId)}" style="font-size:12px;color:#4a7c59;min-height:16px"></div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-secondary" onclick="this.closest('.modal-backdrop').remove()">닫기</button>
+          <button class="btn btn-primary" onclick="saveBudgetPlan('${esc(kpiId)}')">저장 & 차트 반영</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e=>{if(e.target===modal)modal.remove();});
+  document.addEventListener('keydown', function esc(e){
+    if(e.key==='Escape'){modal.remove();document.removeEventListener('keydown',esc);}
+  });
+}
+
+function updateBudgetTotal(kpiId) {
+  // 실시간 합계 업데이트
+  const table = document.getElementById('budgetTable_'+kpiId);
+  if(!table) return;
+  const types = getMktgTypes();
+  let grandTotal = 0;
+
+  // 행별 합계
+  table.querySelectorAll('tbody tr').forEach(tr => {
+    const inputs = tr.querySelectorAll('.budget-input');
+    let rowSum = 0;
+    inputs.forEach(inp => rowSum += Number(inp.value)||0);
+    const totalCell = tr.querySelector('.total-col');
+    if(totalCell) totalCell.textContent = fmtKRW(rowSum);
+    grandTotal += rowSum;
+  });
+
+  // 열별 합계
+  types.forEach(tp => {
+    let colSum = 0;
+    table.querySelectorAll(`.budget-input[data-type="${CSS.escape(tp)}"]`)
+      .forEach(inp => colSum += Number(inp.value)||0);
+    const colCell = document.getElementById('colTotal_'+kpiId+'_'+tp);
+    if(colCell) colCell.textContent = fmtKRW(colSum);
+  });
+
+  const gt = document.getElementById('grandTotal_'+kpiId);
+  if(gt) gt.textContent = fmtKRW(grandTotal);
+  const alloc = document.getElementById('bSummaryAllocated_'+kpiId);
+  if(alloc) alloc.textContent = fmtKRW(grandTotal);
+}
+
+function addBudgetRegion(kpiId) {
+  const input  = document.getElementById('newRegionInput_'+kpiId);
+  const region = (input?.value||'').trim().toUpperCase();
+  if(!region) return;
+  input.value = '';
+
+  const tbody  = document.getElementById('budgetTbody_'+kpiId);
+  if(!tbody) return;
+  // 이미 있으면 스킵
+  if(tbody.querySelector(`tr td.region-name[data-r="${CSS.escape(region)}"]`)) return;
+
+  const types = getMktgTypes();
+  const tds   = types.map(tp=>`<td><input class="budget-input" type="number" min="0"
+    data-region="${esc(region)}" data-type="${esc(tp)}"
+    value="" placeholder="0" onchange="updateBudgetTotal('${esc(kpiId)}')"/></td>`).join('');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="region-name" data-r="${esc(region)}">${esc(region)}</td>
+    ${tds}<td class="total-col">0원</td><td class="actual-col">-</td>`;
+  tbody.appendChild(tr);
+}
+
+async function saveBudgetPlan(kpiId) {
+  const msg = document.getElementById('budgetSaveMsg_'+kpiId);
+  if(msg) { msg.style.color='#8a8278'; msg.textContent='저장 중…'; }
+
+  const budgetData = {};
+  document.querySelectorAll(`#budgetTable_${kpiId} .budget-input`).forEach(inp => {
+    const region = inp.dataset.region;
+    const type   = inp.dataset.type;
+    const val    = Number(inp.value)||0;
+    if(val > 0) {
+      if(!budgetData[region]) budgetData[region] = {};
+      budgetData[region][type] = val;
+    }
+  });
+
+  try {
+    const { error } = await state.sb.from('kpis')
+      .update({ budget_plan: JSON.stringify(budgetData) })
+      .eq('id', kpiId);
+    if(error) throw error;
+
+    // 로컬 캐시 업데이트
+    const k = (state._lastKpis||[]).find(k=>k.id===kpiId);
+    if(k) k.budget_plan = JSON.stringify(budgetData);
+
+    if(msg) { msg.style.color='#4a7c59'; msg.textContent='✅ 저장 완료! 차트에 반영됩니다.'; }
+
+    // 차트 즉시 갱신
+    renderActivityTypeChartWithBudget(state._lastKpis||[], state._lastKpiTasks||[]);
+    renderRegionOrderChart(state._lastKpiTasks||[]);
+    setTimeout(()=>{ if(msg) msg.textContent=''; }, 3000);
+  } catch(e) {
+    if(msg) { msg.style.color='#9e4a3a'; msg.textContent='저장 실패: '+(e.message||e); }
+  }
+}
+
+// ── 활동 유형별 차트: budget_plan 반영 ──
+function renderActivityTypeChartWithBudget(kpis, tasks) {
+  const ctx = document.getElementById('activityChart');
+  if(!ctx) return;
+
+  // KPI budget_plan에서 유형별 배분 합산
+  const planByType = {};
+  for(const kpi of kpis) {
+    const bp = getKpiBudget(kpi);
+    for(const [region, types] of Object.entries(bp)) {
+      for(const [tp, amt] of Object.entries(types)) {
+        planByType[tp] = (planByType[tp]||0) + Number(amt);
+      }
+    }
+  }
+
+  // Task 실집행 합산
+  const spendByType = {};
+  for(const t of tasks) {
+    const tp = t.task_type;
+    if(!tp) continue;
+    spendByType[tp] = (spendByType[tp]||0) + Number(t.spend||0);
+  }
+
+  // 합집합
+  const allTypes = [...new Set([...Object.keys(planByType), ...Object.keys(spendByType)])];
+  if(!allTypes.length) { renderActivityTypeChart(tasks); return; } // fallback
+
+  const sorted   = allTypes.sort((a,b)=>(planByType[b]||0)-(planByType[a]||0));
+  const plans    = sorted.map(tp => planByType[tp]||0);
+  const spends   = sorted.map(tp => spendByType[tp]||0);
+  const PALETTE  = ['rgba(92,107,74,.8)','rgba(74,124,89,.8)','rgba(184,150,46,.8)',
+    'rgba(74,107,124,.8)','rgba(158,74,58,.8)','rgba(124,86,140,.8)',
+    'rgba(80,120,160,.8)','rgba(160,100,60,.8)'];
+
+  ctx.style.display='';
+  ctx.parentElement.querySelectorAll('.empty').forEach(e=>e.remove());
+
+  if(window._actChart) window._actChart.destroy();
+  window._actChart = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: sorted,
+      datasets:[
+        { label:'배분 예산', data:plans,
+          backgroundColor:'rgba(92,107,74,.2)', borderColor:'rgba(92,107,74,.6)',
+          borderWidth:1, borderRadius:3 },
+        { label:'실제 집행', data:spends,
+          backgroundColor: PALETTE.slice(0,sorted.length), borderRadius:3 }
+      ]
+    },
+    options:{
+      responsive:true, indexAxis:'y',
+      plugins:{
+        legend:{labels:{color:'#6b6259',font:{size:11},boxWidth:10}},
+        tooltip:{callbacks:{
+          label: c=>`${c.dataset.label}: ${fmtKRW(c.parsed.x)}`,
+          afterBody: items=>{
+            const tp=sorted[items[0]?.dataIndex];
+            if(!tp) return;
+            const plan=planByType[tp]||0, spend=spendByType[tp]||0;
+            const rate=plan>0?Math.round(spend/plan*100):0;
+            return [`집행율: ${rate}%`];
+          }
+        }}
+      },
+      scales:{
+        x:{ticks:{color:'#8a8278',font:{size:10},
+          callback:v=>v>=1000000?`${(v/1000000).toFixed(1)}M`:v>=1000?`${(v/1000).toFixed(0)}K`:v
+        }, grid:{color:'rgba(60,50,40,.06)'}},
+        y:{ticks:{color:'#1a1714',font:{size:12,weight:'600'}}, grid:{display:false}}
+      }
+    }
+  });
 }
 
 // ── 14. Init ───────────────────────────────────────────────
