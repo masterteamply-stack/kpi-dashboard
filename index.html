@@ -629,9 +629,9 @@
     /* Task 목록 인라인 */
     .kpi-detail-tasks{display:grid;gap:8px}
     .kpi-detail-task-row{
-      display:grid;grid-template-columns:1fr auto auto auto;
+      display:grid;grid-template-columns:1fr 90px 70px 68px 60px;
       align-items:center;gap:12px;
-      padding:10px 14px;background:#f5f2ed;border:1px solid #e2ddd6;border-radius:4px;
+      padding:8px 14px;background:#f5f2ed;border:1px solid #e2ddd6;border-radius:4px;
     }
     .kpi-detail-task-title{font-size:13px;font-weight:600;color:#1a1714}
     .kpi-detail-task-meta{font-size:11px;color:#8a8278;margin-top:2px}
@@ -1973,8 +1973,20 @@ function renderSummary(s) {
   const kpi11  = kpis.find(k => k.kpi_key === 'B2D-11');
   const pR = v => { if(!v||String(v).trim()===''||String(v)==='nan') return null; const m=String(v).replace(/,/g,'').match(/[\d.]+/); return m?Number(m[0]):null; };
   const latestR = kpi => { if(!kpi) return null; for(const q of ['q2_result','q1_result','q3_result','q4_result']){ const v=pR(kpi[q]); if(v!==null) return v; } return null; };
-  const engVal = latestR(kpi10);
-  const clkVal = latestR(kpi11);
+  // localStorage 월별 데이터에서 최신 실적값 가져오기 (없으면 DB 값)
+  const latestFromMonthly = kpiKey => {
+    try {
+      const data = getDkpiMonthly(kpiKey);
+      const months = Object.keys(data).sort().reverse();
+      for(const mo of months) {
+        const v = data[mo]?.result;
+        if(v != null && !isNaN(Number(v))) return Number(v);
+      }
+    } catch(e) {}
+    return null;
+  };
+  const engVal = latestFromMonthly('B2D-10') ?? latestR(kpi10);
+  const clkVal = latestFromMonthly('B2D-11') ?? latestR(kpi11);
 
   // Channel Discriber
   const discVal = (state.channelDiscriber && state.channelDiscriber.manual != null)
@@ -3614,21 +3626,52 @@ function openKpiDetail(kpiId) {
     </div>`;
   }).join('');
 
-  // Task 목록
+  // Task 목록 (inline 편집 지원)
   const taskRows = tasks.length ? tasks.map(t => {
-    const mo = t.started_at ? new Date(t.started_at).getMonth()+1+'월' : '';
+    const mo  = t.started_at ? new Date(t.started_at).getMonth()+1+'월' : '';
     const qtr = t.quarter ? t.quarter.replace('2026-','') : '';
-    return `<div class="kpi-detail-task-row">
+    const statusOpts = ['todo','in_progress','blocked','done'].map(v =>
+      `<option value="${v}" ${t.status===v?'selected':''}>${statusLabel(v)}</option>`
+    ).join('');
+    return `<div class="kpi-detail-task-row" style="grid-template-columns:1fr 90px 70px 68px 60px">
       <div>
-        <div class="kpi-detail-task-title">${esc(t.title||'')}</div>
+        <div class="kpi-detail-task-title">
+          <span class="cell-editable"
+            contenteditable="true"
+            data-task-id="${t.id}" data-field="title"
+            onblur="saveTaskCellEdit(this)"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+            onfocus="this.dataset.orig=this.textContent"
+            style="display:block;min-width:0"
+          >${esc(t.title||'')}</span>
+        </div>
         <div class="kpi-detail-task-meta">${esc(t.owners?.name||'')} · ${esc(mo)} ${esc(qtr)}</div>
       </div>
-      <div><span class="badge ${esc(t.status||'todo')}">${esc(statusLabel(t.status||'todo'))}</span></div>
-      <div class="kpi-detail-task-prog">
-        <div class="val">${t.progress||0}%</div>
-        <div class="bar"><div class="fill" style="width:${Math.min(100,t.progress||0)}%"></div></div>
+      <div>
+        <select class="cell-select" data-task-id="${t.id}" data-field="status"
+          onchange="saveTaskSelectEdit(this)" onclick="event.stopPropagation()"
+          style="font-size:11px;width:100%;padding:3px 4px;border-radius:4px;
+            background:#fdfcf9;border:1px solid #e0dbd2;color:#1a1714;cursor:pointer">
+          ${statusOpts}
+        </select>
       </div>
-      <div style="font-size:12px;color:#6b6259">${fmtKRW(t.allocated_budget)}</div>
+      <div style="text-align:right">
+        <span class="cell-editable"
+          contenteditable="true"
+          data-task-id="${t.id}" data-field="progress" data-type="number"
+          onblur="saveTaskCellEdit(this)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+          onfocus="this.dataset.orig=this.textContent"
+          title="실적 값 입력"
+          style="font-size:12px;font-weight:700;color:#1a1714;padding:2px 4px;cursor:text"
+        >${t.progress||0}</span>
+        <span style="font-size:10px;color:#8a8278">${esc(kpi.unit||'')}</span>
+      </div>
+      <div style="text-align:right">
+        <button class="btn btn-ghost" onclick="openDetailDrawer('${esc(t.id)}')"
+          style="font-size:10px;padding:2px 6px">수정</button>
+      </div>
+      <div style="font-size:11px;color:#6b6259;text-align:right">${fmtKRW(t.allocated_budget)}</div>
     </div>`;
   }).join('') : '<p style="color:#8a8278;font-size:13px;padding:12px 0">등록된 Task가 없습니다.</p>';
 
@@ -3679,6 +3722,9 @@ function openKpiDetail(kpiId) {
         <!-- Task 목록 -->
         <div class="kpi-detail-section">
           <h4>관련 Task (${tasks.length}건)</h4>
+          <div style="display:grid;grid-template-columns:1fr 90px 70px 68px 60px;gap:12px;padding:4px 14px 4px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8278;border-bottom:1px solid #e8e4dc;margin-bottom:4px">
+            <div>Task명</div><div>상태</div><div style="text-align:right">실적</div><div></div><div style="text-align:right">예산</div>
+          </div>
           <div class="kpi-detail-tasks">${taskRows}</div>
         </div>
 
