@@ -936,6 +936,33 @@
     }
     .trend-btn.active{background:#fff;color:#1a1714;box-shadow:0 1px 3px rgba(60,50,40,.1)}
 
+
+    /* ── Inline Add: wide grid ── */
+    .inline-add-grid{
+      grid-template-columns: 110px 100px 1fr 140px 110px 100px 130px 90px 90px !important;
+    }
+    .inline-add-field input[type="date"]{
+      background:#faf8f4;border:1px solid #dedad2;color:#1a1714;
+      border-radius:3px;padding:6px 8px;font-size:12px;width:100%;
+      font-family:var(--font-body);outline:none;cursor:pointer;
+    }
+    .inline-add-field input[type="date"]:focus{border-color:#5c6b4a}
+    .inline-add-field input[type="date"]::-webkit-calendar-picker-indicator{
+      cursor:pointer;opacity:.7;
+    }
+    /* de_ form date inputs */
+    input[type="date"]#de_start,
+    input[type="date"]#de_due{
+      background:#fff;border:1px solid var(--line);color:var(--text);
+      border-radius:var(--radius);padding:10px 12px;
+      font-family:var(--font-body);font-size:13px;outline:none;width:100%;
+      cursor:pointer;
+    }
+    input[type="date"]#de_start:focus,
+    input[type="date"]#de_due:focus{border-color:#5c6b4a;box-shadow:0 0 0 2px rgba(92,107,74,.1)}
+    input[type="date"]#de_start::-webkit-calendar-picker-indicator,
+    input[type="date"]#de_due::-webkit-calendar-picker-indicator{cursor:pointer}
+
     /* ── Spinner ── */
     .spinner{
       width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;
@@ -1851,6 +1878,17 @@ function renderKPIAccordion(kpis, tasks) {
             <option value="done" ${(t.status||'todo')==='done'?'selected':''}>완료</option>
           </select>
         </td>
+        <td onclick="event.stopPropagation()">
+          <input type="date"
+            data-task-id="${t.id}" data-field="due_date"
+            value="${t.due_date||''}"
+            onchange="saveTaskDateEdit(this)"
+            style="background:transparent;border:1px solid #e2ddd6;border-radius:3px;
+              padding:3px 6px;font-size:11px;color:#1a1714;outline:none;cursor:pointer;
+              font-family:var(--font-body);width:110px"
+            title="Deadline 변경"
+          />
+        </td>
         <td>
           <div style="font-size:12px;font-weight:700;color:#eef3ff">
             <span class="cell-editable"
@@ -1982,7 +2020,7 @@ function renderKPIAccordion(kpis, tasks) {
         <table class="kpi-tasks-table">
           <thead><tr>
             <th>월</th><th>분기</th><th>Task명</th><th>담당자</th>
-            <th>상태</th><th>진척도</th><th>유형</th><th>예산</th><th>관리</th>
+            <th>상태</th><th>Deadline</th><th>진척도</th><th>유형</th><th>예산</th><th>관리</th>
           </tr></thead>
           <tbody>${taskRows}</tbody>
         </table>
@@ -1991,18 +2029,22 @@ function renderKPIAccordion(kpis, tasks) {
       <div class="inline-add-row" id="addRow_${esc(kpi.id)}">
         <div class="inline-add-grid">
           <div class="inline-add-field">
-            <label>월</label>
-            <select id="af_month_${esc(kpi.id)}">
-              ${['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'].map(m=>`<option value="${m}"${m==='5월'?' selected':''}>${m}</option>`).join('')}
+            <label>월 → 분기 자동</label>
+            <select id="af_month_${esc(kpi.id)}"
+              onchange="autoSetQuarter('${esc(kpi.id)}',this.value)">
+              ${['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'].map((m,i)=>{
+                const curMo = new Date().getMonth()+1;
+                return `<option value="${m}"${i+1===curMo?' selected':''}>${m}</option>`;
+              }).join('')}
             </select>
           </div>
           <div class="inline-add-field">
             <label>분기</label>
             <select id="af_quarter_${esc(kpi.id)}">
               <option value="2026-Q1">Q1</option>
-              <option value="2026-Q2" selected>Q2</option>
-              <option value="2026-Q3">Q3</option>
-              <option value="2026-Q4">Q4</option>
+              <option value="2026-Q2" ${new Date().getMonth()<6?'selected':''}>Q2</option>
+              <option value="2026-Q3" ${new Date().getMonth()>=6&&new Date().getMonth()<9?'selected':''}>Q3</option>
+              <option value="2026-Q4" ${new Date().getMonth()>=9?'selected':''}>Q4</option>
             </select>
           </div>
           <div class="inline-add-field">
@@ -2010,10 +2052,16 @@ function renderKPIAccordion(kpis, tasks) {
             <input type="text" id="af_title_${esc(kpi.id)}" placeholder="Task 제목 입력" maxlength="120" />
           </div>
           <div class="inline-add-field">
-            <label>담당자</label>
+            <label>담당자 (KPI 오너 기본)</label>
             <select id="af_owner_${esc(kpi.id)}">
               <option value="">선택</option>
-              ${(state.owners||[]).map(o=>`<option value="${esc(o.id)}">${esc(o.name)}</option>`).join('')}
+              ${(()=>{
+                const kpiOwnerNames = (kpi.owners||'').split(',').map(n=>n.trim()).filter(Boolean);
+                const firstOwner = (state.owners||[]).find(o=>kpiOwnerNames.includes(o.name));
+                return (state.owners||[]).map(o=>
+                  `<option value="${esc(o.id)}"${firstOwner&&o.id===firstOwner.id?' selected':''}>${esc(o.name)}</option>`
+                ).join('');
+              })()}
             </select>
           </div>
           <div class="inline-add-field">
@@ -2026,8 +2074,9 @@ function renderKPIAccordion(kpis, tasks) {
             </select>
           </div>
           <div class="inline-add-field">
-            <label>진척도%</label>
-            <input type="number" id="af_progress_${esc(kpi.id)}" value="0" min="0" max="100" />
+            <label>Deadline</label>
+            <input type="date" id="af_due_${esc(kpi.id)}"
+              value="${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate()}" />
           </div>
           <div class="inline-add-field">
             <label>마케팅 활동 유형</label>
@@ -2615,8 +2664,8 @@ function renderDrawerEditForm(task) {
         <div class="field"><label>관련 오더 (ORDER)</label><input id="de_revenue" type="number" min="0" value="${task.revenue??0}" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" /></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field"><label>시작일</label><input id="de_start" type="date" value="${task.started_at||''}" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" /></div>
-        <div class="field"><label>마감일</label><input id="de_due" type="date" value="${task.due_date||''}" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" /></div>
+        <div class="field"><label>시작일</label><input id="de_start" type="date" value="${task.started_at||''}" style="background:#fff;border:1px solid var(--line);color:#1a1714;border-radius:var(--radius);padding:10px 12px;font-family:var(--font-body);width:100%;outline:none;cursor:pointer" /></div>
+        <div class="field"><label>마감일</label><input id="de_due" type="date" value="${task.due_date||''}" style="background:#fff;border:1px solid var(--line);color:#1a1714;border-radius:var(--radius);padding:10px 12px;font-family:var(--font-body);width:100%;outline:none;cursor:pointer" /></div>
       </div>
       <div class="field" style="grid-column:1/-1">
         <label>마케팅 활동 유형</label>
@@ -3636,25 +3685,29 @@ async function saveInlineTask(kpiId) {
   const title = g('af_title');
   if(!title) { errEl.textContent='Task명을 입력하세요.'; return; }
 
-  const monthStr = gv('af_month') || '5월';
-  const mn = {'1월':1,'2월':2,'3월':3,'4월':4,'5월':5,'6월':6,'7월':7,'8월':8,'9월':9,'10월':10,'11월':11,'12월':12}[monthStr]||5;
-  const lastDay = [31,28,31,30,31,30,31,31,30,31,30,31][mn-1];
+  const monthStr = gv('af_month') || (new Date().getMonth()+1)+'월';
+  const MO_MAP = {'1월':1,'2월':2,'3월':3,'4월':4,'5월':5,'6월':6,'7월':7,'8월':8,'9월':9,'10월':10,'11월':11,'12월':12};
+  const mn = MO_MAP[monthStr] || new Date().getMonth()+1;
+  const lastDay = new Date(2026, mn, 0).getDate();
+  // due_date: 사용자가 직접 입력한 날짜 우선, 없으면 월 말일
+  const dueInput = document.getElementById('af_due_'+kpiId)?.value;
+  const due_date = dueInput || `2026-${String(mn).padStart(2,'0')}-${lastDay}`;
 
   const payload = {
     title,
     kpi_id:   kpiId || null,
-    owner_id: gv('af_owner') || null,
-    quarter:  gv('af_quarter') || '2026-Q2',
+    owner_id: document.getElementById('af_owner_'+kpiId)?.value || null,
+    quarter:  document.getElementById('af_quarter_'+kpiId)?.value || '2026-Q2',
     region:   'KR',
-    status:   gv('af_status')   || 'todo',
+    status:   document.getElementById('af_status_'+kpiId)?.value || 'todo',
     priority: 'medium',
-    progress: Math.min(100, Math.max(0, Number(gv('af_progress'))||0)),
+    progress: Math.min(100, Math.max(0, Number(document.getElementById('af_progress_'+kpiId)?.value)||0)),
     task_type: document.getElementById('af_type_'+kpiId)?.value || null,
-    allocated_budget: Number(gv('af_budget'))||0,
-    spend:    Number(gv('af_spend'))||0,
+    allocated_budget: Number(document.getElementById('af_budget_'+kpiId)?.value)||0,
+    spend:    Number(document.getElementById('af_spend_'+kpiId)?.value)||0,
     revenue:  0, leads: 0,
     started_at: `2026-${String(mn).padStart(2,'0')}-01`,
-    due_date:   `2026-${String(mn).padStart(2,'0')}-${lastDay}`,
+    due_date,
   };
 
   errEl.textContent = '저장 중…';
@@ -4462,6 +4515,41 @@ function renderActivityTrendChart(tasks) {
       }
     }
   });
+}
+
+
+// ── 월 선택 시 분기 자동 설정 ──
+function autoSetQuarter(kpiId, monthStr) {
+  const MO_NUM = {'1월':1,'2월':2,'3월':3,'4월':4,'5월':5,'6월':6,
+                  '7월':7,'8월':8,'9월':9,'10월':10,'11월':11,'12월':12};
+  const mn  = MO_NUM[monthStr] || 1;
+  const qtr = mn<=3?'2026-Q1':mn<=6?'2026-Q2':mn<=9?'2026-Q3':'2026-Q4';
+  const qSel = document.getElementById('af_quarter_'+kpiId);
+  if(qSel) qSel.value = qtr;
+  // 마감일도 해당 월 말일로 자동 업데이트
+  const duePicker = document.getElementById('af_due_'+kpiId);
+  if(duePicker) {
+    const lastDay = new Date(2026, mn, 0).getDate();
+    duePicker.value = `2026-${String(mn).padStart(2,'0')}-${lastDay}`;
+  }
+}
+
+
+async function saveTaskDateEdit(input) {
+  const taskId = input.dataset.taskId;
+  const field  = input.dataset.field;
+  const val    = input.value || null;
+  input.style.borderColor = '#b8962e';
+  try {
+    const { error } = await state.sb.from('tasks').update({ [field]: val }).eq('id', taskId);
+    if(error) throw error;
+    state.tasks = state.tasks.map(t => t.id===taskId ? {...t,[field]:val} : t);
+    input.style.borderColor = '#4a7c59';
+    setTimeout(()=>{ input.style.borderColor='#e2ddd6'; }, 1500);
+  } catch(e) {
+    input.style.borderColor = '#9e4a3a';
+    console.error('Date save error:', e);
+  }
 }
 
 // ── 14. Init ───────────────────────────────────────────────
