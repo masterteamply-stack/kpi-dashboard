@@ -2235,7 +2235,7 @@ function renderKPIAccordion(kpis, tasks) {
             <span style="font-size:10px;color:#8a8278">${kpi.unit||''}</span>
           </div>
         </td>
-        <td>${t.task_type?`<span style="font-size:10px;background:#e8eddf;border:1px solid #b8ccaa;border-radius:2px;padding:2px 7px;color:#3d5228;font-weight:600;white-space:nowrap">${esc(t.task_type)}</span>`:''}</td>
+        <td onclick="event.stopPropagation()"><select class="cell-select" data-task-id="${t.id}" data-field="task_type" onchange="saveTaskSelectEdit(this)" style="font-size:10px;padding:2px 4px;max-width:90px;background:#fdfcf9;border:1px solid #e0dbd2;border-radius:3px;color:#3d5228;font-weight:600;cursor:pointer;outline:none"><option value="">-</option>${getMktgTypes().map(tp=>`<option value="${esc(tp)}"${tp===t.task_type?' selected':''} style="color:#1a1714">${esc(tp)}</option>`).join('')}</select></td>
         <td style="color:#6b6259;font-size:12px">${fmtKRW(t.allocated_budget)}</td>
         <td>
           <div class="row-actions">
@@ -2625,6 +2625,7 @@ async function openDrawer(id) {
     ]);
     state.drawer.task=task; state.drawer.comments=comments; state.drawer.attachments=attachments;
     renderDrawer();
+    renderDrawerEditForm(task); // 수정 탭 기본 활성 시 폼 즉시 렌더
   } catch(e) {
     el.drawerTitle.textContent="오류";
     el.drawerOverview.innerHTML=`<div class="muted">${esc(e.message||String(e))}</div>`;
@@ -3222,6 +3223,8 @@ async function saveTaskSelectEdit(sel) {
     state.tasks = state.tasks.map(t => t.id===taskId ? {...t, [field]:val} : t);
     const s = computeSummary(state.tasks, state._lastKpis||[]);
     renderKPICards(s); renderSummary(s); renderChart(state.tasks);
+    // task_type 변경 시 아코따언 재렌더 (유형 셀렉트 즉시 배지 반영)
+    if(field==='task_type' && state._lastKpis) renderKPIAccordion(state._lastKpis, state.tasks);
   } catch(e) { console.error('Select save error:', e); }
   finally { sel.disabled = false; }
 }
