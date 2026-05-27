@@ -419,6 +419,46 @@
     .dtab.active{color:var(--primary);border-bottom-color:var(--primary);background:rgba(91,142,255,.05)}
     .drawer-tab-content{display:block}
 
+
+    /* ── Inline Edit ── */
+    .col-header-edit{
+      display:inline-block;cursor:text;border-radius:5px;padding:2px 5px;transition:.15s;
+      min-width:20px;
+    }
+    .col-header-edit:hover{background:rgba(255,255,255,.07)}
+    .col-header-edit:focus{
+      outline:none;background:rgba(91,142,255,.15);
+      box-shadow:0 0 0 2px rgba(91,142,255,.4);border-radius:5px;
+    }
+    .col-resize-handle{
+      position:absolute;right:0;top:0;height:100%;width:6px;cursor:col-resize;
+      background:transparent;z-index:10;
+    }
+    .col-resize-handle:hover,.col-resize-handle.dragging{background:rgba(91,142,255,.5)}
+    .kpi-accordion-header > div{position:relative}
+    .kpi-tasks-table th{position:relative}
+    .cell-editable{
+      cursor:text;border-radius:6px;padding:2px 5px;
+      transition:background .15s;display:inline-block;min-width:16px;
+    }
+    .cell-editable:hover{background:rgba(255,255,255,.07);outline:1px dashed rgba(91,142,255,.35)}
+    .cell-editable:focus{
+      outline:none;background:rgba(91,142,255,.12);
+      box-shadow:0 0 0 2px rgba(91,142,255,.35);border-radius:6px;
+    }
+    .cell-saving{opacity:.6;pointer-events:none}
+    .cell-saved-flash{animation:flashGreen .6s ease}
+    @keyframes flashGreen{0%{background:rgba(30,201,138,.3)}100%{background:transparent}}
+    .resize-tooltip{
+      position:fixed;background:#1a2340;border:1px solid rgba(91,142,255,.3);
+      color:#90bbff;font-size:11px;padding:3px 8px;border-radius:6px;
+      pointer-events:none;z-index:9999;display:none;
+    }
+    .col-resize-line{
+      position:fixed;top:0;bottom:0;width:2px;background:rgba(91,142,255,.6);
+      pointer-events:none;z-index:9998;display:none;
+    }
+
     /* ── Spinner ── */
     .spinner{
       width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;
@@ -659,6 +699,8 @@
 </div>
 
 <!-- ── 상세 사이드 드로어 ── -->
+<div class="resize-tooltip" id="resizeTooltip"></div>
+<div class="col-resize-line" id="resizeLine"></div>
 <div id="drawerBackdrop" class="drawer-backdrop"></div>
 <aside id="taskDrawer" class="drawer" aria-hidden="true">
   <div class="drawer-header">
@@ -1140,17 +1182,29 @@ function renderKPIAccordion(kpis, tasks) {
 
   const statusPillClass = s => ({'진행 중':'active','완료':'done','시작 전':'pending'}[s]||'pending');
 
+  const colLabels = window._colLabels || {
+    kpiName:'KPI명 / 목표', owners:'담당자', status:'진행상태',
+    q1:'Q1', q2:'Q2', q3:'Q3', q4:'Q4', unit:'단위'
+  };
+  window._colLabels = colLabels;
+  const hdr = (key, align='') => `
+    <span class="col-header-edit" contenteditable="true"
+      data-col="${key}"
+      onblur="saveColLabel(this)"
+      onkeydown="if(event.key==='Enter'||event.key==='Escape'){event.preventDefault();this.blur()}"
+    >${colLabels[key]}</span>
+    <div class="col-resize-handle" data-col="${key}" onmousedown="startColResize(event,this)"></div>`;
   const headerHTML = `
-    <div class="kpi-accordion-header">
+    <div class="kpi-accordion-header" id="kpiAccordionHeader">
       <div></div>
-      <div>KPI명 / 목표 statement</div>
-      <div>담당자</div>
-      <div>진행상태</div>
-      <div style="text-align:right">Q1</div>
-      <div style="text-align:right">Q2</div>
-      <div style="text-align:right">Q3</div>
-      <div style="text-align:right">Q4</div>
-      <div>단위</div>
+      <div>${hdr('kpiName')}</div>
+      <div>${hdr('owners')}</div>
+      <div>${hdr('status')}</div>
+      <div style="text-align:right">${hdr('q1','right')}</div>
+      <div style="text-align:right">${hdr('q2','right')}</div>
+      <div style="text-align:right">${hdr('q3','right')}</div>
+      <div style="text-align:right">${hdr('q4','right')}</div>
+      <div>${hdr('unit')}</div>
     </div>`;
 
   const rows = kpis.map(kpi => {
@@ -1168,13 +1222,42 @@ function renderKPIAccordion(kpis, tasks) {
         <td><span class="month-chip">${esc(mo)}</span></td>
         <td><span class="qtr-chip">${esc(qtr)}</span></td>
         <td>
-          <div class="task-title-cell">${esc(t.title||'')}</div>
-          ${t.notes ? `<div class="task-note-cell">${esc((t.notes||'').slice(0,60))}${(t.notes||'').length>60?'…':''}</div>` : ''}
+          <div class="task-title-cell">
+            <span class="cell-editable"
+              contenteditable="true"
+              data-task-id="${t.id}"
+              data-field="title"
+              onblur="saveTaskCellEdit(this)"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+              onfocus="this.dataset.orig=this.textContent"
+            >${esc(t.title||'')}</span>
+          </div>
+          ${t.notes ? `<div class="task-note-cell">
+            <span class="cell-editable"
+              contenteditable="true"
+              data-task-id="${t.id}"
+              data-field="notes"
+              onblur="saveTaskCellEdit(this)"
+              onkeydown="if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+              onfocus="this.dataset.orig=this.textContent"
+            >${esc((t.notes||'').slice(0,80))}${(t.notes||'').length>80?'…':''}</span>
+          </div>` : ''}
         </td>
         <td style="color:#c8d8f0">${esc(t.owners?.name||'-')}</td>
         <td><span class="badge ${esc(t.status||'todo')}">${esc(statusLabel(t.status||'todo'))}</span></td>
         <td>
-          <div style="font-size:12px;font-weight:700;color:#eef3ff">${fmtPct(t.progress)}</div>
+          <div style="font-size:12px;font-weight:700;color:#eef3ff">
+            <span class="cell-editable"
+              contenteditable="true"
+              data-task-id="${t.id}"
+              data-field="progress"
+              data-type="number"
+              onblur="saveTaskCellEdit(this)"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+              onfocus="this.dataset.orig=this.textContent"
+              title="0~100 입력"
+            >${t.progress||0}</span>%
+          </div>
           <div class="progress-shell" style="width:80px"><div class="progress-bar" style="width:${Math.min(100,t.progress||0)}%"></div></div>
         </td>
         <td style="color:#8a9ab8;font-size:12px">${fmtKRW(t.allocated_budget)}</td>
@@ -1220,6 +1303,7 @@ function renderKPIAccordion(kpis, tasks) {
   }).join('');
 
   wrap.innerHTML = `<div class="kpi-accordion-wrap">${headerHTML}${rows}</div>`;
+  setTimeout(window.applyAllSavedWidths, 0);
 }
 
 function toggleKpiRow(rowEl) {
@@ -1787,6 +1871,143 @@ async function saveDrawerEdit(id) {
     err.textContent = e.message || String(e);
   }
 }
+
+
+// ── Inline edit: column labels ──
+function saveColLabel(el) {
+  const key = el.dataset.col;
+  const val = el.textContent.trim();
+  if(!val) { el.textContent = window._colLabels[key]; return; }
+  window._colLabels[key] = val;
+  // persist to localStorage if available
+  try { localStorage.setItem('kpi_col_labels', JSON.stringify(window._colLabels)); } catch(e) {}
+}
+
+// ── Inline edit: task cell ──
+async function saveTaskCellEdit(el) {
+  const taskId = el.dataset.taskId;
+  const field  = el.dataset.field;
+  const dtype  = el.dataset.type || 'text';
+  const raw    = el.textContent.trim();
+  const orig   = el.dataset.orig || '';
+  if(raw === orig) return;
+
+  let val = raw;
+  if(dtype === 'number') {
+    val = parseFloat(raw);
+    if(isNaN(val)) { el.textContent = orig; return; }
+    if(field === 'progress') val = Math.min(100, Math.max(0, Math.round(val)));
+  }
+  el.classList.add('cell-saving');
+  try {
+    const payload = { [field]: val };
+    const { error } = await state.sb.from('tasks').update(payload).eq('id', taskId);
+    if(error) throw error;
+    el.textContent = dtype==='number' ? val : raw;
+    el.classList.remove('cell-saving');
+    el.classList.add('cell-saved-flash');
+    setTimeout(()=>el.classList.remove('cell-saved-flash'), 700);
+    // refresh KPI summary quietly
+    state.tasks = state.tasks.map(t => t.id===taskId ? {...t, [field]: val} : t);
+    const s = computeSummary(state.tasks);
+    renderKPICards(s); renderSummary(s); renderChart(state.tasks);
+  } catch(e) {
+    el.textContent = orig;
+    el.classList.remove('cell-saving');
+    console.error('Cell save error:', e);
+  }
+}
+
+// ── Column resize ──
+(function() {
+  let startX, startW, colKey, headerDiv, colIdx;
+  const tooltip  = () => document.getElementById('resizeTooltip');
+  const line     = () => document.getElementById('resizeLine');
+
+  // column index map (matches grid)
+  const COL_KEYS = ['', 'kpiName', 'owners', 'status', 'q1', 'q2', 'q3', 'q4', 'unit'];
+  // stored widths
+  window._colWidths = window._colWidths || {};
+  try {
+    const saved = localStorage.getItem('kpi_col_widths');
+    if(saved) window._colWidths = JSON.parse(saved);
+  } catch(e) {}
+
+  window.startColResize = function(e, handle) {
+    e.preventDefault();
+    e.stopPropagation();
+    colKey = handle.dataset.col;
+    colIdx = COL_KEYS.indexOf(colKey);
+    if(colIdx < 0) return;
+
+    const header = document.getElementById('kpiAccordionHeader');
+    if(!header) return;
+    const cols = header.children;
+    headerDiv = cols[colIdx];
+    startX = e.clientX;
+    startW = headerDiv.getBoundingClientRect().width;
+
+    line().style.display = 'block';
+    line().style.left = e.clientX + 'px';
+    tooltip().style.display = 'block';
+    tooltip().textContent = Math.round(startW) + 'px';
+
+    handle.classList.add('dragging');
+
+    function onMove(ev) {
+      const dx = ev.clientX - startX;
+      const newW = Math.max(40, startW + dx);
+      line().style.left = ev.clientX + 'px';
+      tooltip().style.left = (ev.clientX + 10) + 'px';
+      tooltip().style.top  = (ev.clientY - 28) + 'px';
+      tooltip().textContent = Math.round(newW) + 'px';
+      applyColWidth(colKey, colIdx, newW);
+    }
+
+    function onUp(ev) {
+      const dx = ev.clientX - startX;
+      const newW = Math.max(40, startW + dx);
+      applyColWidth(colKey, colIdx, newW);
+      window._colWidths[colKey] = newW;
+      try { localStorage.setItem('kpi_col_widths', JSON.stringify(window._colWidths)); } catch(e) {}
+      line().style.display = 'none';
+      tooltip().style.display = 'none';
+      handle.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  window.applyColWidth = function(colKey, colIdx, w) {
+    // Update all accordion rows grid
+    const px = Math.round(w) + 'px';
+    document.querySelectorAll('.kpi-accordion-row, .kpi-accordion-header').forEach(row => {
+      const current = getComputedStyle(row).gridTemplateColumns.split(' ');
+      if(current.length > colIdx) {
+        current[colIdx] = px;
+        row.style.gridTemplateColumns = current.join(' ');
+      }
+    });
+  };
+
+  // Apply saved widths on load
+  window.applyAllSavedWidths = function() {
+    const saved = window._colWidths;
+    const COL_KEYS_LOCAL = ['', 'kpiName', 'owners', 'status', 'q1', 'q2', 'q3', 'q4', 'unit'];
+    Object.entries(saved).forEach(([key, w]) => {
+      const idx = COL_KEYS_LOCAL.indexOf(key);
+      if(idx >= 0) applyColWidth(key, idx, w);
+    });
+    // Restore labels
+    try {
+      const labels = JSON.parse(localStorage.getItem('kpi_col_labels') || '{}');
+      Object.assign(window._colLabels || {}, labels);
+    } catch(e) {}
+  };
+})();
 
 // ── 14. Init ───────────────────────────────────────────────
 (async function init() {
