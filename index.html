@@ -1666,10 +1666,10 @@ async function hydrateFilters() {
   if(error) throw error;
   const qs=[...new Set((data||[]).map(r=>r.quarter).filter(Boolean))];
   const rs=[...new Set((data||[]).map(r=>r.region).filter(Boolean))];
-  el.quarterFilter.innerHTML = `<option value="all">전체 분기</option>`+qs.map(q=>`<option value="${esc(q)}">${esc(q)}</option>`).join("");
-  el.regionFilter.innerHTML  = `<option value="all">전체 지역</option>` +rs.map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join("");
-  el.quarterFilter.value = state.filters.quarter;
-  el.regionFilter.value  = state.filters.region;
+  if(el.quarterFilter) el.quarterFilter.innerHTML = `<option value="all">전체 분기</option>`+qs.map(q=>`<option value="${esc(q)}">${esc(q)}</option>`).join("");
+  if(el.regionFilter) el.regionFilter.innerHTML  = `<option value="all">전체 지역</option>` +rs.map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join("");
+  if(el.quarterFilter) el.quarterFilter.value = state.filters.quarter;
+  if(el.regionFilter) el.regionFilter.value  = state.filters.region;
   // 담당자 필터: owners 테이블 전체 (이름 순 정렬)
   const ownerFilterEl = el.ownerFilter || document.getElementById("ownerFilter");
   if(ownerFilterEl) { el.ownerFilter = ownerFilterEl;
@@ -2266,8 +2266,8 @@ async function refreshDashboard() {
     }
     setStatus(`마지막 업데이트: ${new Date().toLocaleTimeString("ko-KR")} · 총 ${state.tasks.length}건`);
   } catch(e) {
-    console.error(e);
-    setStatus(`오류: ${e.message||e}`, true);
+    console.error("refreshDashboard error:", e);
+    setStatus(`⚠️ 데이터 로드 오류: ${e.message||String(e)}`, true);
   }
 }
 
@@ -3130,7 +3130,7 @@ function updateMentionTags(content) {
 async function fetchMetaWithWebhook() {
   const [{ data: owners, error: e1 }, { data: kpis, error: e2 }] = await Promise.all([
     state.sb.from("owners").select("id,name,team,email,teams_webhook_url").order("name"),
-    state.sb.from("kpis").select("id,title,kpi_key,statement,owners,progress_status,q1_target,q2_target,q3_target,q4_target,q1_result,unit,strategic_theme").order("kpi_key")
+    state.sb.from("kpis").select("id,title,kpi_key,statement,owners,progress_status,q1_target,q2_target,q3_target,q4_target,q1_result,q2_result,q3_result,q4_result,unit,strategic_theme,budget_plan").order("kpi_key")
   ]);
   if(e1) {
     // teams_webhook_url 컬럼 없으면 fallback
@@ -4915,7 +4915,7 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
 
   // 합집합
   const allTypes = [...new Set([...Object.keys(planByType), ...Object.keys(spendByType)])];
-  if(!allTypes.length) { renderActivityTypeChart(tasks); return; } // fallback
+  if(!allTypes.length) return; // no data, skip
 
   const sorted   = allTypes.sort((a,b)=>(planByType[b]||0)-(planByType[a]||0));
   const plans    = sorted.map(tp => planByType[tp]||0);
@@ -4981,16 +4981,19 @@ function refreshOwnerFilterOptions() {
 // ── 14. Init ───────────────────────────────────────────────
 (async function init() {
   const url=window.__SUPABASE_URL__, key=window.__SUPABASE_ANON_KEY__;
-
+  if(!url || !key) {
+    setStatus("⚠️ Supabase 설정 오류: URL 또는 KEY가 없습니다.", true);
+    return;
+  }
   try {
     state.sb = createClient(url, key);
     restorePanelStates();
-    setStatus("Supabase 연결 중…");
+    setStatus("데이터 불러오는 중…");
     await refreshDashboard();
     setupRealtime();
   } catch(e) {
-    console.error(e);
-    setStatus(`초기화 오류: ${e.message||e}`, true);
+    console.error("Init error:", e);
+    setStatus(`⚠️ 오류: ${e.message||String(e)}`, true);
   }
 })();
 </script>
