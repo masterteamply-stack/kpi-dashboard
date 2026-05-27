@@ -3409,33 +3409,55 @@ function renderTop7KPI(kpis, tasks) {
   const wrap = document.getElementById('top7List');
   if(!wrap || !kpis.length) return;
 
-  // KPI별 평균 진척도 계산
+  // 현재 분기 달성률 기반 계산 (Q1~Q4 순서로 가장 최근 결과 우선)
+  const parseResult = v => {
+    if(!v || String(v).trim()==='' || String(v)==='nan') return null;
+    const m = String(v).replace(/,/g,'').match(/[\d.]+/);
+    return m ? Number(m[0]) : null;
+  };
+
+  const getAchievementRate = kpi => {
+    // Q2 → Q1 순으로 결과값 있는 분기 사용
+    const quarters = [
+      { result: kpi.q2_result, target: kpi.q2_target },
+      { result: kpi.q1_result, target: kpi.q1_target },
+      { result: kpi.q3_result, target: kpi.q3_target },
+      { result: kpi.q4_result, target: kpi.q4_target },
+    ];
+    for (const { result, target } of quarters) {
+      const r = parseResult(result);
+      const t = Number(target) || 0;
+      if (r !== null && t > 0) {
+        return { rate: Math.round(r / t * 100), result: r, target: t, hasData: true };
+      }
+    }
+    return { rate: 0, result: null, target: null, hasData: false };
+  };
+
   const scores = kpis.map(kpi => {
-    const kpiTasks = tasks.filter(t => t.kpi_id === kpi.id);
-    const avg = kpiTasks.length
-      ? Math.round(kpiTasks.reduce((s,t)=>s+Number(t.progress||0),0)/kpiTasks.length)
-      : 0;
-    const donePct = kpiTasks.length
-      ? Math.round(kpiTasks.filter(t=>t.status==='done').length/kpiTasks.length*100)
-      : 0;
-    const score = avg * 0.7 + donePct * 0.3;
-    return { kpi, avg, donePct, score, taskCnt: kpiTasks.length };
+    const { rate, result, target, hasData } = getAchievementRate(kpi);
+    const taskCnt = tasks.filter(t => t.kpi_id === kpi.id).length;
+    return { kpi, rate, result, target, hasData, taskCnt };
   });
 
-  const sorted = [...scores].sort((a,b) =>
-    _top7Mode === 'best' ? b.score - a.score : a.score - b.score
-  ).slice(0,5);
+  // 달성률 기준 정렬
+  const sorted = [...scores].sort((a, b) =>
+    _top7Mode === 'best'
+      ? b.rate - a.rate
+      : a.rate - b.rate
+  ).slice(0, 5);
 
-  const maxScore = Math.max(...sorted.map(s=>s.avg), 1);
-
-  wrap.innerHTML = sorted.map(({ kpi, avg, donePct, taskCnt }, i) => {
+  wrap.innerHTML = sorted.map(({ kpi, rate, result, target, hasData, taskCnt }, i) => {
     const rank    = i + 1;
+    const barW    = Math.min(rate, 100);
     const color   = _top7Mode === 'best'
-      ? (avg>=70?'#5c6b4a':avg>=40?'#b8962e':'#9e4a3a')
-      : (avg<30?'#9e4a3a':avg<60?'#b8962e':'#5c6b4a');
-    const barW    = Math.round(avg);
+      ? (rate >= 80 ? '#5c6b4a' : rate >= 50 ? '#b8962e' : '#9e4a3a')
+      : (rate < 30  ? '#9e4a3a' : rate < 60  ? '#b8962e' : '#5c6b4a');
     const owners  = (kpi.owners||'').split(',').map(o=>o.trim()).filter(Boolean).join(', ');
-    const problem = _top7Mode==='worst' && avg < 40;
+    const problem = _top7Mode==='worst' && rate < 40;
+    const rateLabel = hasData ? `${rate}%` : '–';
+    const targetLabel = target ? fmtT(target) : '–';
+    const unit = kpi.unit || '';
 
     return `<div class="top7-row" onclick="openKpiDetail('${esc(kpi.id)}')">
       <div style="min-width:0">
@@ -3445,13 +3467,16 @@ function renderTop7KPI(kpis, tasks) {
           ${problem?'<span style="font-size:10px;color:#9e4a3a;background:#f5e8e6;padding:1px 6px;border-radius:2px;flex-shrink:0">주의</span>':''}
         </div>
         <div style="padding-left:24px">
-          <div class="top7-kpi-owner">${esc(owners||'-')} · ${taskCnt}개 Task</div>
+          <div class="top7-kpi-owner">${esc(owners||'-')} · Task ${taskCnt}건</div>
+          <div style="font-size:10px;color:#8a8278;margin:2px 0">
+            목표 ${targetLabel} ${esc(unit)} ${hasData?'· 실적 '+fmtT(result):''}
+          </div>
           <div class="top7-bar-wrap">
             <div class="top7-bar" style="width:${barW}%;background:${color}"></div>
           </div>
         </div>
       </div>
-      <div class="top7-pct" style="color:${color}">${avg}%</div>
+      <div class="top7-pct" style="color:${color}">${rateLabel}</div>
     </div>`;
   }).join('');
 }
@@ -4417,10 +4442,15 @@ function renderKpiPanelForTheme(theme, kpis, tasks) {
 
   panel.innerHTML = filtered.map(kpi => {
     const kt  = tasks.filter(t=>t.kpi_id===kpi.id);
-    const avg = kt.length ? Math.round(kt.reduce((s,t)=>s+Number(t.progress||0),0)/kt.length) : 0;
+    // KPI 달성률 계산
+    const parseR = v => { if(!v||String(v).trim()===''||String(v)==='nan') return null; const m=String(v).replace(/,/g,'').match(/[\d.]+/); return m?Number(m[0]):null; };
+    const qPairs = [{r:kpi.q2_result,t:kpi.q2_target},{r:kpi.q1_result,t:kpi.q1_target}];
+    let rate = 0, hasRate = false;
+    for(const {r,t} of qPairs) { const rv=parseR(r); const tv=Number(t)||0; if(rv!==null&&tv>0){rate=Math.round(rv/tv*100);hasRate=true;break;} }
     const owners = (kpi.owners||'').split(',').slice(0,2).map(o=>o.trim()).filter(Boolean).join(', ');
     const sc  = {'진행 중':'active','완료':'done','시작 전':'pending','보류':'pending'}[kpi.progress_status]||'pending';
-    const barColor = avg>=70?'#5c6b4a':avg>=40?'#b8962e':'#9e4a3a';
+    const barColor = rate>=80?'#5c6b4a':rate>=50?'#b8962e':'#9e4a3a';
+    const barW = Math.min(rate, 100);
     return `
     <div class="kpi-panel-item" onclick="openKpiDetail('${esc(kpi.id)}')">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
@@ -4430,8 +4460,8 @@ function renderKpiPanelForTheme(theme, kpis, tasks) {
       <div class="kpi-panel-meta">
         <span class="kpi-panel-owner">${esc(owners||'-')} · ${kt.length}건</span>
         <div class="kpi-panel-progress">
-          <div class="kpi-panel-bar"><div class="kpi-panel-bar-fill" style="width:${avg}%;background:${barColor}"></div></div>
-          <span class="kpi-panel-pct" style="color:${barColor}">${avg}%</span>
+          <div class="kpi-panel-bar"><div class="kpi-panel-bar-fill" style="width:${barW}%;background:${barColor}"></div></div>
+          <span class="kpi-panel-pct" style="color:${barColor}">${hasRate?rate+'%':'–'}</span>
         </div>
         <span class="kpi-status-pill ${sc}" style="font-size:10px;padding:2px 7px">${esc(kpi.progress_status||'-')}</span>
       </div>
