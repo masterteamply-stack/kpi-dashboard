@@ -1573,7 +1573,7 @@ async function fetchTasks() {
 async function fetchTaskDetail(id) {
   const { data, error } = await state.sb.from("tasks")
     .select(`id,title,owner_id,kpi_id,quarter,region,status,priority,progress,
-             allocated_budget,spend,revenue,leads,due_date,started_at,notes,updated_at,created_at,
+             allocated_budget,spend,revenue,leads,due_date,started_at,notes,task_type,updated_at,created_at,
              owners(name,team),kpis(title,unit,target_value)`)
     .eq("id",id).single();
   if(error) throw error;
@@ -2227,9 +2227,14 @@ async function openDrawer(id) {
   el.drawerBackdrop.classList.add("open");
   el.drawerTitle.textContent="불러오는 중…";
   el.drawerSub.textContent="";
-  // 기본 탭: 수정
-  document.querySelectorAll(".dtab").forEach((b,i)=>b.classList.toggle("active",i===0));
-  ['edit','comments','attachments'].forEach(t=>{const e=document.getElementById("drawerTab"+t.charAt(0).toUpperCase()+t.slice(1));if(e)e.style.display=t==='edit'?'block':'none';});
+  // 기본 탭: 수정 (항상 edit 탭 활성)
+  document.querySelectorAll(".dtab").forEach((b,i)=>{
+    b.classList.toggle("active", i===0);
+  });
+  ['edit','comments','attachments'].forEach(t=>{
+    const tabEl=document.getElementById("drawerTab"+t.charAt(0).toUpperCase()+t.slice(1));
+    if(tabEl) tabEl.style.display = t==='edit' ? 'block' : 'none';
+  });
   el.commentList.innerHTML=""; el.attachmentList.innerHTML="";
   try {
     const [task, comments, attachments] = await Promise.all([
@@ -2655,12 +2660,21 @@ async function saveDrawerEdit(id) {
   try {
     const { error } = await state.sb.from('tasks').update(payload).eq('id', id);
     if(error) throw error;
+    // 저장 성공: task 데이터만 갱신, 드로어 탭 유지
     state.drawer.task = await fetchTaskDetail(id);
-    renderDrawer();
-    renderDrawerEditForm(state.drawer.task);
-    await refreshDashboard();
+    // 제목/서브만 업데이트 (탭 리셋 없이)
+    if(el.drawerTitle) el.drawerTitle.textContent = state.drawer.task.title;
+    if(el.drawerSub) el.drawerSub.textContent =
+      `${state.drawer.task.owners?.name||'-'} · ${statusLabel(state.drawer.task.status)} · ${fmtDate(state.drawer.task.due_date)}`;
+    // task_type 버튼 레이블 동기화
+    const typeLbl = document.getElementById('de_type_label');
+    if(typeLbl) typeLbl.textContent = state.drawer.task.task_type || '선택 안 함';
+    const typeHidden = document.getElementById('de_type');
+    if(typeHidden) typeHidden.value = state.drawer.task.task_type || '';
+    // 대시보드 갱신 (비동기, 드로어 닫지 않음)
+    refreshDashboard();
     err.textContent = '✅ 저장 완료';
-    setTimeout(()=>{ if(err) err.textContent=''; }, 2000);
+    setTimeout(()=>{ if(err) err.textContent=''; }, 2500);
   } catch(e) {
     err.textContent = e.message || String(e);
   }
@@ -4177,27 +4191,31 @@ function openTypePicker(wrapId, currentVal) {
 }
 
 function selectTypePickerItem(wrapId, value) {
+  // 1. hidden input 갱신 (id로 직접 접근)
+  const hiddenId = wrapId === 'de_type_wrap' ? 'de_type'
+    : wrapId.startsWith('af_type_wrap_') ? 'af_type_' + wrapId.replace('af_type_wrap_','')
+    : null;
+  if(hiddenId) {
+    const hidden = document.getElementById(hiddenId);
+    if(hidden) hidden.value = value;
+  }
+  // wrap 안의 hidden도 시도
   const wrap = document.getElementById(wrapId);
-  if(!wrap) return;
-  const hidden  = wrap.querySelector('input[type="hidden"]');
-  const label   = wrap.querySelector('[class*="-label"]') || wrap.querySelector('.type-picker-btn span');
-  const btnText = wrap.querySelector('.type-picker-btn span:first-child');
+  if(wrap) {
+    const h = wrap.querySelector('input[type="hidden"]');
+    if(h) h.value = value;
+  }
 
-  if(hidden)  hidden.value = value;
-  if(btnText) btnText.textContent = value || '선택 안 함';
-
-  // 드로어 de_type 특별 처리
+  // 2. 버튼 레이블 갱신
   if(wrapId === 'de_type_wrap') {
     const lbl = document.getElementById('de_type_label');
     if(lbl) lbl.textContent = value || '선택 안 함';
-  }
-  // af_type_ 처리
-  if(wrapId.startsWith('af_type_wrap_')) {
-    const afLabel = wrap.querySelector('.af-type-label');
+  } else if(wrapId.startsWith('af_type_wrap_')) {
+    const afLabel = wrap?.querySelector('.af-type-label');
     if(afLabel) afLabel.textContent = value || '선택';
   }
 
-  // 드롭다운 닫기
+  // 3. 드롭다운 닫기
   document.getElementById('typeDrop_'+wrapId)?.remove();
   _activeTypePicker = null;
 }
