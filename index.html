@@ -298,6 +298,7 @@
       font-weight:800;font-size:16px;color:#111009;line-height:1.3;margin-bottom:5px;
       letter-spacing:-.01em;
     }
+    .kpi-name-text[title]:hover{text-decoration:underline;text-underline-offset:3px;text-decoration-color:#5c6b4a}
     .kpi-statement{font-size:12.5px;color:#3d3528;line-height:1.55;margin-bottom:5px;font-weight:400}
     .kpi-theme-badge{
       display:inline-block;padding:3px 8px;border-radius:2px;font-size:10px;
@@ -664,6 +665,14 @@
       .main-grid > div:last-child{grid-column:1/-1}
     }
 
+
+    /* ── Text Selection ── */
+    ::selection { background:#5c6b4a; color:#fff; }
+    ::-moz-selection { background:#5c6b4a; color:#fff; }
+    .kpi-name-text::selection,
+    .kpi-statement::selection,
+    .cell-editable::selection { background:#5c6b4a; color:#fff; }
+
     /* ── Spinner ── */
     .spinner{
       width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;
@@ -727,7 +736,7 @@
     </div>
     <div class="panel" style="display:flex;flex-direction:column;min-height:0">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-shrink:0">
-        <h3 style="margin-bottom:0" id="top7Title">TOP 7 KPI</h3>
+        <h3 style="margin-bottom:0" id="top7Title">TOP 5 KPI</h3>
         <div class="toggle-switch-wrap">
           <button id="top7BtnBest" class="toggle-btn active" onclick="switchTop7('best')">잘됨 ▲</button>
           <button id="top7BtnWorst" class="toggle-btn" onclick="switchTop7('worst')">문제 ▼</button>
@@ -1539,16 +1548,15 @@ function renderKPIAccordion(kpis, tasks) {
     <div class="kpi-accordion-row" onclick="toggleKpiRow(this)">
       <div><div class="kpi-chevron">▶</div></div>
       <div class="kpi-name-cell">
-        <div class="kpi-name-text">
+        <div class="kpi-name-text" onclick="event.stopPropagation();openKpiDetail('${esc(kpi.id)}')"
+          title="클릭하여 상세 보기" style="cursor:pointer">
           ${esc(kpi.title||'')}
           <span class="accordion-task-count">${taskCount}</span>
         </div>
         <div class="kpi-statement">${esc((kpi.statement||'').slice(0,72))}${(kpi.statement||'').length>72?'…':''}</div>
         <div style="display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap">
           ${theme ? `<span class="kpi-theme-badge">${esc(theme)}</span>` : ''}
-          <button class="btn btn-ghost" style="font-size:10px;padding:2px 8px;border-radius:3px;line-height:1.4"
-            onclick="event.stopPropagation();openKpiDetail('${esc(kpi.id)}')">상세 ›</button>
-        </div>
+          </div>
       </div>
       <div><div class="kpi-owner-chips">${ownerHTML}</div></div>
       <div><span class="kpi-status-pill ${sc}">${esc(kpi.progress_status||'-')}</span></div>
@@ -2700,7 +2708,7 @@ function switchTop7(mode) {
   document.getElementById('top7BtnBest')?.classList.toggle('active', mode==='best');
   document.getElementById('top7BtnWorst')?.classList.toggle('active', mode==='worst');
   const title = document.getElementById('top7Title');
-  if(title) title.textContent = mode==='best' ? 'TOP 7 KPI ✦ 잘 진행 중' : 'TOP 7 KPI ✦ 주의 필요';
+  if(title) title.textContent = mode==='best' ? 'TOP 5 KPI ✦ 잘 진행 중' : 'TOP 5 KPI ✦ 주의 필요';
   renderTop7KPI(state._lastKpis||[], state._lastKpiTasks||[]);
 }
 
@@ -2723,7 +2731,7 @@ function renderTop7KPI(kpis, tasks) {
 
   const sorted = [...scores].sort((a,b) =>
     _top7Mode === 'best' ? b.score - a.score : a.score - b.score
-  ).slice(0,7);
+  ).slice(0,5);
 
   const maxScore = Math.max(...sorted.map(s=>s.avg), 1);
 
