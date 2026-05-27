@@ -190,7 +190,7 @@
     .drawer-backdrop{position:fixed;inset:0;background:rgba(40,35,28,.4);display:none;z-index:950}
     .drawer-backdrop.open{display:block}
     .drawer{
-      position:fixed;top:0;right:0;width:min(520px,100vw);height:100vh;
+      position:fixed;top:0;right:0;width:min(680px,100vw);height:100vh;
       background:var(--panel);
       border-left:1px solid var(--line);box-shadow:-8px 0 32px rgba(60,50,40,.12);
       transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);
@@ -749,6 +749,75 @@
       font-weight:600;white-space:nowrap;
     }
 
+
+    /* ── Drawer expanded ── */
+    .drawer.expanded{width:min(1000px,100vw) !important}
+    .drawer.fullscreen{width:100vw !important;border-left:none}
+    .drawer-expand-btn{
+      width:28px;height:28px;border-radius:3px;
+      display:flex;align-items:center;justify-content:center;
+      background:var(--panel2);border:1px solid var(--line);
+      cursor:pointer;font-size:13px;color:var(--muted);transition:.15s;flex-shrink:0;
+    }
+    .drawer-expand-btn:hover{background:var(--line);color:var(--text)}
+
+    /* ── KPI inline edit ── */
+    .kpi-editable{
+      cursor:text;border-radius:3px;padding:1px 4px;
+      transition:background .12s;display:inline-block;
+    }
+    .kpi-editable:hover{background:rgba(0,0,0,.06)}
+    .kpi-editable:focus{
+      outline:none;background:#fff;
+      box-shadow:0 0 0 2px rgba(92,107,74,.3);border-radius:3px;
+    }
+    .kpi-status-select{
+      background:transparent;border:none;font-family:var(--font-body);
+      font-size:11px;font-weight:500;cursor:pointer;outline:none;
+      border-radius:2px;padding:3px 6px;
+    }
+    .kpi-status-select:focus{box-shadow:0 0 0 2px rgba(92,107,74,.25)}
+    .kpi-row-actions{
+      position:absolute;right:10px;top:50%;transform:translateY(-50%);
+      display:none;gap:4px;align-items:center;
+    }
+    .kpi-accordion-row:hover .kpi-row-actions{display:flex}
+    .kpi-del-btn{
+      width:22px;height:22px;border-radius:3px;border:1px solid #f0d4d0;
+      background:#fdf5f4;color:#9e4a3a;font-size:13px;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+      transition:.15s;font-weight:700;
+    }
+    .kpi-del-btn:hover{background:#f5e8e6}
+    .kpi-add-row{
+      display:flex;align-items:center;gap:8px;padding:10px 18px;
+      border-top:1px dashed #d4cec5;background:#f5f2ed;cursor:pointer;
+      transition:background .15s;font-size:12px;font-weight:600;color:#5c6b4a;
+    }
+    .kpi-add-row:hover{background:#eceae3}
+
+    /* ── Member Management ── */
+    .member-modal-grid{display:grid;gap:12px}
+    .member-card{
+      display:grid;grid-template-columns:36px 1fr 1fr 1fr 1fr 28px;
+      align-items:center;gap:8px;padding:10px 12px;
+      background:#fdfcf9;border:1px solid #e8e4dc;border-radius:4px;
+    }
+    .member-avatar{
+      width:36px;height:36px;border-radius:50%;background:#5c6b4a;
+      display:flex;align-items:center;justify-content:center;
+      color:#fff;font-size:14px;font-weight:700;flex-shrink:0;
+    }
+    .member-input{
+      width:100%;background:#fff;border:1px solid #e2ddd6;border-radius:3px;
+      padding:6px 8px;font-size:12px;outline:none;color:#1a1714;
+      font-family:var(--font-body);transition:border-color .15s;
+    }
+    .member-input:focus{border-color:#5c6b4a;box-shadow:0 0 0 2px rgba(92,107,74,.1)}
+    .member-input::placeholder{color:#b8b2a8}
+    .member-field-label{font-size:10px;font-weight:700;text-transform:uppercase;
+      letter-spacing:.08em;color:#8a8278;margin-bottom:3px}
+
     /* ── Spinner ── */
     .spinner{
       width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;
@@ -782,7 +851,12 @@
   <section class="hero">
     <div>
       <h1 class="hero-title">KPI 운영 대시보드</h1>
-      
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-secondary" onclick="openMemberModal()"
+        style="display:flex;align-items:center;gap:6px;font-size:13px">
+        <span>👥</span> 담당 관리
+      </button>
     </div>
   </section>
 
@@ -1048,7 +1122,10 @@
       <div id="drawerTitle" class="drawer-title">업무 상세</div>
       <div id="drawerSub" class="drawer-sub">…</div>
     </div>
-    <button id="drawerCloseBtn" class="modal-close" type="button">×</button>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="drawer-expand-btn" onclick="toggleDrawerExpand()" id="drawerExpandBtn" title="확장">⤢</button>
+      <button id="drawerCloseBtn" class="modal-close" type="button">×</button>
+    </div>
   </div>
   <div class="drawer-tabs">
     <button class="dtab active" onclick="switchDrawerTab('edit',this)">수정</button>
@@ -1070,46 +1147,8 @@
     </div>
     <div id="drawerTabComments" class="drawer-tab-content" style="display:none">
     <section class="drawer-card">
-      <h4 style="display:flex;align-items:center;justify-content:space-between">
-          댓글
-          <button class="btn btn-ghost" style="font-size:10px;padding:2px 8px;display:flex;align-items:center;gap:4px"
-            onclick="toggleTeamsWebhookPanel()">
-            <span id="teamsSettingDot" style="width:7px;height:7px;border-radius:50%;background:#c4bdb3;display:inline-block"></span>
-            Teams 알람 설정
-          </button>
-        </h4>
-        <div id="teamsWebhookPanel" style="display:none;margin-bottom:14px">
-          <!-- 방식 선택 탭 -->
-          <div style="display:flex;gap:0;background:#eceae3;border-radius:4px;padding:3px;gap:3px;margin-bottom:12px">
-            <button id="teamsTabWebhook" class="toggle-btn active" style="flex:1;font-size:11px"
-              onclick="switchTeamsTab('webhook')">채널 Webhook</button>
-            <button id="teamsTabEmail" class="toggle-btn" style="flex:1;font-size:11px"
-              onclick="switchTeamsTab('email')">이메일(Power Automate)</button>
-          </div>
-
-          <!-- Webhook 방식 안내 -->
-          <div id="teamsGuideWebhook">
-            <div style="background:#e8eddf;border:1px solid #b8ccaa;border-radius:4px;padding:10px 12px;margin-bottom:10px;font-size:11.5px;color:#3d5228;line-height:1.7">
-              Teams 채널 → ··· → <strong>커넥터</strong> → Incoming Webhook → 구성 → URL 복사
-            </div>
-          </div>
-
-          <!-- Power Automate(이메일) 방식 안내 -->
-          <div id="teamsGuideEmail" style="display:none">
-            <div style="background:#e8eddf;border:1px solid #b8ccaa;border-radius:4px;padding:10px 12px;margin-bottom:10px;font-size:11.5px;color:#3d5228;line-height:1.75">
-              <strong>Power Automate 1:1 Teams 알람 설정 방법</strong><br>
-              1. <a href="https://make.powerautomate.com" target="_blank" style="color:#3d5228">Power Automate</a> → 새 흐름 → 즉시 클라우드 흐름<br>
-              2. 트리거: <strong>"HTTP 요청을 받은 경우"</strong> 선택<br>
-              3. 작업 추가: <strong>Microsoft Teams → 사용자에게 메시지 게시</strong><br>
-              4. 수신자: 해당 멤버 이메일 / 메시지: <code>@{triggerBody()?['message']}</code><br>
-              5. 저장 → HTTP POST URL 복사 → 아래 URL란에 붙여넣기<br>
-              <span style="opacity:.7">※ 이 방식으로 이메일 주소만으로 Teams 1:1 DM 발송 가능</span>
-            </div>
-          </div>
-
-          <div id="teamsWebhookRows" style="display:grid;gap:10px"></div>
-          <div id="teamsWebhookMsg" style="margin-top:8px;font-size:11px;min-height:14px;color:#4a7c59"></div>
-        </div>
+      <h4>댓글</h4>
+        
       <div class="inline-form" style="margin-bottom:14px;position:relative">
         <input id="commentAuthor" type="text" maxlength="40" placeholder="작성자 이름" />
         <div style="position:relative">
@@ -1706,29 +1745,104 @@ function renderKPIAccordion(kpis, tasks) {
     }).join('') : `<tr><td colspan="8" class="accordion-empty">등록된 Task가 없습니다.</td></tr>`;
 
     return `
-    <div class="kpi-accordion-row" onclick="toggleKpiRow(this)">
+    <div class="kpi-accordion-row" onclick="toggleKpiRow(this)" style="position:relative">
+      <div class="kpi-row-actions"><button class="kpi-del-btn" onclick="event.stopPropagation();deleteKpi('${esc(kpi.id)}','${esc(kpi.title||'')}')" title="KPI 삭제">×</button></div>
       <div><div class="kpi-chevron">▶</div></div>
       <div class="kpi-name-cell">
-        <div class="kpi-name-text" onclick="event.stopPropagation();openKpiDetail('${esc(kpi.id)}')"
-          title="클릭하여 상세 보기" style="cursor:pointer">
-          ${esc(kpi.title||'')}
-          <span class="accordion-task-count">${taskCount}</span>
+        <div class="kpi-name-text">
+          <span class="kpi-editable" contenteditable="true"
+            data-kpi-id="${esc(kpi.id)}" data-field="title"
+            onclick="event.stopPropagation()"
+            onblur="saveKpiField(this)"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+            onfocus="this.dataset.orig=this.textContent;event.stopPropagation()"
+            title="클릭하여 제목 수정"
+          >${esc(kpi.title||'')}</span>
+          <span class="accordion-task-count" onclick="event.stopPropagation();openKpiDetail('${esc(kpi.id)}')" style="cursor:pointer" title="상세 보기">${taskCount}</span>
         </div>
-        <div class="kpi-statement">${esc((kpi.statement||'').slice(0,72))}${(kpi.statement||'').length>72?'…':''}</div>
+        <div class="kpi-statement">
+          <span class="kpi-editable" contenteditable="true"
+            data-kpi-id="${esc(kpi.id)}" data-field="statement"
+            onclick="event.stopPropagation()"
+            onblur="saveKpiField(this)"
+            onkeydown="if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+            onfocus="this.dataset.orig=this.textContent;event.stopPropagation()"
+            title="클릭하여 목표 설명 수정"
+          >${esc((kpi.statement||'').slice(0,90))}${(kpi.statement||'').length>90?'…':''}</span>
+        </div>
         <div style="display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap">
           ${theme ? `<span class="kpi-theme-badge">${esc(theme)}</span>` : ''}
           </div>
       </div>
-      <div><div class="kpi-owner-chips">${ownerHTML}</div></div>
-      <div><span class="kpi-status-pill ${sc}">${esc(kpi.progress_status||'-')}</span></div>
+      <div onclick="event.stopPropagation()">
+        <span class="kpi-editable kpi-owner-chips" contenteditable="true"
+          data-kpi-id="${esc(kpi.id)}" data-field="owners"
+          style="display:flex;flex-wrap:wrap;gap:4px;min-height:24px"
+          onblur="saveKpiField(this)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+          onfocus="this.dataset.orig=this.innerHTML;event.stopPropagation()"
+          title="담당자 수정 (쉼표로 구분)"
+        >${ownerHTML}</span>
+      </div>
+      <div onclick="event.stopPropagation()">
+        <select class="kpi-status-select kpi-status-pill ${sc}"
+          data-kpi-id="${esc(kpi.id)}" data-field="progress_status"
+          onchange="saveKpiSelectField(this)">
+          <option value="진행 중" ${'진행 중'===kpi.progress_status?'selected':''}>● 진행 중</option>
+          <option value="완료" ${'완료'===kpi.progress_status?'selected':''}>● 완료</option>
+          <option value="시작 전" ${'시작 전'===kpi.progress_status?'selected':''}>● 시작 전</option>
+          <option value="보류" ${'보류'===kpi.progress_status?'selected':''}>● 보류</option>
+        </select>
+      </div>
       <div class="kpi-progress-wrap">
         ${renderKpiGauge(kpi, taskList)}
       </div>
-      <div class="target-cell"><div class="target-val">${fmtT(kpi.q1_target)}</div></div>
-      <div class="target-cell"><div class="target-val">${fmtT(kpi.q2_target)}</div></div>
-      <div class="target-cell"><div class="target-val">${fmtT(kpi.q3_target)}</div></div>
-      <div class="target-cell"><div class="target-val">${fmtT(kpi.q4_target)}</div></div>
-      <div><div style="font-size:11px;color:#6b6259;font-weight:600">${esc(kpi.unit||'-')}</div></div>
+      <div class="target-cell" onclick="event.stopPropagation()">
+        <span class="kpi-editable target-val" contenteditable="true"
+          data-kpi-id="${esc(kpi.id)}" data-field="q1_target" data-type="number"
+          onblur="saveKpiField(this)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+          onfocus="this.dataset.orig=this.textContent;event.stopPropagation()"
+          title="목표값 수정"
+        >${fmtT(kpi.q1_target)}</span>
+      </div>
+      <div class="target-cell" onclick="event.stopPropagation()">
+        <span class="kpi-editable target-val" contenteditable="true"
+          data-kpi-id="${esc(kpi.id)}" data-field="q2_target" data-type="number"
+          onblur="saveKpiField(this)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+          onfocus="this.dataset.orig=this.textContent;event.stopPropagation()"
+          title="목표값 수정"
+        >${fmtT(kpi.q2_target)}</span>
+      </div>
+      <div class="target-cell" onclick="event.stopPropagation()">
+        <span class="kpi-editable target-val" contenteditable="true"
+          data-kpi-id="${esc(kpi.id)}" data-field="q3_target" data-type="number"
+          onblur="saveKpiField(this)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+          onfocus="this.dataset.orig=this.textContent;event.stopPropagation()"
+          title="목표값 수정"
+        >${fmtT(kpi.q3_target)}</span>
+      </div>
+      <div class="target-cell" onclick="event.stopPropagation()">
+        <span class="kpi-editable target-val" contenteditable="true"
+          data-kpi-id="${esc(kpi.id)}" data-field="q4_target" data-type="number"
+          onblur="saveKpiField(this)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+          onfocus="this.dataset.orig=this.textContent;event.stopPropagation()"
+          title="목표값 수정"
+        >${fmtT(kpi.q4_target)}</span>
+      </div>
+      <div onclick="event.stopPropagation()">
+        <span class="kpi-editable" contenteditable="true"
+          data-kpi-id="${esc(kpi.id)}" data-field="unit"
+          style="font-size:11px;color:#6b6259;font-weight:600"
+          onblur="saveKpiField(this)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+          onfocus="this.dataset.orig=this.textContent;event.stopPropagation()"
+          title="단위 수정"
+        >${esc(kpi.unit||'-')}</span>
+      </div>
     </div>
     <div class="kpi-tasks-wrap">
       <div style="overflow-x:auto">
@@ -1815,7 +1929,7 @@ function renderKPIAccordion(kpis, tasks) {
     </div>`;
   }).join('');
 
-  wrap.innerHTML = `<div class="kpi-accordion-wrap">${headerHTML}${rows}</div>`;
+  wrap.innerHTML = `<div class="kpi-accordion-wrap">${headerHTML}${rows}</div><div class="kpi-add-row" onclick="openAddKpiModal()"><span style="font-size:16px">＋</span> KPI 추가</div>`;
   state._lastKpis = kpis;
   state._lastKpiTasks = tasks;
   renderTop7KPI(kpis, tasks);
@@ -2934,6 +3048,7 @@ function openKpiDetail(kpiId) {
 
 
 function toggleTeamsWebhookPanel() {
+  openMemberModal(); return; // moved to member modal
   const panel = document.getElementById('teamsWebhookPanel');
   if(!panel) return;
   const isOpen = panel.style.display !== 'none';
@@ -3504,6 +3619,272 @@ function refreshTypeSelects() {
   // 드로어 수정 폼 갱신
   const de = document.getElementById('de_type');
   if(de) { const cur=de.value; de.innerHTML=buildTypeOptions(cur,'선택 안 함'); }
+}
+
+
+// ── Drawer expand ──
+let _drawerExpanded = false;
+function toggleDrawerExpand() {
+  const drawer = document.getElementById('taskDrawer');
+  const btn    = document.getElementById('drawerExpandBtn');
+  if(!drawer) return;
+  _drawerExpanded = !_drawerExpanded;
+  drawer.classList.toggle('expanded', _drawerExpanded);
+  if(btn) btn.textContent = _drawerExpanded ? '⤡' : '⤢';
+  btn.title = _drawerExpanded ? '축소' : '확장';
+}
+
+// ── KPI inline field save ──
+async function saveKpiField(el) {
+  const kpiId = el.dataset.kpiId;
+  const field  = el.dataset.field;
+  const dtype  = el.dataset.type || 'text';
+  const orig   = el.dataset.orig || '';
+  let   raw    = el.textContent.trim();
+
+  // owners 필드는 innerText로 받아서 정리
+  if(field === 'owners') {
+    // chip spans → 텍스트만 추출 (이미 저장된 chip 구조)
+    raw = [...el.querySelectorAll('.kpi-owner-chip')].map(s=>s.textContent.trim()).join(', ')
+        || el.textContent.trim();
+  }
+
+  if(raw === orig) return;
+  let val = raw;
+  if(dtype === 'number') {
+    const n = parseFloat(raw.replace(/[^\d.-]/g,''));
+    val = isNaN(n) ? null : n;
+  }
+  el.style.opacity = '.5';
+  try {
+    const { error } = await state.sb.from('kpis').update({ [field]: val }).eq('id', kpiId);
+    if(error) throw error;
+    // 로컬 캐시 업데이트
+    const k = (state._lastKpis||[]).find(k=>k.id===kpiId);
+    if(k) k[field] = val;
+    el.style.opacity = '';
+    el.classList.add('cell-saved-flash');
+    setTimeout(()=>el.classList.remove('cell-saved-flash'), 600);
+    // 차트 갱신
+    renderStrategicThemeChart(state._lastKpis||[], state._lastKpiTasks||[]);
+  } catch(e) {
+    el.textContent = orig;
+    el.style.opacity = '';
+    console.error('KPI field save error:', e);
+  }
+}
+
+async function saveKpiSelectField(sel) {
+  const kpiId = sel.dataset.kpiId;
+  const field  = sel.dataset.field;
+  const val    = sel.value;
+  sel.disabled = true;
+  try {
+    const { error } = await state.sb.from('kpis').update({ [field]: val }).eq('id', kpiId);
+    if(error) throw error;
+    const k = (state._lastKpis||[]).find(k=>k.id===kpiId);
+    if(k) k[field] = val;
+    // 스타일 동기화
+    const sc = {'진행 중':'active','완료':'done','시작 전':'pending','보류':'pending'}[val]||'pending';
+    sel.className = `kpi-status-select kpi-status-pill ${sc}`;
+  } catch(e) { console.error(e); }
+  sel.disabled = false;
+}
+
+// ── KPI 삭제 ──
+async function deleteKpi(kpiId, title) {
+  if(!confirm(`"${title}" KPI를 삭제할까요?\n관련 Task의 KPI 연결이 해제됩니다.`)) return;
+  try {
+    const { error } = await state.sb.from('kpis').delete().eq('id', kpiId);
+    if(error) throw error;
+    await refreshDashboard();
+  } catch(e) { alert('삭제 실패: '+(e.message||e)); }
+}
+
+// ── KPI 추가 모달 ──
+function openAddKpiModal() {
+  const modal = document.createElement('div');
+  modal.className = 'modal-backdrop open';
+  modal.style.zIndex = '1100';
+  modal.innerHTML = `
+    <div class="modal small">
+      <div class="modal-header">
+        <div><h2>KPI 추가</h2><p>새로운 KPI를 등록합니다.</p></div>
+        <button class="modal-close" onclick="this.closest('.modal-backdrop').remove()">×</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:grid;gap:12px">
+          <div class="field"><label>KPI 키 (예: B2D-13)</label>
+            <input id="nk_key" type="text" placeholder="B2D-13" maxlength="20"
+              style="background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:10px;font-family:var(--font-body);width:100%;outline:none;color:var(--text)"/></div>
+          <div class="field"><label>KPI 명 *</label>
+            <input id="nk_title" type="text" placeholder="KPI 명칭"
+              style="background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:10px;font-family:var(--font-body);width:100%;outline:none;color:var(--text)"/></div>
+          <div class="field"><label>목표 설명</label>
+            <textarea id="nk_stmt" placeholder="목표 설명"
+              style="background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:10px;font-family:var(--font-body);width:100%;outline:none;color:var(--text);min-height:72px;resize:vertical"></textarea></div>
+          <div class="field"><label>담당자 (쉼표 구분)</label>
+            <input id="nk_owners" type="text" placeholder="홍길동, 김철수"
+              style="background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:10px;font-family:var(--font-body);width:100%;outline:none;color:var(--text)"/></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+            ${['Q1','Q2','Q3','Q4'].map((q,i)=>`
+              <div class="field"><label>${q} 목표</label>
+                <input id="nk_q${i+1}" type="number" placeholder="0"
+                  style="background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:10px;font-family:var(--font-body);width:100%;outline:none;color:var(--text)"/></div>`).join('')}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="field"><label>단위</label>
+              <input id="nk_unit" type="text" placeholder="%(달성도)"
+                style="background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:10px;font-family:var(--font-body);width:100%;outline:none;color:var(--text)"/></div>
+            <div class="field"><label>전략 테마</label>
+              <select id="nk_theme"
+                style="background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:10px;font-family:var(--font-body);width:100%;outline:none;color:var(--text)">
+                <option value="">선택</option>
+                <option value="시장 수요 창출 > 고객 참여 기반의 수요 전환">고객 참여 기반의 수요 전환</option>
+                <option value="시장 기회 확대 > 판매 가속화">판매 가속화</option>
+                <option value="마케팅 효능감 > 데이터 기반 효율 강화">데이터 기반 효율 강화</option>
+              </select>
+            </div>
+          </div>
+          <div id="nk_err" style="font-size:12px;color:#9e4a3a;min-height:14px"></div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:flex-end;gap:10px">
+        <button class="btn btn-secondary" onclick="this.closest('.modal-backdrop').remove()">취소</button>
+        <button class="btn btn-primary" onclick="saveNewKpi(this)">저장</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e=>{if(e.target===modal)modal.remove();});
+}
+
+async function saveNewKpi(btn) {
+  const err = document.getElementById('nk_err');
+  const title = document.getElementById('nk_title')?.value.trim();
+  if(!title) { err.textContent='KPI 명을 입력하세요.'; return; }
+  btn.disabled = true; btn.textContent = '저장중…';
+  const payload = {
+    kpi_key:       document.getElementById('nk_key')?.value.trim()||null,
+    title,
+    statement:     document.getElementById('nk_stmt')?.value.trim()||null,
+    owners:        document.getElementById('nk_owners')?.value.trim()||null,
+    q1_target:     parseFloat(document.getElementById('nk_q1')?.value)||null,
+    q2_target:     parseFloat(document.getElementById('nk_q2')?.value)||null,
+    q3_target:     parseFloat(document.getElementById('nk_q3')?.value)||null,
+    q4_target:     parseFloat(document.getElementById('nk_q4')?.value)||null,
+    unit:          document.getElementById('nk_unit')?.value.trim()||null,
+    strategic_theme: document.getElementById('nk_theme')?.value||null,
+    progress_status: '시작 전',
+  };
+  try {
+    const { error } = await state.sb.from('kpis').insert([payload]);
+    if(error) throw error;
+    btn.closest('.modal-backdrop').remove();
+    await refreshDashboard();
+  } catch(e) {
+    err.textContent = '저장 실패: '+(e.message||String(e));
+    btn.disabled=false; btn.textContent='저장';
+  }
+}
+
+// ── 담당 관리 모달 ──
+function openMemberModal() {
+  const owners = state.owners||[];
+  const memberRows = owners.map(o=>`
+    <div class="member-card" id="mc_${esc(o.id)}">
+      <div class="member-avatar">${esc(o.name.charAt(0))}</div>
+      <div>
+        <div class="member-field-label">이름</div>
+        <input class="member-input" type="text" data-owner-id="${esc(o.id)}" data-field="name"
+          value="${esc(o.name||'')}" onblur="saveMemberField(this)" placeholder="이름"/>
+      </div>
+      <div>
+        <div class="member-field-label">팀</div>
+        <input class="member-input" type="text" data-owner-id="${esc(o.id)}" data-field="team"
+          value="${esc(o.team||'')}" onblur="saveMemberField(this)" placeholder="팀명"/>
+      </div>
+      <div>
+        <div class="member-field-label">이메일</div>
+        <input class="member-input" type="email" data-owner-id="${esc(o.id)}" data-field="email"
+          value="${esc(o.email||'')}" onblur="saveMemberField(this)" placeholder="name@co.com"/>
+      </div>
+      <div>
+        <div class="member-field-label">Teams Webhook / Flow URL</div>
+        <input class="member-input" type="url" data-owner-id="${esc(o.id)}" data-field="teams_webhook_url"
+          value="${esc(o.teams_webhook_url||'')}" onblur="saveMemberField(this)"
+          placeholder="https://…webhook.office.com/…"/>
+      </div>
+      <button class="kpi-del-btn" onclick="deleteMember('${esc(o.id)}','${esc(o.name)}')" title="삭제">×</button>
+    </div>`).join('');
+
+  const modal = document.createElement('div');
+  modal.className = 'modal-backdrop open';
+  modal.style.zIndex = '1100';
+  modal.innerHTML = `
+    <div class="modal" style="max-width:860px">
+      <div class="modal-header">
+        <div>
+          <h2>👥 담당 관리</h2>
+          <p>팀원 정보, 이메일, Teams Webhook URL을 설정하세요. @멘션 시 알람이 발송됩니다.</p>
+        </div>
+        <button class="modal-close" onclick="this.closest('.modal-backdrop').remove()">×</button>
+      </div>
+      <div class="modal-body" style="max-height:60vh;overflow-y:auto">
+        <div style="display:grid;grid-template-columns:36px 1fr 1fr 1fr 1fr 28px;gap:8px;
+          padding:6px 12px;font-size:10px;font-weight:700;text-transform:uppercase;
+          letter-spacing:.08em;color:#8a8278;background:#f5f2ed;border-radius:3px;margin-bottom:8px">
+          <div></div><div>이름</div><div>팀</div><div>이메일</div><div>Teams Webhook / Flow URL</div><div></div>
+        </div>
+        <div class="member-modal-grid">${memberRows}</div>
+        <div id="memberMsg" style="margin-top:10px;font-size:11px;color:#4a7c59;min-height:14px"></div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button class="btn btn-secondary" onclick="addMemberRow(this)" style="font-size:12px">＋ 담당자 추가</button>
+        <button class="btn btn-primary" onclick="this.closest('.modal-backdrop').remove()">완료</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e=>{if(e.target===modal)modal.remove();});
+}
+
+async function saveMemberField(input) {
+  const ownerId = input.dataset.ownerId;
+  const field   = input.dataset.field;
+  const val     = input.value.trim();
+  const msg     = document.getElementById('memberMsg');
+  try {
+    const { error } = await state.sb.from('owners').update({[field]:val||null}).eq('id',ownerId);
+    if(error) throw error;
+    const o = state.owners.find(o=>o.id===ownerId);
+    if(o) { o[field]=val||null; }
+    if(msg) { msg.style.color='#4a7c59'; msg.textContent='저장됨 ✓'; setTimeout(()=>msg.textContent='',2000); }
+    // 아바타 업데이트
+    const av = document.querySelector(`#mc_${ownerId} .member-avatar`);
+    if(av && field==='name') av.textContent = val.charAt(0);
+  } catch(e) {
+    if(msg) { msg.style.color='#9e4a3a'; msg.textContent='저장 실패: '+(e.message||e); }
+  }
+}
+
+async function deleteMember(ownerId, name) {
+  if(!confirm(`"${name}" 담당자를 삭제할까요?`)) return;
+  try {
+    const { error } = await state.sb.from('owners').delete().eq('id',ownerId);
+    if(error) throw error;
+    document.getElementById('mc_'+ownerId)?.remove();
+    state.owners = state.owners.filter(o=>o.id!==ownerId);
+    const msg = document.getElementById('memberMsg');
+    if(msg) { msg.style.color='#4a7c59'; msg.textContent='삭제됨'; setTimeout(()=>msg.textContent='',2000); }
+  } catch(e) { alert('삭제 실패: '+(e.message||e)); }
+}
+
+async function addMemberRow(btn) {
+  const { data, error } = await state.sb.from('owners').insert([{name:'새 담당자',team:''}]).select().single();
+  if(error) { alert('추가 실패: '+error.message); return; }
+  state.owners.push(data);
+  // 재열기로 갱신
+  btn.closest('.modal-backdrop').remove();
+  openMemberModal();
 }
 
 // ── 14. Init ───────────────────────────────────────────────
