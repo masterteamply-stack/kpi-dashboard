@@ -1514,7 +1514,9 @@ const el = {
   commentList: $("commentList"),
   attachmentUploader: $("attachmentUploader"), attachmentInput: $("attachmentInput"),
   attachmentError: $("attachmentError"), attachmentUploadBtn: $("attachmentUploadBtn"),
-  attachmentList: $("attachmentList")
+  attachmentList: $("attachmentList"),
+  ownerFilter: $("ownerFilter"),
+  kpiAccordionWrap: $("kpiAccordionWrap")
 };
 
 const formEls = {
@@ -1669,6 +1671,7 @@ async function hydrateFilters() {
   el.quarterFilter.value = state.filters.quarter;
   el.regionFilter.value  = state.filters.region;
   // 담당자 필터: owners 테이블 전체 (이름 순 정렬)
+  el.ownerFilter = el.ownerFilter || document.getElementById("ownerFilter");
   if(el.ownerFilter) {
     const sorted = [...(state.owners||[])].sort((a,b)=>a.name.localeCompare(b.name,'ko'));
     el.ownerFilter.innerHTML = '<option value="all">전체 담당자</option>' +
@@ -4964,7 +4967,7 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
 
 
 function refreshOwnerFilterOptions() {
-  const sel = el.ownerFilter || document.getElementById('ownerFilter');
+  const sel = document.getElementById('ownerFilter') || el.ownerFilter;
   if(!sel) return;
   const cur = sel.value;
   const sorted = [...(state.owners||[])].sort((a,b)=>a.name.localeCompare(b.name,'ko'));
