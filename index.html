@@ -773,7 +773,6 @@
     <select id="ownerFilter"   class="control"><option value="all">전체 담당자</option></select>
     <button id="refreshBtn"  class="btn btn-secondary">↻ 새로고침</button>
     <button id="addTaskBtn"  class="btn btn-primary">＋ 업무 추가</button>
-    <button type="button" class="btn btn-secondary" onclick="openTeamsSetupModal()" title="Teams 웹훅 설정">📣 Teams 설정</button>
   </section>
 
   <div id="statusLine" class="status-line">초기화 중…</div>
@@ -1003,7 +1002,19 @@
     </div>
     <div id="drawerTabComments" class="drawer-tab-content" style="display:none">
     <section class="drawer-card">
-      <h4>댓글</h4>
+      <h4 style="display:flex;align-items:center;justify-content:space-between">
+          댓글
+          <button class="btn btn-ghost" style="font-size:10px;padding:2px 8px"
+            onclick="toggleTeamsWebhookPanel()">📣 Teams 설정</button>
+        </h4>
+        <div id="teamsWebhookPanel" style="display:none;margin-bottom:12px">
+          <div style="background:#e8eddf;border:1px solid #b8ccaa;border-radius:4px;padding:12px;margin-bottom:10px;font-size:12px;color:#3d5228;line-height:1.7">
+            <strong>Teams Incoming Webhook 생성 방법</strong><br>
+            Teams 채널 → ··· → 커넥터 → Incoming Webhook → 구성 → URL 복사
+          </div>
+          <div id="teamsWebhookRows" style="display:grid;gap:8px"></div>
+          <div id="teamsWebhookMsg" style="margin-top:8px;font-size:11px;min-height:14px;color:#4a7c59"></div>
+        </div>
       <div class="inline-form" style="margin-bottom:14px;position:relative">
         <input id="commentAuthor" type="text" maxlength="40" placeholder="작성자 이름" />
         <div style="position:relative">
@@ -2479,7 +2490,7 @@ function updateMentionTags(content) {
 // fetchMeta override to include teams_webhook_url
 async function fetchMetaWithWebhook() {
   const [{ data: owners, error: e1 }, { data: kpis, error: e2 }] = await Promise.all([
-    state.sb.from("owners").select("id,name,team,teams_webhook_url").order("name"),
+    state.sb.from("owners").select("id,name,team,teams_webhook_url,email").order("name"),
     state.sb.from("kpis").select("id,title,kpi_key,statement,owners,progress_status,q1_target,q2_target,q3_target,q4_target,q1_result,unit,strategic_theme").order("kpi_key")
   ]);
   if(e1) throw e1; if(e2) throw e2;
@@ -2681,6 +2692,37 @@ function openKpiDetail(kpiId) {
   document.addEventListener('keydown', function esc(e) {
     if(e.key==='Escape'){ modal.remove(); document.removeEventListener('keydown',esc); }
   });
+}
+
+
+function toggleTeamsWebhookPanel() {
+  const panel = document.getElementById('teamsWebhookPanel');
+  if(!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  if(!isOpen) renderTeamsWebhookRows();
+}
+
+function renderTeamsWebhookRows() {
+  const wrap = document.getElementById('teamsWebhookRows');
+  if(!wrap) return;
+  wrap.innerHTML = (state.owners||[]).map(o => `
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="width:28px;height:28px;border-radius:50%;background:#5c6b4a;
+        display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;flex-shrink:0">
+        ${esc(o.name.charAt(0))}
+      </div>
+      <div style="flex:0 0 60px;font-size:12px;font-weight:600;color:#1a1714">${esc(o.name)}</div>
+      <input type="url" placeholder="https://xxxx.webhook.office.com/..."
+        data-owner-id="${esc(o.id)}"
+        value="${esc(o.teams_webhook_url||'')}"
+        onblur="saveTeamsWebhook(this)"
+        style="flex:1;background:#fff;border:1px solid #e2ddd6;border-radius:3px;
+               padding:6px 10px;font-size:11px;outline:none;color:#1a1714;min-width:0;font-family:var(--font-body)"
+      />
+      <div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;
+        background:${o.teams_webhook_url?'#4a7c59':'#c4bdb3'}"></div>
+    </div>`).join('');
 }
 
 // ── 14. Init ───────────────────────────────────────────────
