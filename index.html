@@ -1,0 +1,1333 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KPI 운영 대시보드</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#06090f; --panel:#0d1220; --panel2:#131a2e; --text:#eef3ff; --muted:#7a89a8;
+      --line:rgba(255,255,255,.07); --primary:#5b8eff; --primary2:#7c56ff; --green:#1ec98a;
+      --yellow:#f5b941; --red:#ff5f5f; --shadow:0 20px 48px rgba(0,0,0,.38);
+      --radius:18px;
+      --font-display:'Syne', sans-serif;
+      --font-body:'DM Sans', sans-serif;
+    }
+    *{box-sizing:border-box; margin:0; padding:0}
+    html{scroll-behavior:smooth}
+    body{
+      font-family:var(--font-body);
+      background:var(--bg);
+      color:var(--text);
+      min-height:100vh;
+      background-image:
+        radial-gradient(ellipse 60% 40% at 10% 0%, rgba(91,142,255,.14) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 30% at 90% 5%, rgba(124,86,255,.12) 0%, transparent 55%),
+        radial-gradient(ellipse 80% 50% at 50% 100%, rgba(30,201,138,.06) 0%, transparent 60%);
+    }
+
+    /* ── Layout ── */
+    .container{max-width:1500px;margin:0 auto;padding:36px 24px 64px}
+
+    /* ── Hero ── */
+    .hero{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:28px;flex-wrap:wrap}
+    .hero-title{font-family:var(--font-display);font-size:34px;line-height:1.1;letter-spacing:-.04em;margin-bottom:8px;background:linear-gradient(120deg,#fff 40%,var(--primary));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .hero-sub{color:var(--muted);font-size:15px;line-height:1.5}
+
+    /* ── Toolbar ── */
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:20px}
+    .control{
+      background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--text);
+      border-radius:12px;padding:10px 14px;min-width:150px;outline:none;font-family:var(--font-body);font-size:14px;
+      cursor:pointer;transition:border-color .2s;
+    }
+    .control:focus{border-color:rgba(91,142,255,.5)}
+    .btn{
+      border:0;border-radius:12px;cursor:pointer;font-family:var(--font-body);font-weight:700;font-size:14px;
+      padding:11px 18px;transition:all .2s ease;white-space:nowrap;
+    }
+    .btn:hover:not(:disabled){transform:translateY(-1px)}
+    .btn:active:not(:disabled){transform:translateY(0) scale(.98)}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff;box-shadow:0 4px 20px rgba(91,142,255,.3)}
+    .btn-secondary{background:rgba(255,255,255,.06);color:var(--text);border:1px solid var(--line)}
+    .btn-danger{background:linear-gradient(135deg,#ff7c7c,#ff4040);color:#fff;box-shadow:0 4px 16px rgba(255,80,80,.25)}
+    .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--muted);padding:7px 11px;border-radius:10px;font-size:13px}
+    .btn-ghost:hover{color:var(--text);border-color:rgba(255,255,255,.2)}
+    .btn-link{background:none;border:0;color:var(--primary);padding:0;cursor:pointer;font:inherit;font-size:13px;text-decoration:underline;text-underline-offset:3px}
+    .btn-link:hover{color:#8fb8ff}
+
+    /* ── Status line ── */
+    .status-line{color:var(--muted);font-size:13px;margin-bottom:18px;min-height:20px;letter-spacing:.02em}
+
+    /* ── Grid layouts ── */
+    .grid{display:grid;gap:16px}
+    .kpi-grid{grid-template-columns:repeat(6,minmax(0,1fr));margin-bottom:18px}
+    .main-grid{grid-template-columns:1.15fr .85fr;margin-bottom:18px}
+
+    /* ── Panel ── */
+    .panel{
+      background:linear-gradient(160deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.02) 100%);
+      border:1px solid var(--line);border-radius:var(--radius);padding:20px;
+      box-shadow:var(--shadow);backdrop-filter:blur(10px);
+    }
+    .panel h3{font-family:var(--font-display);font-size:16px;letter-spacing:-.02em;margin-bottom:18px;color:#c8d8ff}
+
+    /* ── KPI Cards ── */
+    .kpi-card{padding:20px}
+    .kpi-icon{font-size:20px;margin-bottom:12px}
+    .kpi-label{color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+    .kpi-value{font-family:var(--font-display);font-size:26px;font-weight:800;letter-spacing:-.04em;margin-bottom:6px}
+    .kpi-sub{color:var(--muted);font-size:12px}
+
+    /* ── Tables ── */
+    .table-wrap{overflow-x:auto;border-radius:14px}
+    table{width:100%;border-collapse:collapse;min-width:1080px}
+    thead th{
+      text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+      color:var(--muted);padding:13px 14px;border-bottom:1px solid var(--line);white-space:nowrap;
+      background:rgba(255,255,255,.015);
+    }
+    tbody td{padding:13px 14px;border-bottom:1px solid rgba(255,255,255,.04);font-size:13.5px;vertical-align:middle}
+    tbody tr:hover{background:rgba(91,142,255,.04)}
+    tbody tr:last-child td{border-bottom:0}
+
+    /* ── Badges & chips ── */
+    .badge{
+      display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:5px 10px;
+      font-size:12px;font-weight:700;white-space:nowrap;
+    }
+    .badge::before{content:'';width:6px;height:6px;border-radius:50%;flex-shrink:0}
+    .badge.done{background:rgba(30,201,138,.13);color:#5ff7b8}.badge.done::before{background:#1ec98a}
+    .badge.in_progress{background:rgba(91,142,255,.14);color:#90bbff}.badge.in_progress::before{background:#5b8eff}
+    .badge.blocked{background:rgba(255,95,95,.14);color:#ff9f9f}.badge.blocked::before{background:#ff5f5f}
+    .badge.todo{background:rgba(245,185,65,.13);color:#ffd87b}.badge.todo::before{background:#f5b941}
+
+    .priority{font-weight:700;font-size:11px;padding:5px 8px;border-radius:8px;display:inline-block;text-transform:uppercase;letter-spacing:.05em}
+    .priority.low{background:rgba(120,130,160,.13);color:#b0bad4}
+    .priority.medium{background:rgba(91,142,255,.14);color:#90bbff}
+    .priority.high{background:rgba(245,185,65,.14);color:#ffd87b}
+    .priority.critical{background:rgba(255,95,95,.16);color:#ffb1b1}
+
+    /* ── Progress ── */
+    .progress-shell{width:100%;height:6px;background:rgba(255,255,255,.07);border-radius:999px;overflow:hidden;margin-top:6px}
+    .progress-bar{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--primary),var(--primary2));transition:width .4s ease}
+
+    .muted{color:var(--muted)}
+    .empty{color:var(--muted);text-align:center;padding:32px 0;font-size:14px}
+    .footer-note{margin-top:14px;color:var(--muted);font-size:12px;letter-spacing:.02em}
+    .task-title{font-weight:700;margin-bottom:3px;font-size:14px}
+    .task-note{color:var(--muted);font-size:12px;line-height:1.5;margin-top:2px}
+    .row-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+    /* ── Modal ── */
+    .modal-backdrop{
+      position:fixed;inset:0;background:rgba(3,6,14,.78);display:none;align-items:center;justify-content:center;
+      z-index:1000;padding:20px;backdrop-filter:blur(4px);
+    }
+    .modal-backdrop.open{display:flex}
+    .modal{
+      width:min(940px,100%);max-height:calc(100vh - 40px);overflow:auto;
+      background:linear-gradient(160deg,#0f1628,#0a1020);
+      border:1px solid rgba(255,255,255,.1);border-radius:22px;box-shadow:0 32px 80px rgba(0,0,0,.55);
+    }
+    .modal.small{width:min(520px,100%)}
+    .modal-header{
+      display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
+      padding:24px 24px 12px;border-bottom:1px solid var(--line);
+    }
+    .modal-header h2{font-family:var(--font-display);margin:0 0 6px;font-size:22px;letter-spacing:-.03em}
+    .modal-header p{margin:0;color:var(--muted);font-size:13px}
+    .modal-close{
+      border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text);
+      width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:18px;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;transition:.2s;
+    }
+    .modal-close:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15)}
+    .modal-body{padding:20px 24px 10px}
+    .modal-footer{
+      padding:16px 24px 22px;border-top:1px solid var(--line);
+      display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;
+    }
+
+    /* ── Form ── */
+    .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 18px}
+    .field{display:flex;flex-direction:column;gap:7px}
+    .field.full{grid-column:1 / -1}
+    .field label{font-size:12px;color:#c0d0f0;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+    .field input,.field select,.field textarea{
+      width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:var(--text);
+      border-radius:11px;padding:11px 13px;outline:none;font-family:var(--font-body);font-size:14px;
+      transition:border-color .2s,box-shadow .2s;
+    }
+    .field textarea{min-height:96px;resize:vertical}
+    .field input:focus,.field select:focus,.field textarea:focus{
+      border-color:rgba(91,142,255,.7);box-shadow:0 0 0 3px rgba(91,142,255,.1)
+    }
+    .field.invalid input,.field.invalid select,.field.invalid textarea{
+      border-color:rgba(255,95,95,.8);box-shadow:0 0 0 3px rgba(255,95,95,.08)
+    }
+    .error-text{font-size:11px;color:#ff9f9f;min-height:14px}
+    .form-help{color:var(--muted);font-size:12px;line-height:1.6;margin-top:12px}
+    .modal-error{color:#ffb1b1;font-size:13px;min-height:18px}
+    .danger-box{
+      border:1px solid rgba(255,95,95,.2);background:rgba(255,95,95,.07);
+      border-radius:14px;padding:16px;line-height:1.65;
+    }
+
+    /* ── Drawer ── */
+    .drawer-backdrop{position:fixed;inset:0;background:rgba(3,6,14,.4);display:none;z-index:950;backdrop-filter:blur(2px)}
+    .drawer-backdrop.open{display:block}
+    .drawer{
+      position:fixed;top:0;right:0;width:min(540px,100vw);height:100vh;
+      background:linear-gradient(180deg,#0f1628,#0a1020);
+      border-left:1px solid var(--line);box-shadow:-24px 0 60px rgba(0,0,0,.4);
+      transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);
+      z-index:960;display:flex;flex-direction:column;
+    }
+    .drawer.open{transform:translateX(0)}
+    .drawer-header{
+      padding:22px 20px 14px;border-bottom:1px solid var(--line);
+      display:flex;justify-content:space-between;gap:12px;flex-shrink:0;
+    }
+    .drawer-title{font-family:var(--font-display);font-size:20px;font-weight:800;line-height:1.25;letter-spacing:-.03em;margin:0 0 4px}
+    .drawer-sub{font-size:12px;color:var(--muted)}
+    .drawer-body{padding:16px 20px 28px;overflow-y:auto;display:grid;gap:14px;flex:1}
+    .drawer-card{
+      background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
+      border-radius:15px;padding:14px;
+    }
+    .drawer-card h4{font-family:var(--font-display);margin:0 0 12px;font-size:14px;letter-spacing:-.01em;color:#b0c8ff}
+    .meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .meta-item{
+      background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.05);
+      border-radius:11px;padding:10px 12px;
+    }
+    .meta-label{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px}
+    .meta-value{font-size:13px;font-weight:700;word-break:break-word}
+
+    .comment-list,.attachment-list{display:grid;gap:8px}
+    .comment-item,.attachment-item{
+      background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:12px;
+    }
+    .comment-top,.attachment-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:7px}
+    .comment-author,.attachment-name{font-weight:700;font-size:13px}
+    .comment-date,.attachment-meta{font-size:11px;color:var(--muted)}
+    .comment-content{font-size:13px;line-height:1.7;white-space:pre-wrap;color:#c8d8f0}
+    .attachment-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .chip{
+      display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;
+      background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);font-size:11px;color:#c0d0e8;
+    }
+
+    .inline-form{display:grid;gap:9px}
+    .inline-form input,.inline-form textarea{
+      width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:var(--text);
+      border-radius:11px;padding:10px 12px;outline:none;font-family:var(--font-body);font-size:13px;
+      transition:border-color .2s;
+    }
+    .inline-form textarea{min-height:80px;resize:vertical}
+    .inline-form input:focus,.inline-form textarea:focus{border-color:rgba(91,142,255,.6)}
+    .inline-error{font-size:11px;color:#ff9f9f;min-height:14px}
+    .upload-help{font-size:11px;color:var(--muted);line-height:1.5}
+
+    /* ── Spinner ── */
+    .spinner{
+      width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;
+      border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── Responsive ── */
+    @media(max-width:1200px){
+      .kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+      .main-grid{grid-template-columns:1fr}
+    }
+    @media(max-width:860px){
+      .form-grid{grid-template-columns:1fr}
+      .meta-grid{grid-template-columns:1fr}
+    }
+    @media(max-width:720px){
+      .hero{flex-direction:column;align-items:flex-start}
+      .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    }
+    @media(max-width:500px){
+      .kpi-grid{grid-template-columns:1fr}
+      .container{padding:20px 14px 48px}
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Hero -->
+  <section class="hero">
+    <div>
+      <h1 class="hero-title">KPI 운영 대시보드</h1>
+      <p class="hero-sub">Supabase 실시간 데이터 · CRUD · 댓글 · 첨부파일</p>
+    </div>
+  </section>
+
+  <!-- Toolbar -->
+  <section class="toolbar">
+    <select id="quarterFilter" class="control"><option value="all">전체 분기</option></select>
+    <select id="regionFilter"  class="control"><option value="all">전체 지역</option></select>
+    <button id="refreshBtn"  class="btn btn-secondary">↻ 새로고침</button>
+    <button id="addTaskBtn"  class="btn btn-primary">＋ 업무 추가</button>
+  </section>
+
+  <div id="statusLine" class="status-line">초기화 중…</div>
+
+  <!-- KPI cards -->
+  <section id="kpiGrid" class="grid kpi-grid"></section>
+
+  <!-- Charts + summary -->
+  <section class="grid main-grid">
+    <div class="panel">
+      <h3>진행률 분포</h3>
+      <canvas id="progressChart" height="120"></canvas>
+    </div>
+    <div class="panel">
+      <h3>운영 요약</h3>
+      <div id="summaryBox"></div>
+    </div>
+  </section>
+
+  <!-- Owner table -->
+  <section class="panel" style="margin-bottom:18px">
+    <h3>담당자별 업무 현황</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>담당자</th><th>팀</th><th>전체</th><th>완료</th>
+            <th>진행중</th><th>지연</th><th>평균진척도</th>
+            <th>예산</th><th>집행</th><th>매출</th><th>ROI</th>
+          </tr>
+        </thead>
+        <tbody id="ownerTableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Task table -->
+  <section class="panel">
+    <h3>업무 상세 테이블</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>업무명</th><th>담당자</th><th>KPI</th><th>상태</th>
+            <th>우선순위</th><th>진척도</th><th>지역</th>
+            <th>예산</th><th>집행</th><th>매출</th><th>리드</th>
+            <th>마감일</th><th>관리</th>
+          </tr>
+        </thead>
+        <tbody id="taskTableBody"></tbody>
+      </table>
+    </div>
+    <p class="footer-note">tasks / task_comments / task_attachments 변경은 Realtime으로 자동 반영됩니다.</p>
+  </section>
+</div>
+
+<!-- ── 추가/수정 모달 ── -->
+<div id="taskModalBackdrop" class="modal-backdrop" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="taskModalTitle">
+    <div class="modal-header">
+      <div>
+        <h2 id="taskModalTitle">업무 추가</h2>
+        <p id="taskModalDescription">새 업무를 등록하세요.</p>
+      </div>
+      <button id="taskModalCloseBtn" class="modal-close" type="button">×</button>
+    </div>
+    <div class="modal-body">
+      <form id="taskForm" novalidate>
+        <div class="form-grid">
+          <div class="field full" data-field="title">
+            <label for="task_title">업무명 *</label>
+            <input id="task_title" name="title" type="text" maxlength="120" />
+            <div class="error-text"></div>
+          </div>
+          <div class="field" data-field="owner_id">
+            <label for="task_owner_id">담당자 *</label>
+            <select id="task_owner_id" name="owner_id"></select>
+            <div class="error-text"></div>
+          </div>
+          <div class="field" data-field="kpi_id">
+            <label for="task_kpi_id">KPI</label>
+            <select id="task_kpi_id" name="kpi_id"></select>
+            <div class="error-text"></div>
+          </div>
+          <div class="field" data-field="quarter">
+            <label for="task_quarter">분기 *</label>
+            <input id="task_quarter" name="quarter" type="text" placeholder="2026-Q2" />
+            <div class="error-text"></div>
+          </div>
+          <div class="field" data-field="region">
+            <label for="task_region">지역 *</label>
+            <input id="task_region" name="region" type="text" maxlength="20" placeholder="KR" />
+            <div class="error-text"></div>
+          </div>
+          <div class="field" data-field="status">
+            <label for="task_status">상태 *</label>
+            <select id="task_status" name="status">
+              <option value="">선택</option>
+              <option value="todo">대기</option>
+              <option value="in_progress">진행중</option>
+              <option value="blocked">지연/이슈</option>
+              <option value="done">완료</option>
+            </select>
+            <div class="error-text"></div>
+          </div>
+          <div class="field" data-field="priority">
+            <label for="task_priority">우선순위 *</label>
+            <select id="task_priority" name="priority">
+              <option value="">선택</option>
+              <option value="low">낮음</option>
+              <option value="medium">보통</option>
+              <option value="high">높음</option>
+              <option value="critical">긴급</option>
+            </select>
+            <div class="error-text"></div>
+          </div>
+          <div class="field" data-field="progress">
+            <label for="task_progress">진척도 (%) *</label>
+            <input id="task_progress" name="progress" type="number" min="0" max="100" step="1" />
+            <div class="error-text"></div>
+          </div>
+          <div class="field" data-field="allocated_budget">
+            <label for="task_allocated_budget">배정 예산 *</label>
+            <input id="task_allocated_budget" name="allocated_budget" type="number" min="0" step="0.01" />
+            <div class="error-text"></div>
+          </div>
+          <div class="field" data-field="spend">
+            <label for="task_spend">집행 금액 *</label>
+            <input id="task_spend" name="spend" type="number" min="0" step="0.01" />
+            <div class="error-text"></div>
+          </div>
+          <div class="field" data-field="revenue">
+            <label for="task_revenue">매출</label>
+            <input id="task_revenue" name="revenue" type="number" min="0" step="0.01" />
+            <div class="error-text"></div>
+          </div>
+          <div class="field" data-field="leads">
+            <label for="task_leads">리드 수</label>
+            <input id="task_leads" name="leads" type="number" min="0" step="1" />
+            <div class="error-text"></div>
+          </div>
+          <div class="field" data-field="started_at">
+            <label for="task_started_at">시작일</label>
+            <input id="task_started_at" name="started_at" type="date" />
+            <div class="error-text"></div>
+          </div>
+          <div class="field" data-field="due_date">
+            <label for="task_due_date">마감일</label>
+            <input id="task_due_date" name="due_date" type="date" />
+            <div class="error-text"></div>
+          </div>
+          <div class="field full" data-field="notes">
+            <label for="task_notes">메모</label>
+            <textarea id="task_notes" name="notes" maxlength="1000"></textarea>
+            <div class="error-text"></div>
+          </div>
+        </div>
+        <p class="form-help">* 표시 항목은 필수입니다.</p>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <div id="taskModalError" class="modal-error"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button id="taskModalCancelBtn" type="button" class="btn btn-secondary">취소</button>
+        <button id="taskModalSubmitBtn" type="button" class="btn btn-primary">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 삭제 확인 모달 ── -->
+<div id="deleteModalBackdrop" class="modal-backdrop" aria-hidden="true">
+  <div class="modal small" role="dialog" aria-modal="true">
+    <div class="modal-header">
+      <div>
+        <h2>업무 삭제</h2>
+        <p>삭제 후 되돌릴 수 없습니다.</p>
+      </div>
+      <button id="deleteModalCloseBtn" class="modal-close" type="button">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="danger-box">
+        <div style="font-weight:700;margin-bottom:8px">정말 삭제할까요?</div>
+        <div id="deleteModalMessage" class="muted"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div id="deleteModalError" class="modal-error"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button id="deleteModalCancelBtn" type="button" class="btn btn-secondary">취소</button>
+        <button id="deleteModalConfirmBtn" type="button" class="btn btn-danger">삭제</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 상세 사이드 드로어 ── -->
+<div id="drawerBackdrop" class="drawer-backdrop"></div>
+<aside id="taskDrawer" class="drawer" aria-hidden="true">
+  <div class="drawer-header">
+    <div style="flex:1;min-width:0">
+      <div id="drawerTitle" class="drawer-title">업무 상세</div>
+      <div id="drawerSub" class="drawer-sub">…</div>
+    </div>
+    <button id="drawerCloseBtn" class="modal-close" type="button">×</button>
+  </div>
+  <div class="drawer-body">
+    <section class="drawer-card">
+      <h4>업무 개요</h4>
+      <div id="drawerOverview"></div>
+    </section>
+    <section class="drawer-card">
+      <h4>댓글</h4>
+      <div class="inline-form" style="margin-bottom:12px">
+        <input  id="commentAuthor"  type="text" maxlength="40"   placeholder="작성자 이름" />
+        <textarea id="commentContent" maxlength="2000" placeholder="댓글 내용을 입력하세요"></textarea>
+        <div id="commentError" class="inline-error"></div>
+        <button id="commentSubmitBtn" type="button" class="btn btn-primary" style="justify-self:start">댓글 등록</button>
+      </div>
+      <div id="commentList" class="comment-list"></div>
+    </section>
+    <section class="drawer-card">
+      <h4>첨부파일</h4>
+      <div class="inline-form" style="margin-bottom:12px">
+        <input  id="attachmentUploader" type="text" maxlength="40" placeholder="업로더 이름" />
+        <input  id="attachmentInput"    type="file" multiple
+          accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip" />
+        <p class="upload-help">파일당 최대 10 MB · 한 번에 최대 5개</p>
+        <div id="attachmentError" class="inline-error"></div>
+        <button id="attachmentUploadBtn" type="button" class="btn btn-primary" style="justify-self:start">파일 업로드</button>
+      </div>
+      <div id="attachmentList" class="attachment-list"></div>
+    </section>
+  </div>
+</aside>
+
+<!-- ============================================================
+     JavaScript
+     ============================================================ -->
+<script>
+// ── 0. Config ──────────────────────────────────────────────
+// ⚠️ 아래 두 줄을 본인의 Supabase 프로젝트 값으로 변경하세요
+window.__SUPABASE_URL__      = "https://YOUR_PROJECT.supabase.co";
+window.__SUPABASE_ANON_KEY__ = "YOUR_SUPABASE_ANON_KEY";
+
+const ATTACHMENT_BUCKET = "task-attachments";
+const { createClient } = window.supabase;
+
+// ── 1. State ───────────────────────────────────────────────
+const state = {
+  sb: null,
+  tasks: [], owners: [], kpis: [],
+  filters: { quarter: "all", region: "all" },
+  chart: null,
+  rtChannel: null,
+  modal: { mode: "create", editingId: null, deletingId: null, busy: false },
+  drawer: {
+    open: false, taskId: null, task: null,
+    comments: [], attachments: [],
+    commentBusy: false, uploadBusy: false
+  }
+};
+
+// ── 2. DOM refs ────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const el = {
+  quarterFilter: $("quarterFilter"), regionFilter: $("regionFilter"),
+  refreshBtn: $("refreshBtn"), addTaskBtn: $("addTaskBtn"),
+  statusLine: $("statusLine"),
+  kpiGrid: $("kpiGrid"), summaryBox: $("summaryBox"),
+  ownerTableBody: $("ownerTableBody"), taskTableBody: $("taskTableBody"),
+  progressChart: $("progressChart"),
+  // task modal
+  taskModalBackdrop: $("taskModalBackdrop"),
+  taskModalTitle: $("taskModalTitle"), taskModalDescription: $("taskModalDescription"),
+  taskModalCloseBtn: $("taskModalCloseBtn"), taskModalCancelBtn: $("taskModalCancelBtn"),
+  taskModalSubmitBtn: $("taskModalSubmitBtn"), taskModalError: $("taskModalError"),
+  taskForm: $("taskForm"),
+  // delete modal
+  deleteModalBackdrop: $("deleteModalBackdrop"),
+  deleteModalCloseBtn: $("deleteModalCloseBtn"), deleteModalCancelBtn: $("deleteModalCancelBtn"),
+  deleteModalConfirmBtn: $("deleteModalConfirmBtn"), deleteModalError: $("deleteModalError"),
+  deleteModalMessage: $("deleteModalMessage"),
+  // drawer
+  drawerBackdrop: $("drawerBackdrop"), taskDrawer: $("taskDrawer"),
+  drawerTitle: $("drawerTitle"), drawerSub: $("drawerSub"),
+  drawerCloseBtn: $("drawerCloseBtn"), drawerOverview: $("drawerOverview"),
+  commentAuthor: $("commentAuthor"), commentContent: $("commentContent"),
+  commentError: $("commentError"), commentSubmitBtn: $("commentSubmitBtn"),
+  commentList: $("commentList"),
+  attachmentUploader: $("attachmentUploader"), attachmentInput: $("attachmentInput"),
+  attachmentError: $("attachmentError"), attachmentUploadBtn: $("attachmentUploadBtn"),
+  attachmentList: $("attachmentList")
+};
+
+const formEls = {
+  title: $("task_title"), owner_id: $("task_owner_id"), kpi_id: $("task_kpi_id"),
+  quarter: $("task_quarter"), region: $("task_region"), status: $("task_status"),
+  priority: $("task_priority"), progress: $("task_progress"),
+  allocated_budget: $("task_allocated_budget"), spend: $("task_spend"),
+  revenue: $("task_revenue"), leads: $("task_leads"),
+  started_at: $("task_started_at"), due_date: $("task_due_date"), notes: $("task_notes")
+};
+
+// ── 3. Utils ───────────────────────────────────────────────
+const fmtNum  = v => new Intl.NumberFormat("ko-KR").format(Number(v||0));
+const fmtPct  = v => `${Number(v||0).toFixed(1)}%`;
+const fmtKRW  = v => `${fmtNum(v)}원`;
+const fmtDate = v => { if(!v) return "-"; const d=new Date(v); return isNaN(d)?v:d.toLocaleDateString("ko-KR"); };
+const fmtDT   = v => { if(!v) return "-"; const d=new Date(v); return isNaN(d)?v:d.toLocaleString("ko-KR"); };
+const esc     = s => String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
+const blank   = v => String(v??"").trim()==="";
+const parseN  = (v,fb=0) => { const n=Number(v); return isFinite(n)?n:fb; };
+const todayD  = () => { const d=new Date(); d.setHours(0,0,0,0); return d; };
+const humanSz = b => { const n=Number(b||0); if(n<1024) return `${n}B`; if(n<1048576) return `${(n/1024).toFixed(1)}KB`; return `${(n/1048576).toFixed(1)}MB`; };
+
+const statusLabel   = s => ({todo:"대기",in_progress:"진행중",blocked:"지연/이슈",done:"완료"})[s]||s;
+const priorityLabel = p => ({low:"낮음",medium:"보통",high:"높음",critical:"긴급"})[p]||p;
+
+function setStatus(txt, err=false) {
+  el.statusLine.textContent = txt;
+  el.statusLine.style.color = err ? "#ff9f9f" : "var(--muted)";
+}
+
+// ── 4. Form validation ─────────────────────────────────────
+function fieldWrap(name) { return el.taskForm.querySelector(`.field[data-field="${name}"]`); }
+function setFieldErr(name, msg="") {
+  const w = fieldWrap(name); if(!w) return;
+  w.classList.toggle("invalid",!!msg);
+  const e = w.querySelector(".error-text"); if(e) e.textContent = msg;
+}
+function clearFormErrs() { Object.keys(formEls).forEach(n=>setFieldErr(n,"")); el.taskModalError.textContent=""; }
+
+function resetForm() {
+  el.taskForm.reset(); clearFormErrs();
+  formEls.progress.value=0; formEls.allocated_budget.value=0;
+  formEls.spend.value=0; formEls.revenue.value=0; formEls.leads.value=0;
+  formEls.status.value="todo"; formEls.priority.value="medium"; formEls.kpi_id.value="";
+}
+
+function fillOwnerOpts(sel="") {
+  formEls.owner_id.innerHTML =
+    `<option value="">선택</option>` +
+    state.owners.map(o=>`<option value="${esc(o.id)}"${o.id===sel?" selected":""}>${esc(o.name)} (${esc(o.team||"-")})</option>`).join("");
+}
+function fillKpiOpts(sel="") {
+  formEls.kpi_id.innerHTML =
+    `<option value="">선택 안 함</option>` +
+    state.kpis.map(k=>`<option value="${esc(k.id)}"${k.id===sel?" selected":""}>${esc(k.title)}</option>`).join("");
+}
+
+function readFormVals() {
+  return {
+    title: formEls.title.value.trim(),
+    owner_id: formEls.owner_id.value,
+    kpi_id: formEls.kpi_id.value||null,
+    quarter: formEls.quarter.value.trim(),
+    region: formEls.region.value.trim(),
+    status: formEls.status.value,
+    priority: formEls.priority.value,
+    progress: formEls.progress.value,
+    allocated_budget: formEls.allocated_budget.value,
+    spend: formEls.spend.value,
+    revenue: formEls.revenue.value,
+    leads: formEls.leads.value,
+    started_at: formEls.started_at.value||null,
+    due_date: formEls.due_date.value||null,
+    notes: formEls.notes.value.trim()
+  };
+}
+
+function validateForm(v) {
+  clearFormErrs();
+  const errs = {};
+  if(blank(v.title)) errs.title="업무명을 입력해주세요.";
+  else if(v.title.length<2) errs.title="2자 이상 입력해주세요.";
+  if(blank(v.owner_id)) errs.owner_id="담당자를 선택해주세요.";
+  if(blank(v.quarter)) errs.quarter="분기를 입력해주세요.";
+  else if(!/^\d{4}-Q[1-4]$/i.test(v.quarter)) errs.quarter="형식: 2026-Q2";
+  if(blank(v.region)) errs.region="지역을 입력해주세요.";
+  if(blank(v.status)) errs.status="상태를 선택해주세요.";
+  if(blank(v.priority)) errs.priority="우선순위를 선택해주세요.";
+  const prog=parseN(v.progress,NaN), alloc=parseN(v.allocated_budget,NaN), spend=parseN(v.spend,NaN);
+  const rev=parseN(v.revenue,NaN), leads=parseN(v.leads,NaN);
+  if(!isFinite(prog)||prog<0||prog>100) errs.progress="0~100 사이 숫자를 입력하세요.";
+  if(!isFinite(alloc)||alloc<0) errs.allocated_budget="0 이상이어야 합니다.";
+  if(!isFinite(spend)||spend<0) errs.spend="0 이상이어야 합니다.";
+  if(!isFinite(rev)||rev<0) errs.revenue="0 이상이어야 합니다.";
+  if(!isFinite(leads)||leads<0||!Number.isInteger(leads)) errs.leads="0 이상의 정수여야 합니다.";
+  if(v.started_at&&v.due_date&&new Date(v.started_at)>new Date(v.due_date))
+    errs.due_date="마감일이 시작일보다 빠릅니다.";
+  if(isFinite(prog)&&prog===100&&v.status!=="done") errs.status="진척도 100%이면 상태를 완료로 설정하세요.";
+  if(isFinite(prog)&&prog<100&&v.status==="done") errs.progress="완료 상태면 진척도는 100이어야 합니다.";
+  Object.entries(errs).forEach(([k,msg])=>setFieldErr(k,msg));
+  return Object.keys(errs).length===0;
+}
+
+function normalizePayload(v) {
+  return {
+    title: v.title,
+    owner_id: v.owner_id,
+    kpi_id: v.kpi_id||null,
+    quarter: v.quarter.toUpperCase(),
+    region: v.region.toUpperCase(),
+    status: v.status,
+    priority: v.priority,
+    progress: Math.round(parseN(v.progress,0)),
+    allocated_budget: parseN(v.allocated_budget,0),
+    spend: parseN(v.spend,0),
+    revenue: parseN(v.revenue,0),
+    leads: Math.round(parseN(v.leads,0)),
+    started_at: v.started_at||null,
+    due_date: v.due_date||null,
+    notes: v.notes||null
+  };
+}
+
+// ── 5. Data fetching ───────────────────────────────────────
+async function fetchMeta() {
+  const [{ data: owners, error: e1 }, { data: kpis, error: e2 }] = await Promise.all([
+    state.sb.from("owners").select("id,name,team").order("name"),
+    state.sb.from("kpis").select("id,title,unit,target_value").order("title")
+  ]);
+  if(e1) throw e1; if(e2) throw e2;
+  state.owners = owners||[]; state.kpis = kpis||[];
+}
+
+async function hydrateFilters() {
+  const { data, error } = await state.sb.from("tasks").select("quarter,region").order("quarter");
+  if(error) throw error;
+  const qs=[...new Set((data||[]).map(r=>r.quarter).filter(Boolean))];
+  const rs=[...new Set((data||[]).map(r=>r.region).filter(Boolean))];
+  el.quarterFilter.innerHTML = `<option value="all">전체 분기</option>`+qs.map(q=>`<option value="${esc(q)}">${esc(q)}</option>`).join("");
+  el.regionFilter.innerHTML  = `<option value="all">전체 지역</option>` +rs.map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join("");
+  el.quarterFilter.value = state.filters.quarter;
+  el.regionFilter.value  = state.filters.region;
+}
+
+async function fetchTasks() {
+  let q = state.sb.from("tasks")
+    .select(`id,title,owner_id,kpi_id,quarter,region,status,priority,progress,
+             allocated_budget,spend,revenue,leads,due_date,started_at,notes,updated_at,
+             owners(name,team),kpis(title,unit,target_value)`)
+    .order("updated_at",{ascending:false});
+  if(state.filters.quarter!=="all") q=q.eq("quarter",state.filters.quarter);
+  if(state.filters.region !=="all") q=q.eq("region", state.filters.region);
+  const { data, error } = await q;
+  if(error) throw error;
+  return data||[];
+}
+
+async function fetchTaskDetail(id) {
+  const { data, error } = await state.sb.from("tasks")
+    .select(`id,title,owner_id,kpi_id,quarter,region,status,priority,progress,
+             allocated_budget,spend,revenue,leads,due_date,started_at,notes,updated_at,created_at,
+             owners(name,team),kpis(title,unit,target_value)`)
+    .eq("id",id).single();
+  if(error) throw error;
+  return data;
+}
+
+async function fetchComments(taskId) {
+  const { data, error } = await state.sb.from("task_comments")
+    .select("id,task_id,author_name,content,created_at")
+    .eq("task_id",taskId).order("created_at",{ascending:true});
+  if(error) throw error;
+  return data||[];
+}
+
+async function fetchAttachments(taskId) {
+  const { data, error } = await state.sb.from("task_attachments")
+    .select("id,task_id,file_name,file_path,public_url,mime_type,file_size,uploaded_by,created_at")
+    .eq("task_id",taskId).order("created_at",{ascending:false});
+  if(error) throw error;
+  return data||[];
+}
+
+// ── 6. Summary computation ─────────────────────────────────
+function computeSummary(tasks) {
+  const today = todayD();
+  const total    = tasks.length;
+  const done     = tasks.filter(t=>t.status==="done").length;
+  const inProg   = tasks.filter(t=>t.status==="in_progress").length;
+  const blocked  = tasks.filter(t=>t.status==="blocked").length;
+  const todo     = tasks.filter(t=>t.status==="todo").length;
+  const delayed  = tasks.filter(t=>t.status!=="done"&&t.due_date&&new Date(t.due_date)<today).length;
+  const budget   = tasks.reduce((s,t)=>s+Number(t.allocated_budget||0),0);
+  const spend    = tasks.reduce((s,t)=>s+Number(t.spend||0),0);
+  const revenue  = tasks.reduce((s,t)=>s+Number(t.revenue||0),0);
+  const leads    = tasks.reduce((s,t)=>s+Number(t.leads||0),0);
+  const avgProg  = total ? tasks.reduce((s,t)=>s+Number(t.progress||0),0)/total : 0;
+  const compRate = total ? (done/total)*100 : 0;
+  const roi      = spend>0 ? ((revenue-spend)/spend)*100 : 0;
+  return { total,done,inProg,blocked,todo,delayed,budget,spend,revenue,leads,avgProg,compRate,roi };
+}
+
+function buildOwnerSummary(tasks) {
+  const map=new Map(), today=todayD();
+  for(const t of tasks) {
+    const name=t.owners?.name||"미지정", team=t.owners?.team||"-", key=`${name}__${team}`;
+    if(!map.has(key)) map.set(key,{name,team,total:0,done:0,inProg:0,delayed:0,prog:0,budget:0,spend:0,revenue:0});
+    const r=map.get(key);
+    r.total++; r.prog+=Number(t.progress||0);
+    r.budget+=Number(t.allocated_budget||0); r.spend+=Number(t.spend||0); r.revenue+=Number(t.revenue||0);
+    if(t.status==="done") r.done++;
+    if(t.status==="in_progress") r.inProg++;
+    if(t.status!=="done"&&t.due_date&&new Date(t.due_date)<today) r.delayed++;
+  }
+  return [...map.values()].map(r=>({
+    ...r,
+    avgProg: r.total ? r.prog/r.total : 0,
+    roi: r.spend>0 ? ((r.revenue-r.spend)/r.spend)*100 : 0
+  })).sort((a,b)=>b.total-a.total||b.avgProg-a.avgProg);
+}
+
+function buildBuckets(tasks) {
+  const b={"0~25%":0,"26~50%":0,"51~75%":0,"76~99%":0,"100%":0};
+  for(const t of tasks) {
+    const p=Number(t.progress||0);
+    if(p>=100) b["100%"]++;
+    else if(p>=76) b["76~99%"]++;
+    else if(p>=51) b["51~75%"]++;
+    else if(p>=26) b["26~50%"]++;
+    else b["0~25%"]++;
+  }
+  return b;
+}
+
+// ── 7. Render ──────────────────────────────────────────────
+function renderKPICards(s) {
+  const items=[
+    { label:"전체 업무",   value:fmtNum(s.total),     sub:`완료 ${fmtNum(s.done)}건`,      icon:"📋" },
+    { label:"완료율",      value:fmtPct(s.compRate),  sub:`진행중 ${fmtNum(s.inProg)}건`,   icon:"✅" },
+    { label:"평균 진척도", value:fmtPct(s.avgProg),   sub:`차단 ${fmtNum(s.blocked)}건`,    icon:"📈" },
+    { label:"지연 업무",   value:fmtNum(s.delayed),   sub:`대기 ${fmtNum(s.todo)}건`,       icon:"⚠️" },
+    { label:"총 집행",     value:fmtKRW(s.spend),     sub:`배정 ${fmtKRW(s.budget)}`,       icon:"💰" },
+    { label:"ROI",         value:fmtPct(s.roi),        sub:`매출 ${fmtKRW(s.revenue)}`,      icon:"🚀" }
+  ];
+  el.kpiGrid.innerHTML = items.map(i=>`
+    <article class="panel kpi-card">
+      <div class="kpi-icon">${i.icon}</div>
+      <div class="kpi-label">${esc(i.label)}</div>
+      <div class="kpi-value">${esc(i.value)}</div>
+      <div class="kpi-sub">${esc(i.sub)}</div>
+    </article>`).join("");
+}
+
+function renderSummary(s) {
+  el.summaryBox.innerHTML = `
+    <div style="display:grid;gap:14px">
+      <div>
+        <div class="muted" style="font-size:12px;margin-bottom:6px">전체 평균 진척도</div>
+        <div style="font-family:var(--font-display);font-size:28px;font-weight:800">${fmtPct(s.avgProg)}</div>
+        <div class="progress-shell"><div class="progress-bar" style="width:${Math.min(100,s.avgProg)}%"></div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+        <div class="panel" style="padding:14px;border-radius:13px">
+          <div class="muted" style="font-size:11px">총 리드</div>
+          <div style="font-family:var(--font-display);font-size:22px;font-weight:800;margin-top:4px">${fmtNum(s.leads)}</div>
+        </div>
+        <div class="panel" style="padding:14px;border-radius:13px">
+          <div class="muted" style="font-size:11px">총 매출</div>
+          <div style="font-family:var(--font-display);font-size:22px;font-weight:800;margin-top:4px">${fmtKRW(s.revenue)}</div>
+        </div>
+      </div>
+      <p class="muted" style="font-size:12px;line-height:1.7">
+        완료율 <strong style="color:var(--green)">${fmtPct(s.compRate)}</strong> ·
+        지연 <strong style="color:var(--red)">${fmtNum(s.delayed)}건</strong> ·
+        ROI <strong style="color:var(--primary)">${fmtPct(s.roi)}</strong>
+      </p>
+    </div>`;
+}
+
+function renderChart(tasks) {
+  const buckets = buildBuckets(tasks);
+  const labels  = Object.keys(buckets);
+  const data    = Object.values(buckets);
+  if(state.chart) state.chart.destroy();
+  state.chart = new Chart(el.progressChart, {
+    type:"bar",
+    data:{
+      labels,
+      datasets:[{
+        label:"업무 수",
+        data,
+        backgroundColor:["rgba(245,185,65,.7)","rgba(30,201,138,.7)","rgba(91,142,255,.7)","rgba(124,86,255,.7)","rgba(30,201,138,.9)"],
+        borderRadius:8, borderSkipped:false
+      }]
+    },
+    options:{
+      responsive:true, plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>`${ctx.parsed.y}건` } } },
+      scales:{
+        x:{ ticks:{ color:"#7a89a8", font:{size:12,family:"DM Sans"} }, grid:{ color:"rgba(255,255,255,.04)" } },
+        y:{ beginAtZero:true, ticks:{ color:"#7a89a8", precision:0, font:{size:12,family:"DM Sans"} }, grid:{ color:"rgba(255,255,255,.06)" } }
+      }
+    }
+  });
+}
+
+function renderOwnerTable(tasks) {
+  const rows = buildOwnerSummary(tasks);
+  if(!rows.length) { el.ownerTableBody.innerHTML=`<tr><td colspan="11" class="empty">데이터가 없습니다.</td></tr>`; return; }
+  el.ownerTableBody.innerHTML = rows.map(r=>`
+    <tr>
+      <td><strong>${esc(r.name)}</strong></td>
+      <td class="muted">${esc(r.team)}</td>
+      <td>${fmtNum(r.total)}</td>
+      <td style="color:var(--green)">${fmtNum(r.done)}</td>
+      <td style="color:var(--primary)">${fmtNum(r.inProg)}</td>
+      <td style="color:var(--red)">${fmtNum(r.delayed)}</td>
+      <td>
+        <div>${fmtPct(r.avgProg)}</div>
+        <div class="progress-shell"><div class="progress-bar" style="width:${Math.min(100,r.avgProg)}%"></div></div>
+      </td>
+      <td class="muted">${fmtKRW(r.budget)}</td>
+      <td>${fmtKRW(r.spend)}</td>
+      <td style="color:var(--green)">${fmtKRW(r.revenue)}</td>
+      <td style="color:${r.roi>=0?"var(--green)":"var(--red)"}">${fmtPct(r.roi)}</td>
+    </tr>`).join("");
+}
+
+function renderTaskTable(tasks) {
+  if(!tasks.length) { el.taskTableBody.innerHTML=`<tr><td colspan="13" class="empty">업무가 없습니다.</td></tr>`; return; }
+  el.taskTableBody.innerHTML = tasks.map(t=>`
+    <tr>
+      <td>
+        <div class="task-title">${esc(t.title)}</div>
+        ${t.notes?`<div class="task-note">${esc(t.notes.slice(0,60))}${t.notes.length>60?"…":""}</div>`:""}
+      </td>
+      <td>
+        <div>${esc(t.owners?.name||"-")}</div>
+        <div class="muted" style="font-size:12px">${esc(t.owners?.team||"")}</div>
+      </td>
+      <td class="muted" style="font-size:12px">${esc(t.kpis?.title||"-")}</td>
+      <td><span class="badge ${esc(t.status)}">${esc(statusLabel(t.status))}</span></td>
+      <td><span class="priority ${esc(t.priority)}">${esc(priorityLabel(t.priority))}</span></td>
+      <td style="min-width:100px">
+        <div>${fmtPct(t.progress)}</div>
+        <div class="progress-shell"><div class="progress-bar" style="width:${Math.min(100,t.progress||0)}%"></div></div>
+      </td>
+      <td class="muted">${esc(t.region||"-")}</td>
+      <td class="muted">${fmtKRW(t.allocated_budget)}</td>
+      <td>${fmtKRW(t.spend)}</td>
+      <td style="color:var(--green)">${fmtKRW(t.revenue)}</td>
+      <td>${fmtNum(t.leads)}</td>
+      <td class="${isDue(t)?'':'muted'}" style="${isDue(t)?'color:var(--red)':''}">${fmtDate(t.due_date)}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn btn-ghost" onclick="openDrawer('${esc(t.id)}')">상세</button>
+          <button class="btn btn-ghost" onclick="openEditModal('${esc(t.id)}')">수정</button>
+          <button class="btn btn-ghost" style="color:var(--red)" onclick="openDeleteModal('${esc(t.id)}','${esc(t.title)}')">삭제</button>
+        </div>
+      </td>
+    </tr>`).join("");
+}
+
+function isDue(t) { return t.status!=="done"&&t.due_date&&new Date(t.due_date)<todayD(); }
+
+async function refreshDashboard() {
+  setStatus("데이터 불러오는 중…");
+  try {
+    await Promise.all([fetchMeta(), hydrateFilters()]);
+    state.tasks = await fetchTasks();
+    const s = computeSummary(state.tasks);
+    renderKPICards(s);
+    renderSummary(s);
+    renderChart(state.tasks);
+    renderOwnerTable(state.tasks);
+    renderTaskTable(state.tasks);
+    setStatus(`마지막 업데이트: ${new Date().toLocaleTimeString("ko-KR")} · 총 ${state.tasks.length}건`);
+  } catch(e) {
+    console.error(e);
+    setStatus(`오류: ${e.message||e}`, true);
+  }
+}
+
+// ── 8. Modals ──────────────────────────────────────────────
+function openCreateModal() {
+  state.modal.mode="create"; state.modal.editingId=null;
+  resetForm(); fillOwnerOpts(); fillKpiOpts();
+  el.taskModalTitle.textContent="업무 추가";
+  el.taskModalDescription.textContent="새 업무를 등록하세요.";
+  el.taskModalBackdrop.classList.add("open");
+  el.taskModalBackdrop.setAttribute("aria-hidden","false");
+}
+
+function openEditModal(id) {
+  const task = state.tasks.find(t=>t.id===id);
+  if(!task) return;
+  state.modal.mode="edit"; state.modal.editingId=id;
+  resetForm(); fillOwnerOpts(task.owner_id); fillKpiOpts(task.kpi_id||"");
+  formEls.title.value           = task.title||"";
+  formEls.quarter.value         = task.quarter||"";
+  formEls.region.value          = task.region||"";
+  formEls.status.value          = task.status||"todo";
+  formEls.priority.value        = task.priority||"medium";
+  formEls.progress.value        = task.progress??0;
+  formEls.allocated_budget.value= task.allocated_budget??0;
+  formEls.spend.value           = task.spend??0;
+  formEls.revenue.value         = task.revenue??0;
+  formEls.leads.value           = task.leads??0;
+  formEls.started_at.value      = task.started_at||"";
+  formEls.due_date.value        = task.due_date||"";
+  formEls.notes.value           = task.notes||"";
+  el.taskModalTitle.textContent="업무 수정";
+  el.taskModalDescription.textContent=`"${task.title}" 업무를 수정합니다.`;
+  el.taskModalBackdrop.classList.add("open");
+  el.taskModalBackdrop.setAttribute("aria-hidden","false");
+}
+
+function closeTaskModal() {
+  el.taskModalBackdrop.classList.remove("open");
+  el.taskModalBackdrop.setAttribute("aria-hidden","true");
+}
+
+function openDeleteModal(id, title) {
+  state.modal.deletingId=id;
+  el.deleteModalMessage.textContent=`"${title}" 업무를 삭제합니다. 관련 댓글·첨부파일도 함께 삭제됩니다.`;
+  el.deleteModalError.textContent="";
+  el.deleteModalBackdrop.classList.add("open");
+}
+
+function closeDeleteModal() {
+  el.deleteModalBackdrop.classList.remove("open");
+  state.modal.deletingId=null;
+}
+
+async function handleTaskSubmit() {
+  if(state.modal.busy) return;
+  const vals=readFormVals();
+  if(!validateForm(vals)) return;
+  state.modal.busy=true;
+  el.taskModalSubmitBtn.disabled=true;
+  el.taskModalSubmitBtn.innerHTML=`<span class="spinner"></span> 저장중…`;
+  try {
+    const payload = normalizePayload(vals);
+    let error;
+    if(state.modal.mode==="create") {
+      ({ error } = await state.sb.from("tasks").insert([payload]));
+    } else {
+      ({ error } = await state.sb.from("tasks").update(payload).eq("id",state.modal.editingId));
+    }
+    if(error) throw error;
+    closeTaskModal();
+    await refreshDashboard();
+  } catch(e) {
+    el.taskModalError.textContent = e.message||String(e);
+  } finally {
+    state.modal.busy=false;
+    el.taskModalSubmitBtn.disabled=false;
+    el.taskModalSubmitBtn.textContent="저장";
+  }
+}
+
+async function handleDelete() {
+  if(!state.modal.deletingId) return;
+  el.deleteModalConfirmBtn.disabled=true;
+  el.deleteModalConfirmBtn.innerHTML=`<span class="spinner"></span>`;
+  el.deleteModalError.textContent="";
+  try {
+    const { error } = await state.sb.from("tasks").delete().eq("id",state.modal.deletingId);
+    if(error) throw error;
+    closeDeleteModal();
+    if(state.drawer.open&&state.drawer.taskId===state.modal.deletingId) closeDrawer();
+    await refreshDashboard();
+  } catch(e) {
+    el.deleteModalError.textContent = e.message||String(e);
+  } finally {
+    el.deleteModalConfirmBtn.disabled=false;
+    el.deleteModalConfirmBtn.textContent="삭제";
+  }
+}
+
+// ── 9. Drawer ──────────────────────────────────────────────
+async function openDrawer(id) {
+  state.drawer.taskId=id; state.drawer.open=true;
+  el.taskDrawer.classList.add("open");
+  el.taskDrawer.setAttribute("aria-hidden","false");
+  el.drawerBackdrop.classList.add("open");
+  el.drawerTitle.textContent="불러오는 중…";
+  el.drawerSub.textContent="";
+  el.drawerOverview.innerHTML=`<div class="muted" style="font-size:13px">로딩 중…</div>`;
+  el.commentList.innerHTML=""; el.attachmentList.innerHTML="";
+  try {
+    const [task, comments, attachments] = await Promise.all([
+      fetchTaskDetail(id), fetchComments(id), fetchAttachments(id)
+    ]);
+    state.drawer.task=task; state.drawer.comments=comments; state.drawer.attachments=attachments;
+    renderDrawer();
+  } catch(e) {
+    el.drawerTitle.textContent="오류";
+    el.drawerOverview.innerHTML=`<div class="muted">${esc(e.message||String(e))}</div>`;
+  }
+}
+
+function closeDrawer() {
+  state.drawer.open=false; state.drawer.taskId=null;
+  el.taskDrawer.classList.remove("open");
+  el.taskDrawer.setAttribute("aria-hidden","true");
+  el.drawerBackdrop.classList.remove("open");
+}
+
+function renderDrawer() {
+  const t=state.drawer.task; if(!t) return;
+  el.drawerTitle.textContent=t.title;
+  el.drawerSub.textContent=`${t.owners?.name||"-"} · ${statusLabel(t.status)} · ${fmtDate(t.due_date)}`;
+
+  el.drawerOverview.innerHTML=`
+    <div class="meta-grid">
+      <div class="meta-item"><div class="meta-label">상태</div><div class="meta-value"><span class="badge ${esc(t.status)}">${esc(statusLabel(t.status))}</span></div></div>
+      <div class="meta-item"><div class="meta-label">우선순위</div><div class="meta-value"><span class="priority ${esc(t.priority)}">${esc(priorityLabel(t.priority))}</span></div></div>
+      <div class="meta-item"><div class="meta-label">진척도</div><div class="meta-value">${fmtPct(t.progress)}<div class="progress-shell"><div class="progress-bar" style="width:${Math.min(100,t.progress||0)}%"></div></div></div></div>
+      <div class="meta-item"><div class="meta-label">분기 / 지역</div><div class="meta-value">${esc(t.quarter)} / ${esc(t.region)}</div></div>
+      <div class="meta-item"><div class="meta-label">배정 예산</div><div class="meta-value">${fmtKRW(t.allocated_budget)}</div></div>
+      <div class="meta-item"><div class="meta-label">집행 금액</div><div class="meta-value">${fmtKRW(t.spend)}</div></div>
+      <div class="meta-item"><div class="meta-label">매출</div><div class="meta-value" style="color:var(--green)">${fmtKRW(t.revenue)}</div></div>
+      <div class="meta-item"><div class="meta-label">리드</div><div class="meta-value">${fmtNum(t.leads)}</div></div>
+      <div class="meta-item"><div class="meta-label">시작일</div><div class="meta-value">${fmtDate(t.started_at)}</div></div>
+      <div class="meta-item"><div class="meta-label">마감일</div><div class="meta-value" style="${isDue(t)?'color:var(--red)':''}">${fmtDate(t.due_date)}</div></div>
+      <div class="meta-item" style="grid-column:1/-1"><div class="meta-label">KPI</div><div class="meta-value">${esc(t.kpis?.title||"-")}</div></div>
+      ${t.notes?`<div class="meta-item" style="grid-column:1/-1"><div class="meta-label">메모</div><div class="meta-value" style="white-space:pre-wrap;font-weight:400;color:#b0c0d8">${esc(t.notes)}</div></div>`:""}
+    </div>`;
+
+  renderComments();
+  renderAttachments();
+}
+
+function renderComments() {
+  const list=state.drawer.comments;
+  if(!list.length) { el.commentList.innerHTML=`<p class="muted" style="font-size:13px;text-align:center;padding:10px 0">댓글이 없습니다.</p>`; return; }
+  el.commentList.innerHTML=list.map(c=>`
+    <div class="comment-item">
+      <div class="comment-top">
+        <span class="comment-author">${esc(c.author_name)}</span>
+        <span class="comment-date">${fmtDT(c.created_at)}</span>
+      </div>
+      <div class="comment-content">${esc(c.content)}</div>
+      <div style="margin-top:8px"><button class="btn btn-ghost" style="color:var(--red);font-size:12px" onclick="deleteComment('${esc(c.id)}')">삭제</button></div>
+    </div>`).join("");
+}
+
+function renderAttachments() {
+  const list=state.drawer.attachments;
+  if(!list.length) { el.attachmentList.innerHTML=`<p class="muted" style="font-size:13px;text-align:center;padding:10px 0">첨부파일이 없습니다.</p>`; return; }
+  el.attachmentList.innerHTML=list.map(a=>`
+    <div class="attachment-item">
+      <div class="attachment-top">
+        <span class="attachment-name">${esc(a.file_name)}</span>
+        <span class="attachment-meta">${fmtDT(a.created_at)}</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span class="chip">${esc(a.mime_type||"file")}</span>
+        <span class="chip">${humanSz(a.file_size)}</span>
+        ${a.uploaded_by?`<span class="chip">👤 ${esc(a.uploaded_by)}</span>`:""}
+      </div>
+      <div class="attachment-actions">
+        ${a.public_url?`<a class="btn btn-ghost" style="text-decoration:none;font-size:12px" href="${esc(a.public_url)}" target="_blank" rel="noopener">↓ 다운로드</a>`:""}
+        <button class="btn btn-ghost" style="color:var(--red);font-size:12px" onclick="deleteAttachment('${esc(a.id)}','${esc(a.file_path)}')">삭제</button>
+      </div>
+    </div>`).join("");
+}
+
+// ── 10. Comments ───────────────────────────────────────────
+async function submitComment() {
+  if(state.drawer.commentBusy) return;
+  const author=el.commentAuthor.value.trim();
+  const content=el.commentContent.value.trim();
+  el.commentError.textContent="";
+  if(!author){ el.commentError.textContent="작성자 이름을 입력하세요."; return; }
+  if(!content){ el.commentError.textContent="댓글 내용을 입력하세요."; return; }
+  state.drawer.commentBusy=true;
+  el.commentSubmitBtn.disabled=true;
+  el.commentSubmitBtn.innerHTML=`<span class="spinner"></span>`;
+  try {
+    const { error } = await state.sb.from("task_comments").insert([{
+      task_id: state.drawer.taskId, author_name: author, content
+    }]);
+    if(error) throw error;
+    el.commentAuthor.value=""; el.commentContent.value="";
+    state.drawer.comments = await fetchComments(state.drawer.taskId);
+    renderComments();
+  } catch(e) {
+    el.commentError.textContent = e.message||String(e);
+  } finally {
+    state.drawer.commentBusy=false;
+    el.commentSubmitBtn.disabled=false;
+    el.commentSubmitBtn.textContent="댓글 등록";
+  }
+}
+
+async function deleteComment(id) {
+  if(!confirm("댓글을 삭제할까요?")) return;
+  try {
+    const { error } = await state.sb.from("task_comments").delete().eq("id",id);
+    if(error) throw error;
+    state.drawer.comments = await fetchComments(state.drawer.taskId);
+    renderComments();
+  } catch(e) { alert(e.message||String(e)); }
+}
+
+// ── 11. Attachments ────────────────────────────────────────
+async function uploadAttachments() {
+  if(state.drawer.uploadBusy) return;
+  const uploader=el.attachmentUploader.value.trim();
+  const files=[...el.attachmentInput.files];
+  el.attachmentError.textContent="";
+  if(!uploader){ el.attachmentError.textContent="업로더 이름을 입력하세요."; return; }
+  if(!files.length){ el.attachmentError.textContent="파일을 선택해주세요."; return; }
+  if(files.length>5){ el.attachmentError.textContent="한 번에 최대 5개까지 업로드하세요."; return; }
+  const oversize=files.find(f=>f.size>10*1024*1024);
+  if(oversize){ el.attachmentError.textContent=`"${oversize.name}"이 10MB를 초과합니다.`; return; }
+
+  state.drawer.uploadBusy=true;
+  el.attachmentUploadBtn.disabled=true;
+  el.attachmentUploadBtn.innerHTML=`<span class="spinner"></span> 업로드중…`;
+
+  const results=[];
+  for(const file of files) {
+    try {
+      const safeName=`${Date.now()}_${file.name.replace(/[^\w.\-]+/g,"_")}`;
+      const path=`${state.drawer.taskId}/${safeName}`;
+      const { error:upErr } = await state.sb.storage.from(ATTACHMENT_BUCKET).upload(path, file, { upsert:false });
+      if(upErr) throw upErr;
+      const { data: urlData } = state.sb.storage.from(ATTACHMENT_BUCKET).getPublicUrl(path);
+      const { error:dbErr } = await state.sb.from("task_attachments").insert([{
+        task_id: state.drawer.taskId,
+        file_name: file.name,
+        file_path: path,
+        public_url: urlData?.publicUrl||null,
+        mime_type: file.type||null,
+        file_size: file.size,
+        uploaded_by: uploader
+      }]);
+      if(dbErr) throw dbErr;
+      results.push({ ok:true, name:file.name });
+    } catch(e) {
+      results.push({ ok:false, name:file.name, error:e.message });
+    }
+  }
+  const failed=results.filter(r=>!r.ok);
+  if(failed.length) {
+    el.attachmentError.textContent=`실패: ${failed.map(r=>`${r.name}(${r.error})`).join(", ")}`;
+  }
+  el.attachmentInput.value="";
+  state.drawer.attachments = await fetchAttachments(state.drawer.taskId);
+  renderAttachments();
+  state.drawer.uploadBusy=false;
+  el.attachmentUploadBtn.disabled=false;
+  el.attachmentUploadBtn.textContent="파일 업로드";
+}
+
+async function deleteAttachment(id, filePath) {
+  if(!confirm("첨부파일을 삭제할까요?")) return;
+  try {
+    const { error:stErr } = await state.sb.storage.from(ATTACHMENT_BUCKET).remove([filePath]);
+    if(stErr) console.warn("Storage remove warning:", stErr.message);
+    const { error } = await state.sb.from("task_attachments").delete().eq("id",id);
+    if(error) throw error;
+    state.drawer.attachments = await fetchAttachments(state.drawer.taskId);
+    renderAttachments();
+  } catch(e) { alert(e.message||String(e)); }
+}
+
+// ── 12. Realtime ───────────────────────────────────────────
+function setupRealtime() {
+  if(state.rtChannel) { state.sb.removeChannel(state.rtChannel); }
+  state.rtChannel = state.sb.channel("dashboard-realtime")
+    .on("postgres_changes",{ event:"*", schema:"public", table:"tasks" }, () => refreshDashboard())
+    .on("postgres_changes",{ event:"*", schema:"public", table:"task_comments" }, async (payload) => {
+      if(state.drawer.open && state.drawer.taskId) {
+        const tid = payload.new?.task_id || payload.old?.task_id;
+        if(tid===state.drawer.taskId) {
+          state.drawer.comments = await fetchComments(state.drawer.taskId);
+          renderComments();
+        }
+      }
+    })
+    .on("postgres_changes",{ event:"*", schema:"public", table:"task_attachments" }, async (payload) => {
+      if(state.drawer.open && state.drawer.taskId) {
+        const tid = payload.new?.task_id || payload.old?.task_id;
+        if(tid===state.drawer.taskId) {
+          state.drawer.attachments = await fetchAttachments(state.drawer.taskId);
+          renderAttachments();
+        }
+      }
+    })
+    .subscribe();
+}
+
+// ── 13. Event listeners ────────────────────────────────────
+el.quarterFilter.addEventListener("change", () => { state.filters.quarter=el.quarterFilter.value; refreshDashboard(); });
+el.regionFilter.addEventListener("change",  () => { state.filters.region =el.regionFilter.value;  refreshDashboard(); });
+el.refreshBtn.addEventListener("click", refreshDashboard);
+el.addTaskBtn.addEventListener("click", openCreateModal);
+
+el.taskModalCloseBtn.addEventListener("click", closeTaskModal);
+el.taskModalCancelBtn.addEventListener("click", closeTaskModal);
+el.taskModalSubmitBtn.addEventListener("click", handleTaskSubmit);
+el.taskModalBackdrop.addEventListener("click", e => { if(e.target===el.taskModalBackdrop) closeTaskModal(); });
+
+el.deleteModalCloseBtn.addEventListener("click", closeDeleteModal);
+el.deleteModalCancelBtn.addEventListener("click", closeDeleteModal);
+el.deleteModalConfirmBtn.addEventListener("click", handleDelete);
+el.deleteModalBackdrop.addEventListener("click", e => { if(e.target===el.deleteModalBackdrop) closeDeleteModal(); });
+
+el.drawerCloseBtn.addEventListener("click", closeDrawer);
+el.drawerBackdrop.addEventListener("click", closeDrawer);
+
+el.commentSubmitBtn.addEventListener("click", submitComment);
+el.attachmentUploadBtn.addEventListener("click", uploadAttachments);
+
+document.addEventListener("keydown", e => {
+  if(e.key==="Escape") {
+    if(el.taskModalBackdrop.classList.contains("open")) closeTaskModal();
+    else if(el.deleteModalBackdrop.classList.contains("open")) closeDeleteModal();
+    else if(state.drawer.open) closeDrawer();
+  }
+});
+
+// ── 14. Init ───────────────────────────────────────────────
+(async function init() {
+  const url=window.__SUPABASE_URL__, key=window.__SUPABASE_ANON_KEY__;
+  if(!url||url.includes("YOUR_PROJECT")||!key||key.includes("YOUR_SUPABASE")) {
+    setStatus("⚠️ Supabase URL / Anon Key를 설정해주세요. (소스 코드 최상단 Config 섹션)", true);
+    el.kpiGrid.innerHTML=`
+      <div class="panel kpi-card" style="grid-column:1/-1;text-align:center;padding:32px">
+        <div style="font-size:32px;margin-bottom:12px">🔧</div>
+        <div style="font-family:var(--font-display);font-size:18px;margin-bottom:8px">Supabase 연결 필요</div>
+        <div class="muted" style="font-size:13px;line-height:1.7">
+          소스 코드에서 <code style="background:rgba(255,255,255,.08);padding:2px 6px;border-radius:6px">__SUPABASE_URL__</code>과
+          <code style="background:rgba(255,255,255,.08);padding:2px 6px;border-radius:6px">__SUPABASE_ANON_KEY__</code>를<br>
+          실제 값으로 변경한 뒤 <code style="background:rgba(255,255,255,.08);padding:2px 6px;border-radius:6px">supabase_schema.sql</code>을 실행하세요.
+        </div>
+      </div>`;
+    return;
+  }
+  try {
+    state.sb = createClient(url, key);
+    setStatus("Supabase 연결 중…");
+    await refreshDashboard();
+    setupRealtime();
+  } catch(e) {
+    console.error(e);
+    setStatus(`초기화 오류: ${e.message||e}`, true);
+  }
+})();
+</script>
+</body>
+</html>
