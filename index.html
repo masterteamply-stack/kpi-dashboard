@@ -673,6 +673,57 @@
     .kpi-statement::selection,
     .cell-editable::selection { background:#5c6b4a; color:#fff; }
 
+
+    /* ── Inline Add Task ── */
+    .add-task-btn{
+      display:flex;align-items:center;gap:6px;padding:8px 48px;
+      font-size:12px;font-weight:600;color:#5c6b4a;cursor:pointer;
+      border-top:1px dashed #d4cec5;background:#f5f2ed;
+      transition:background .15s;width:100%;border:none;text-align:left;
+    }
+    .add-task-btn:hover{background:#eceae3;color:#3d5228}
+    .add-task-btn span{font-size:16px;font-weight:700;line-height:1}
+    .inline-add-row{
+      background:#fff;border-top:1px solid #d4cec5;padding:12px 48px 14px;
+      display:none;
+    }
+    .inline-add-row.open{display:block}
+    .inline-add-grid{
+      display:grid;
+      grid-template-columns:80px 80px 1fr 120px 110px 80px 100px 100px 120px;
+      gap:8px;align-items:end;margin-bottom:10px;
+    }
+    .inline-add-field label{
+      display:block;font-size:9px;font-weight:700;text-transform:uppercase;
+      letter-spacing:.08em;color:#8a8278;margin-bottom:4px;
+    }
+    .inline-add-field input,
+    .inline-add-field select{
+      width:100%;background:#faf8f4;border:1px solid #dedad2;color:#1a1714;
+      border-radius:3px;padding:6px 8px;font-size:12px;outline:none;
+      font-family:var(--font-body);transition:border-color .2s;
+    }
+    .inline-add-field input:focus,
+    .inline-add-field select:focus{border-color:#5c6b4a;box-shadow:0 0 0 2px rgba(92,107,74,.1)}
+    .inline-add-actions{display:flex;gap:8px;align-items:center}
+    .inline-add-error{font-size:11px;color:#9e4a3a;margin-top:6px;min-height:14px}
+
+    /* ── Strategic Theme Chart ── */
+    .theme-chart-wrap{display:grid;gap:10px}
+    .theme-bar-row{display:grid;grid-template-columns:140px 1fr 60px 70px;align-items:center;gap:10px}
+    .theme-bar-label{font-size:12px;font-weight:600;color:#1a1714;text-align:right;line-height:1.3}
+    .theme-bar-outer{height:20px;background:#eceae3;border-radius:3px;overflow:hidden;position:relative}
+    .theme-bar-fill{height:100%;border-radius:3px;transition:width .6s ease;display:flex;align-items:center;padding-left:8px}
+    .theme-bar-pct{font-size:11px;font-weight:700;color:#3d3830}
+    .theme-bar-spend{font-size:11px;color:#6b6259;text-align:right}
+
+    /* ── Digital KPI ── */
+    .digital-kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .digital-kpi-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-lg);padding:20px}
+    .digital-kpi-card h4{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b6259;margin-bottom:4px}
+    .digital-kpi-name{font-size:16px;font-weight:700;color:#1a1714;margin-bottom:14px}
+    @media(max-width:900px){.digital-kpi-grid{grid-template-columns:1fr}}
+
     /* ── Spinner ── */
     .spinner{
       width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;
@@ -746,15 +797,38 @@
     </div>
   </section>
 
-  <!-- Region + TaskType charts -->
-  <section class="grid" style="grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
+  <!-- Strategic Theme + Activity Type charts -->
+  <section class="grid" style="grid-template-columns:1.1fr 0.9fr;gap:16px;margin-bottom:18px">
     <div class="panel">
-      <h3>담당 지역별 태스크 집행율</h3>
-      <canvas id="regionChart" height="160"></canvas>
+      <h3>전략 영역별 진행 현황</h3>
+      <div id="themeChartWrap" class="theme-chart-wrap"></div>
     </div>
     <div class="panel">
-      <h3>활동 유형별 예산 집행 분포</h3>
-      <canvas id="taskTypeChart" height="160"></canvas>
+      <h3>활동 유형별 예산 집행</h3>
+      <canvas id="activityChart" height="220"></canvas>
+    </div>
+  </section>
+
+  <!-- Digital KPI -->
+  <section style="margin-bottom:18px">
+    <div class="panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+        <h3 style="margin-bottom:0">디지털 KPI 추이</h3>
+        <div class="toggle-switch-wrap">
+          <button id="dkpiBtnQ" class="toggle-btn active" onclick="switchDkpiView('quarter')">분기별</button>
+          <button id="dkpiBtnM" class="toggle-btn" onclick="switchDkpiView('month')">월별</button>
+        </div>
+      </div>
+      <div class="digital-kpi-grid">
+        <div class="digital-kpi-card">
+          <div class="digital-kpi-name">📊 Engagement (노출/도달)</div>
+          <canvas id="engagementChart" height="180"></canvas>
+        </div>
+        <div class="digital-kpi-card">
+          <div class="digital-kpi-name">👆 Click (광고 클릭)</div>
+          <canvas id="clickChart" height="180"></canvas>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -936,19 +1010,18 @@
     <button id="drawerCloseBtn" class="modal-close" type="button">×</button>
   </div>
   <div class="drawer-tabs">
-    <button class="dtab active" onclick="switchDrawerTab('overview',this)">개요</button>
-    <button class="dtab" onclick="switchDrawerTab('edit',this)">수정</button>
+    <button class="dtab active" onclick="switchDrawerTab('edit',this)">수정</button>
     <button class="dtab" onclick="switchDrawerTab('comments',this)">댓글</button>
     <button class="dtab" onclick="switchDrawerTab('attachments',this)">첨부파일</button>
   </div>
   <div class="drawer-body">
-    <div id="drawerTabOverview" class="drawer-tab-content">
+    <div id="drawerTabOverview" class="drawer-tab-content" style="display:none">
       <section class="drawer-card">
         <h4>업무 개요</h4>
         <div id="drawerOverview"></div>
       </section>
     </div>
-    <div id="drawerTabEdit" class="drawer-tab-content" style="display:none">
+    <div id="drawerTabEdit" class="drawer-tab-content">
       <section class="drawer-card">
         <h4>업무 수정</h4>
         <div id="drawerEditForm"></div>
@@ -1319,7 +1392,7 @@ async function fetchKpisWithTasks() {
 
   const { data: tasks, error: te } = await state.sb
     .from('tasks')
-    .select('id,title,kpi_id,owner_id,quarter,status,priority,progress,allocated_budget,notes,started_at,due_date,owners(name),kpis(kpi_key)')
+    .select('id,title,kpi_id,owner_id,quarter,region,status,priority,progress,allocated_budget,spend,notes,started_at,due_date,task_type,owners(name),kpis(kpi_key)')
     .order('started_at');
   if(te) throw te;
 
@@ -1580,7 +1653,8 @@ function renderKPIAccordion(kpis, tasks) {
           </div>
           <div class="progress-shell" style="width:80px"><div class="progress-bar" style="width:${Math.min(100,t.progress||0)}%"></div></div>
         </td>
-        <td style="color:#8a9ab8;font-size:12px">${fmtKRW(t.allocated_budget)}</td>
+        <td><span style="font-size:11px;background:#f0ede6;border:1px solid #e2ddd6;border-radius:2px;padding:2px 6px;color:#5a5148;white-space:nowrap">${esc(t.task_type||'')}</span></td>
+        <td style="color:#6b6259;font-size:12px">${fmtKRW(t.allocated_budget)}</td>
         <td>
           <div class="row-actions">
             <button class="btn btn-ghost" onclick="openDetailDrawer('${esc(t.id)}')">상세/수정</button>
@@ -1620,11 +1694,89 @@ function renderKPIAccordion(kpis, tasks) {
         <table class="kpi-tasks-table">
           <thead><tr>
             <th>월</th><th>분기</th><th>Task명</th><th>담당자</th>
-            <th>상태</th><th>진척도</th><th>예산</th><th>관리</th>
+            <th>상태</th><th>진척도</th><th>유형</th><th>예산</th><th>관리</th>
           </tr></thead>
           <tbody>${taskRows}</tbody>
         </table>
       </div>
+      <!-- Inline Add Row -->
+      <div class="inline-add-row" id="addRow_${esc(kpi.id)}">
+        <div class="inline-add-grid">
+          <div class="inline-add-field">
+            <label>월</label>
+            <select id="af_month_${esc(kpi.id)}">
+              ${['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'].map(m=>`<option value="${m}"${m==='5월'?' selected':''}>${m}</option>`).join('')}
+            </select>
+          </div>
+          <div class="inline-add-field">
+            <label>분기</label>
+            <select id="af_quarter_${esc(kpi.id)}">
+              <option value="2026-Q1">Q1</option>
+              <option value="2026-Q2" selected>Q2</option>
+              <option value="2026-Q3">Q3</option>
+              <option value="2026-Q4">Q4</option>
+            </select>
+          </div>
+          <div class="inline-add-field">
+            <label>Task명 *</label>
+            <input type="text" id="af_title_${esc(kpi.id)}" placeholder="Task 제목 입력" maxlength="120" />
+          </div>
+          <div class="inline-add-field">
+            <label>담당자</label>
+            <select id="af_owner_${esc(kpi.id)}">
+              <option value="">선택</option>
+              ${(state.owners||[]).map(o=>`<option value="${esc(o.id)}">${esc(o.name)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="inline-add-field">
+            <label>상태</label>
+            <select id="af_status_${esc(kpi.id)}">
+              <option value="todo">대기</option>
+              <option value="in_progress">진행중</option>
+              <option value="done">완료</option>
+              <option value="blocked">지연</option>
+            </select>
+          </div>
+          <div class="inline-add-field">
+            <label>진척도%</label>
+            <input type="number" id="af_progress_${esc(kpi.id)}" value="0" min="0" max="100" />
+          </div>
+          <div class="inline-add-field">
+            <label>활동 유형</label>
+            <select id="af_type_${esc(kpi.id)}">
+              <option value="">선택</option>
+              <option value="기획">기획</option>
+              <option value="분석">분석</option>
+              <option value="실행">실행</option>
+              <option value="제작">제작</option>
+              <option value="평가">평가</option>
+              <option value="기획/분석">기획/분석</option>
+              <option value="기획/실행">기획/실행</option>
+              <option value="실행/분석">실행/분석</option>
+              <option value="제작/분석">제작/분석</option>
+            </select>
+          </div>
+          <div class="inline-add-field">
+            <label>배정예산</label>
+            <input type="number" id="af_budget_${esc(kpi.id)}" value="0" min="0" />
+          </div>
+          <div class="inline-add-field">
+            <label>집행금액</label>
+            <input type="number" id="af_spend_${esc(kpi.id)}" value="0" min="0" />
+          </div>
+        </div>
+        <div class="inline-add-actions">
+          <button class="btn btn-primary" style="font-size:12px;padding:7px 14px"
+            onclick="saveInlineTask('${esc(kpi.id)}')">저장</button>
+          <button class="btn btn-secondary" style="font-size:12px;padding:7px 12px"
+            onclick="closeInlineAdd('${esc(kpi.id)}')">취소</button>
+          <div class="inline-add-error" id="af_err_${esc(kpi.id)}"></div>
+        </div>
+      </div>
+      <!-- + Task 버튼 -->
+      <button class="add-task-btn" onclick="openInlineAdd('${esc(kpi.id)}')">
+        <span>＋</span> Task 추가
+      </button>
     </div>`;
   }).join('');
 
@@ -1632,6 +1784,9 @@ function renderKPIAccordion(kpis, tasks) {
   state._lastKpis = kpis;
   state._lastKpiTasks = tasks;
   renderTop7KPI(kpis, tasks);
+  renderStrategicThemeChart(kpis, tasks);
+  renderActivityTypeChart(tasks);
+  renderDigitalKpiCharts(kpis, tasks);
   setTimeout(()=>{ window.applyAllSavedWidths(); window.rebuildAccGrid && window.rebuildAccGrid(); }, 0);
 }
 
@@ -1656,8 +1811,14 @@ async function refreshDashboard() {
     renderSummary(s);
     renderChart(state.tasks);
     renderOwnerTable(state.tasks);
-    renderRegionChart(state.tasks);
-    renderTaskTypeChart(state.tasks);
+    // 전략 영역 + 활동 유형 차트 (KPI + task 데이터 필요 - renderKPIAccordion 이후 호출)
+    setTimeout(()=>{
+      const kpis = state._lastKpis||[];
+      const tasks = state._lastKpiTasks||[];
+      renderStrategicThemeChart(kpis, tasks);
+      renderActivityTypeChart(tasks);
+      renderDigitalKpiCharts(kpis, tasks);
+    }, 100);
     // KPI accordion
     try {
       const { kpis, tasks } = await fetchKpisWithTasks();
@@ -1778,7 +1939,9 @@ async function openDrawer(id) {
   el.drawerBackdrop.classList.add("open");
   el.drawerTitle.textContent="불러오는 중…";
   el.drawerSub.textContent="";
-  el.drawerOverview.innerHTML=`<div class="muted" style="font-size:13px">로딩 중…</div>`;
+  // 기본 탭: 수정
+  document.querySelectorAll(".dtab").forEach((b,i)=>b.classList.toggle("active",i===0));
+  ['edit','comments','attachments'].forEach(t=>{const e=document.getElementById("drawerTab"+t.charAt(0).toUpperCase()+t.slice(1));if(e)e.style.display=t==='edit'?'block':'none';});
   el.commentList.innerHTML=""; el.attachmentList.innerHTML="";
   try {
     const [task, comments, attachments] = await Promise.all([
@@ -2112,7 +2275,7 @@ function openDetailDrawer(id) {
 function switchDrawerTab(tab, btnEl) {
   document.querySelectorAll('.dtab').forEach(b => b.classList.remove('active'));
   btnEl.classList.add('active');
-  ['overview','edit','comments','attachments'].forEach(t => {
+  ['edit','comments','attachments'].forEach(t => {
     const el = document.getElementById('drawerTab' + t.charAt(0).toUpperCase() + t.slice(1));
     if(el) el.style.display = t===tab ? 'block' : 'none';
   });
@@ -2130,6 +2293,7 @@ function renderDrawerEditForm(task) {
   const kpiOpts = `<option value="">선택 안 함</option>` + state.kpis.map(k =>
     `<option value="${esc(k.id)}" ${k.id===task.kpi_id?'selected':''}>${esc(k.title)}</option>`
   ).join('');
+  const tt = task.task_type||'';
   wrap.innerHTML = `
     <div style="display:grid;gap:12px">
       <div class="field"><label>업무명</label><input id="de_title" type="text" value="${esc(task.title||'')}" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" /></div>
@@ -2161,7 +2325,21 @@ function renderDrawerEditForm(task) {
         <div class="field"><label>시작일</label><input id="de_start" type="date" value="${task.started_at||''}" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" /></div>
         <div class="field"><label>마감일</label><input id="de_due" type="date" value="${task.due_date||''}" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" /></div>
       </div>
-      <div class="field"><label>메모</label><textarea id="de_notes" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none;min-height:80px;resize:vertical">${esc(task.notes||'')}</textarea></div>
+      <div class="field" style="grid-column:1/-1"><label>활동 유형</label>
+        <select id="de_type" style="background:#fff;border:1px solid var(--line);color:var(--text);border-radius:var(--radius);padding:10px 12px;font-family:var(--font-body);font-size:13px;outline:none;width:100%">
+          <option value="">선택 안 함</option>
+          <option value="기획" ${'기획'===tt?'selected':''}>기획</option>
+          <option value="분석" ${'분석'===tt?'selected':''}>분석</option>
+          <option value="실행" ${'실행'===tt?'selected':''}>실행</option>
+          <option value="제작" ${'제작'===tt?'selected':''}>제작</option>
+          <option value="평가" ${'평가'===tt?'selected':''}>평가</option>
+          <option value="기획/분석" ${'기획/분석'===tt?'selected':''}>기획/분석</option>
+          <option value="기획/실행" ${'기획/실행'===tt?'selected':''}>기획/실행</option>
+          <option value="실행/분석" ${'실행/분석'===tt?'selected':''}>실행/분석</option>
+          <option value="제작/분석" ${'제작/분석'===tt?'selected':''}>제작/분석</option>
+        </select>
+      </div>
+      <div class="field" style="grid-column:1/-1"><label>메모</label><textarea id="de_notes" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none;min-height:80px;resize:vertical">${esc(task.notes||'')}</textarea></div>
       <div id="de_error" style="font-size:12px;color:#ff9f9f;min-height:16px"></div>
       <div style="display:flex;gap:10px">
         <button type="button" class="btn btn-primary" onclick="saveDrawerEdit('${esc(task.id)}')">저장</button>
@@ -2186,6 +2364,7 @@ async function saveDrawerEdit(id) {
     started_at: document.getElementById('de_start').value || null,
     due_date:   document.getElementById('de_due').value || null,
     notes:    document.getElementById('de_notes').value.trim() || null,
+    task_type: document.getElementById('de_type')?.value || null,
   };
   if(!payload.title){ err.textContent='업무명을 입력하세요.'; return; }
   try {
@@ -2894,6 +3073,258 @@ function renderTop7KPI(kpis, tasks) {
       <div class="top7-pct" style="color:${color}">${avg}%</div>
     </div>`;
   }).join('');
+}
+
+
+// ── Strategic Theme Chart ──
+function renderStrategicThemeChart(kpis, tasks) {
+  const wrap = document.getElementById('themeChartWrap');
+  if(!wrap) return;
+
+  const COLORS = {
+    '고객 참여 기반의 수요 전환': '#5c6b4a',
+    '판매 가속화': '#b8962e',
+    '데이터 기반 효율 강화': '#4a6b7c',
+  };
+  const shortTheme = t => (t||'').replace('시장 수요 창출 > ','').replace('시장 기회 확대 > ','').replace('마케팅 효능감 > ','') || '기타';
+
+  const themeMap = {};
+  for(const kpi of kpis) {
+    const th = shortTheme(kpi.strategic_theme);
+    if(!themeMap[th]) themeMap[th] = { budget:0, spend:0, prog:[], done:0, total:0 };
+    const kt = tasks.filter(t=>t.kpi_id===kpi.id);
+    kt.forEach(t => {
+      themeMap[th].budget += Number(t.allocated_budget||0);
+      themeMap[th].spend  += Number(t.spend||0);
+      themeMap[th].prog.push(Number(t.progress||0));
+      themeMap[th].total++;
+      if(t.status==='done') themeMap[th].done++;
+    });
+  }
+
+  const themes = Object.entries(themeMap).sort((a,b)=>b[1].total-a[1].total);
+  const maxBudget = Math.max(...themes.map(([,v])=>v.budget), 1);
+
+  wrap.innerHTML = themes.map(([name, v]) => {
+    const avg  = v.prog.length ? Math.round(v.prog.reduce((a,b)=>a+b,0)/v.prog.length) : 0;
+    const exec = v.budget>0 ? Math.round(v.spend/v.budget*100) : 0;
+    const col  = COLORS[name] || '#8a8278';
+    const barW = avg;
+    return `
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
+          <span style="font-size:12px;font-weight:700;color:#1a1714">${esc(name)}</span>
+          <span style="font-size:11px;color:#6b6259">${v.done}/${v.total} 완료 · 집행 ${exec}%</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 40px;gap:8px;align-items:center">
+          <div style="height:18px;background:#eceae3;border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${barW}%;background:${col};border-radius:3px;
+              display:flex;align-items:center;padding-left:6px;transition:width .6s ease">
+              ${barW>12?`<span style="font-size:10px;font-weight:700;color:#fff">${avg}%</span>`:''}
+            </div>
+          </div>
+          <span style="font-size:12px;font-weight:700;color:${col};text-align:right">${avg}%</span>
+        </div>
+        <div style="height:6px;background:#f0ede6;border-radius:2px;overflow:hidden;margin-top:4px">
+          <div style="height:100%;width:${exec}%;background:${col};opacity:.45;border-radius:2px"></div>
+        </div>
+        <div style="font-size:10px;color:#8a8278;margin-top:3px">
+          예산 ${fmtKRW(v.budget)} → 집행 ${fmtKRW(v.spend)}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Activity Type Chart ──
+function renderActivityTypeChart(tasks) {
+  const ctx = document.getElementById('activityChart');
+  if(!ctx) return;
+
+  const typeMap = {};
+  for(const t of tasks) {
+    const tp = t.task_type || '미분류';
+    if(!typeMap[tp]) typeMap[tp] = { spend:0, budget:0, count:0 };
+    typeMap[tp].spend  += Number(t.spend||0);
+    typeMap[tp].budget += Number(t.allocated_budget||0);
+    typeMap[tp].count++;
+  }
+
+  const entries = Object.entries(typeMap).filter(([,v])=>v.count>0)
+    .sort((a,b)=>b[1].spend-a[1].spend);
+  const labels  = entries.map(([k])=>k);
+  const spends  = entries.map(([,v])=>v.spend);
+  const budgets = entries.map(([,v])=>v.budget);
+  const COLS = ['rgba(92,107,74,.8)','rgba(74,124,89,.8)','rgba(184,150,46,.8)',
+                'rgba(74,107,124,.8)','rgba(158,74,58,.8)','rgba(120,100,80,.8)',
+                'rgba(100,80,140,.8)','rgba(80,120,100,.8)','rgba(140,120,60,.8)'];
+
+  if(window._actChart) window._actChart.destroy();
+  if(!labels.length) { ctx.parentElement.innerHTML += '<p class="empty" style="text-align:center;padding:20px">활동 유형 데이터가 없습니다<br><small style="color:#8a8278">Task에서 활동 유형을 설정하세요</small></p>'; return; }
+
+  window._actChart = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        { label:'배정 예산', data:budgets, backgroundColor:'rgba(92,107,74,.25)', borderRadius:3 },
+        { label:'집행 금액', data:spends,  backgroundColor:COLS.slice(0,labels.length), borderRadius:3 }
+      ]
+    },
+    options:{
+      responsive:true, indexAxis:'y',
+      plugins:{ legend:{ labels:{ color:'#6b6259', font:{ size:11 } } },
+        tooltip:{ callbacks:{ label:c=>`${c.dataset.label}: ${fmtKRW(c.parsed.x)}` } } },
+      scales:{
+        x:{ ticks:{ color:'#8a8278', font:{size:10}, callback:v=>v>=1000000?`${(v/1000000).toFixed(0)}M`:`${(v/1000).toFixed(0)}K` }, grid:{ color:'rgba(60,50,40,.06)' } },
+        y:{ ticks:{ color:'#3d3830', font:{size:12,weight:'600'} }, grid:{ display:false } }
+      }
+    }
+  });
+}
+
+// ── Digital KPI Chart ──
+let _dkpiView = 'quarter';
+function switchDkpiView(mode) {
+  _dkpiView = mode;
+  document.getElementById('dkpiBtnQ')?.classList.toggle('active', mode==='quarter');
+  document.getElementById('dkpiBtnM')?.classList.toggle('active', mode==='month');
+  renderDigitalKpiCharts(state._lastKpis||[], state._lastKpiTasks||[]);
+}
+
+function renderDigitalKpiCharts(kpis, tasks) {
+  const kpi10 = kpis.find(k=>k.kpi_key==='B2D-10');
+  const kpi11 = kpis.find(k=>k.kpi_key==='B2D-11');
+
+  const parseResult = (v) => {
+    if(!v || v==='nan') return null;
+    const m = String(v).replace(/,/g,'').match(/[\d.]+/);
+    return m ? Number(m[0]) : null;
+  };
+
+  function drawKpiChart(canvasId, kpi, tasks) {
+    const ctx = document.getElementById(canvasId);
+    if(!ctx || !kpi) return;
+
+    const quarters = ['Q1','Q2','Q3','Q4'];
+    const qLabels  = _dkpiView==='quarter'
+      ? quarters
+      : ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+
+    let targets, actuals;
+    if(_dkpiView === 'quarter') {
+      targets = [kpi.q1_target,kpi.q2_target,kpi.q3_target,kpi.q4_target].map(v=>Number(v)||0);
+      actuals = [kpi.q1_result,kpi.q2_result,kpi.q3_result,kpi.q4_result].map(parseResult);
+    } else {
+      // 월별: 분기 목표를 3등분으로 근사
+      const qt = [Number(kpi.q1_target)||0, Number(kpi.q2_target)||0, Number(kpi.q3_target)||0, Number(kpi.q4_target)||0];
+      targets = [
+        qt[0]/3, qt[0]*2/3, qt[0],
+        qt[0]+(qt[1]-qt[0])/3, qt[0]+(qt[1]-qt[0])*2/3, qt[1],
+        qt[1]+(qt[2]-qt[1])/3, qt[1]+(qt[2]-qt[1])*2/3, qt[2],
+        qt[2]+(qt[3]-qt[2])/3, qt[2]+(qt[3]-qt[2])*2/3, qt[3]
+      ].map(Math.round);
+      const qActuals = [kpi.q1_result,kpi.q2_result,kpi.q3_result,kpi.q4_result].map(parseResult);
+      actuals = [
+        null, null, qActuals[0],
+        null, null, qActuals[1],
+        null, null, qActuals[2],
+        null, null, qActuals[3]
+      ];
+    }
+
+    const prevChart = window['_dChart_'+canvasId];
+    if(prevChart) prevChart.destroy();
+
+    window['_dChart_'+canvasId] = new Chart(ctx, {
+      type:'bar',
+      data:{
+        labels: qLabels,
+        datasets:[
+          { type:'line', label:'목표', data:targets, borderColor:'#8a9ab8', borderWidth:2,
+            pointBackgroundColor:'#8a9ab8', pointRadius:3, fill:false, tension:.3, order:1,
+            borderDash:[4,3] },
+          { type:'bar',  label:'실적', data:actuals, backgroundColor:'rgba(92,107,74,.75)',
+            borderRadius:3, order:2 }
+        ]
+      },
+      options:{
+        responsive:true,
+        plugins:{
+          legend:{ labels:{ color:'#6b6259', font:{size:11} } },
+          tooltip:{ callbacks:{
+            label: c => {
+              const v=c.parsed.y;
+              if(v==null) return null;
+              return `${c.dataset.label}: ${v>=1000000?(v/1000000).toFixed(2)+'M':v>=1000?(v/1000).toFixed(0)+'K':v}`;
+            }
+          }}
+        },
+        scales:{
+          x:{ ticks:{color:'#8a8278',font:{size:10}}, grid:{color:'rgba(60,50,40,.05)'} },
+          y:{ beginAtZero:true, ticks:{ color:'#8a8278', font:{size:10},
+              callback:v=>v>=1000000?(v/1000000).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'K':v
+            }, grid:{color:'rgba(60,50,40,.06)'} }
+        }
+      }
+    });
+  }
+
+  drawKpiChart('engagementChart', kpi10, tasks);
+  drawKpiChart('clickChart',      kpi11, tasks);
+}
+
+// ── Inline Add Task ──
+function openInlineAdd(kpiId) {
+  document.querySelectorAll('.inline-add-row.open').forEach(r=>r.classList.remove('open'));
+  const row = document.getElementById('addRow_'+kpiId);
+  if(row) { row.classList.add('open'); document.getElementById('af_title_'+kpiId)?.focus(); }
+}
+function closeInlineAdd(kpiId) {
+  const row = document.getElementById('addRow_'+kpiId);
+  if(row) row.classList.remove('open');
+}
+
+async function saveInlineTask(kpiId) {
+  const errEl = document.getElementById('af_err_'+kpiId);
+  const g = id => document.getElementById(id+'_'+kpiId)?.value?.trim();
+  const gv = id => document.getElementById(id+'_'+kpiId)?.value;
+
+  const title = g('af_title');
+  if(!title) { errEl.textContent='Task명을 입력하세요.'; return; }
+
+  const monthStr = gv('af_month') || '5월';
+  const mn = {'1월':1,'2월':2,'3월':3,'4월':4,'5월':5,'6월':6,'7월':7,'8월':8,'9월':9,'10월':10,'11월':11,'12월':12}[monthStr]||5;
+  const lastDay = [31,28,31,30,31,30,31,31,30,31,30,31][mn-1];
+
+  const payload = {
+    title,
+    kpi_id:   kpiId || null,
+    owner_id: gv('af_owner') || null,
+    quarter:  gv('af_quarter') || '2026-Q2',
+    region:   'KR',
+    status:   gv('af_status')   || 'todo',
+    priority: 'medium',
+    progress: Math.min(100, Math.max(0, Number(gv('af_progress'))||0)),
+    task_type: gv('af_type') || null,
+    allocated_budget: Number(gv('af_budget'))||0,
+    spend:    Number(gv('af_spend'))||0,
+    revenue:  0, leads: 0,
+    started_at: `2026-${String(mn).padStart(2,'0')}-01`,
+    due_date:   `2026-${String(mn).padStart(2,'0')}-${lastDay}`,
+  };
+
+  errEl.textContent = '저장 중…';
+  try {
+    const { data, error } = await state.sb.from('tasks').insert([payload]).select().single();
+    if(error) throw error;
+    closeInlineAdd(kpiId);
+    errEl.textContent = '';
+    await refreshDashboard();
+    // 저장된 task 드로어 열기
+    if(data?.id) openDetailDrawer(data.id);
+  } catch(e) {
+    errEl.textContent = '저장 실패: '+(e.message||String(e));
+  }
 }
 
 // ── 14. Init ───────────────────────────────────────────────
