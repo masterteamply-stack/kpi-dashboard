@@ -1801,7 +1801,7 @@ async function fetchKpisWithTasks() {
 
 
 // ── 6. Summary computation ─────────────────────────────────
-function computeSummary(tasks) {
+function computeSummary(tasks, kpis) {
   const today = todayD();
   const total    = tasks.length;
   const done     = tasks.filter(t=>t.status==="done").length;
@@ -1815,8 +1815,12 @@ function computeSummary(tasks) {
   const leads    = tasks.reduce((s,t)=>s+Number(t.leads||0),0);
   const avgProg  = total ? tasks.reduce((s,t)=>s+Number(t.progress||0),0)/total : 0;
   const compRate = total ? (done/total)*100 : 0;
-  const roi = spend>0 ? (revenue/spend)*100 : 0; // 관련오더/마케팅비용
-  return { total,done,inProg,blocked,todo,delayed,budget,spend,revenue,leads,avgProg,compRate,roi };
+  const roi = spend>0 ? (revenue/spend)*100 : 0;
+  // KPI 수 집계
+  const kpiList  = kpis || state._lastKpis || [];
+  const kpiTotal = kpiList.length;
+  const kpiDone  = kpiList.filter(k=>k.progress_status==='완료').length;
+  return { total,done,inProg,blocked,todo,delayed,budget,spend,revenue,leads,avgProg,compRate,roi,kpiTotal,kpiDone };
 }
 
 function buildOwnerSummary(tasks, kpis) {
@@ -1879,8 +1883,10 @@ function buildBuckets(tasks) {
 // ── 7. Render ──────────────────────────────────────────────
 function renderKPICards(s) {
   const items=[
-    { label:"전체 업무",   value:fmtNum(s.total),     sub:`완료 ${fmtNum(s.done)}건`,      icon:"📋" },
-    { label:"완료율",      value:fmtPct(s.compRate),  sub:`진행중 ${fmtNum(s.inProg)}건`,   icon:"✅" },
+    { label:"전체 업무",   value:fmtNum(s.total),
+      sub:`완료 ${fmtNum(s.done)}건 · KPI ${fmtNum(s.kpiTotal||0)}개`,      icon:"📋" },
+    { label:"완료율",      value:fmtPct(s.compRate),
+      sub:`KPI 완료 ${fmtNum(s.kpiDone||0)}개 · 진행중 ${fmtNum(s.inProg)}건`,   icon:"✅" },
     { label:"평균 진척도", value:fmtPct(s.avgProg),   sub:`차단 ${fmtNum(s.blocked)}건`,    icon:"📈" },
     { label:"지연 업무",   value:fmtNum(s.delayed),   sub:`대기 ${fmtNum(s.todo)}건`,       icon:"⚠️" },
     { label:"총 집행",     value:fmtKRW(s.spend),     sub:`배정 ${fmtKRW(s.budget)}`,       icon:"💰" },
@@ -1927,7 +1933,7 @@ function toggleLeadDetail() {
   state.leadDetail.showDetail = !state.leadDetail.showDetail;
   const body = document.getElementById('leadDetailBody');
   if(body) body.style.maxHeight = state.leadDetail.showDetail ? '260px' : '0';
-  const cs = computeSummary(state.tasks||[]);
+  const cs = computeSummary(state.tasks||[], state._lastKpis||[]);
   renderSummary(cs);
 }
 
@@ -2131,7 +2137,7 @@ function renderKPIAccordion(kpis, tasks) {
   const statusPillClass = s => ({'진행 중':'active','완료':'done','시작 전':'pending'}[s]||'pending');
 
   const colLabels = window._colLabels || {
-    kpiName:'KPI명 / 목표', owners:'담당자', status:'진행상태', progress:'진척도',
+    kpiName:'KPI명 / 목표', owners:'담당자', status:'진행상태', progress:'목표 대비 실적',
     q1:'Q1', q2:'Q2', q3:'Q3', q4:'Q4', unit:'단위'
   };
   window._colLabels = colLabels;
@@ -2213,9 +2219,10 @@ function renderKPIAccordion(kpis, tasks) {
             title="Deadline 변경"
           />
         </td>
-        <td>
-          <div style="font-size:12px;font-weight:700;color:#1a1714 !important">
-            <span class="cell-editable" style="color:#1a1714"
+        <td onclick="event.stopPropagation()">
+          <div style="display:flex;align-items:center;gap:4px">
+            <span class="cell-editable"
+              style="font-size:12px;font-weight:700;color:#1a1714;min-width:28px;text-align:right"
               contenteditable="true"
               data-task-id="${t.id}"
               data-field="progress"
@@ -2223,10 +2230,10 @@ function renderKPIAccordion(kpis, tasks) {
               onblur="saveTaskCellEdit(this)"
               onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
               onfocus="this.dataset.orig=this.textContent"
-              title="0~100 입력"
-            >${t.progress||0}</span>%
+              title="실적 값 입력"
+            >${t.progress||0}</span>
+            <span style="font-size:10px;color:#8a8278">${kpi.unit||''}</span>
           </div>
-          <div class="progress-shell" style="width:80px"><div class="progress-bar" style="width:${Math.min(100,t.progress||0)}%"></div></div>
         </td>
         <td>${t.task_type?`<span style="font-size:10px;background:#e8eddf;border:1px solid #b8ccaa;border-radius:2px;padding:2px 7px;color:#3d5228;font-weight:600;white-space:nowrap">${esc(t.task_type)}</span>`:''}</td>
         <td style="color:#6b6259;font-size:12px">${fmtKRW(t.allocated_budget)}</td>
@@ -2345,7 +2352,7 @@ function renderKPIAccordion(kpis, tasks) {
         <table class="kpi-tasks-table">
           <thead><tr>
             <th>월</th><th>분기</th><th>Task명</th><th>담당자</th>
-            <th>상태</th><th>Deadline</th><th>진척도</th><th>유형</th><th>예산</th><th>관리</th>
+            <th>상태</th><th>Deadline</th><th>실적</th><th>유형</th><th>예산</th><th>관리</th>
           </tr></thead>
           <tbody>${taskRows}</tbody>
         </table>
@@ -2466,7 +2473,7 @@ async function refreshDashboard() {
   try {
     await Promise.all([fetchMetaWithWebhook(), hydrateFilters()]);
     state.tasks = await fetchTasks();
-    const s = computeSummary(state.tasks);
+    const s = computeSummary(state.tasks, state._lastKpis||[]);
     renderKPICards(s);
     renderSummary(s);
     // renderChart removed - replaced by themeInteractiveChart
@@ -3093,7 +3100,7 @@ async function saveTaskCellEdit(el) {
     setTimeout(()=>el.classList.remove('cell-saved-flash'), 700);
     // refresh KPI summary quietly
     state.tasks = state.tasks.map(t => t.id===taskId ? {...t, [field]: val} : t);
-    const s = computeSummary(state.tasks);
+    const s = computeSummary(state.tasks, state._lastKpis||[]);
     renderKPICards(s); renderSummary(s); renderChart(state.tasks);
   } catch(e) {
     el.textContent = orig;
@@ -3213,7 +3220,7 @@ async function saveTaskSelectEdit(sel) {
     const { error } = await state.sb.from('tasks').update({ [field]: val }).eq('id', taskId);
     if(error) throw error;
     state.tasks = state.tasks.map(t => t.id===taskId ? {...t, [field]:val} : t);
-    const s = computeSummary(state.tasks);
+    const s = computeSummary(state.tasks, state._lastKpis||[]);
     renderKPICards(s); renderSummary(s); renderChart(state.tasks);
   } catch(e) { console.error('Select save error:', e); }
   finally { sel.disabled = false; }
@@ -3453,17 +3460,61 @@ async function saveOwnerField(input) {
 
 // ── KPI Progress Gauge ──
 function renderKpiGauge(kpi, taskList) {
-  // Task들의 평균 진척도로 게이지 표시
-  const avgProg = taskList.length
-    ? Math.round(taskList.reduce((s,t)=>s+Number(t.progress||0),0)/taskList.length)
-    : 0;
-  const colorClass = avgProg >= 70 ? '' : avgProg >= 40 ? 'warn' : 'danger';
-  return `
-    <div class="kpi-gauge-pct">${avgProg}%</div>
-    <div class="kpi-gauge-outer">
-      <div class="kpi-gauge-bar ${colorClass}" style="width:${avgProg}%"></div>
-    </div>
-    <div class="kpi-gauge-label">${taskList.length}개 Task 평균</div>`;
+  // 현재 분기 기준 q_result / q_target 달성률
+  const curQ = (() => {
+    const m = new Date().getMonth(); // 0-11
+    if(m < 3) return 'q1'; if(m < 6) return 'q2'; if(m < 9) return 'q3'; return 'q4';
+  })();
+
+  const parseN = v => {
+    if(!v || String(v).trim() === '' || String(v) === 'nan') return null;
+    const m = String(v).replace(/,/g,'').match(/[\d.]+/);
+    return m ? Number(m[0]) : null;
+  };
+
+  // 가장 최신 결과가 있는 분기 우선
+  let qKey = curQ;
+  for(const q of [curQ,'q2','q1','q3','q4']) {
+    if(parseN(kpi[q+'_result']) !== null) { qKey = q; break; }
+  }
+
+  const result = parseN(kpi[qKey+'_result']);
+  const target = parseN(kpi[qKey+'_target']);
+  const unit   = kpi.unit || '';
+
+  const fmtV = v => {
+    if(v === null) return '–';
+    if(v >= 1000000) return (v/1000000).toFixed(1)+'M';
+    if(v >= 1000)    return (v/1000).toFixed(0)+'K';
+    return String(Math.round(v));
+  };
+
+  if(result === null && target === null) {
+    // 데이터 없으면 task 평균으로 fallback
+    const avgProg = taskList.length
+      ? Math.round(taskList.reduce((s,t)=>s+Number(t.progress||0),0)/taskList.length) : 0;
+    const cc = avgProg>=70?'':'warn';
+    return `<div class="kpi-gauge-pct">${avgProg}%</div>`
+      + `<div class="kpi-gauge-outer"><div class="kpi-gauge-bar ${cc}" style="width:${avgProg}%"></div></div>`
+      + `<div class="kpi-gauge-label">Task 평균</div>`;
+  }
+
+  const achvPct = (result !== null && target !== null && target > 0)
+    ? Math.round((result / target) * 100) : null;
+  const colorClass = achvPct === null ? '' : achvPct >= 80 ? '' : achvPct >= 50 ? 'warn' : 'danger';
+  const barW = achvPct !== null ? Math.min(100, achvPct) : 0;
+
+  return ''
+    + `<div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px">`
+    +   `<span class="kpi-gauge-pct">${achvPct !== null ? achvPct+'%' : '–'}</span>`
+    +   `<span style="font-size:9px;color:#8a8278;font-weight:600">${qKey.toUpperCase()}</span>`
+    + `</div>`
+    + `<div class="kpi-gauge-outer"><div class="kpi-gauge-bar ${colorClass}" style="width:${barW}%"></div></div>`
+    + `<div style="font-size:10px;color:#6b6259;margin-top:3px;line-height:1.3">`
+    +   `<span style="color:#5c6b4a;font-weight:700">${fmtV(result)}</span>`
+    +   `<span style="color:#8a8278"> / ${fmtV(target)}</span>`
+    +   (unit ? `<span style="color:#8a8278;margin-left:2px">${unit}</span>` : '')
+    + `</div>`;
 }
 
 // ── KPI 상세 모달 ──
@@ -5467,7 +5518,7 @@ async function fetchWebLeadData() {
     };
 
     // 요약 UI 즉시 갱신
-    const s2 = computeSummary(state.tasks||[]);
+    const s2 = computeSummary(state.tasks||[], state._lastKpis||[]);
     renderSummary(s2);
   } catch(e) {
     console.warn('WebLead fetch error:', e.message);
@@ -5486,7 +5537,7 @@ function editChannelDiscriber() {
   if(!state.channelDiscriber) state.channelDiscriber = {};
   state.channelDiscriber.manual = num;
   try { localStorage.setItem('channelDiscriber_manual', String(num)); } catch(e) {}
-  const s = computeSummary(state.tasks||[]);
+  const s = computeSummary(state.tasks||[], state._lastKpis||[]);
   renderSummary(s);
 }
 
