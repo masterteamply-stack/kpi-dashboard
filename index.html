@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KPI 운영 대시보드</title>
+  <title>마케팅커뮤니케이션 대시보드</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -831,6 +831,49 @@
     .digital-kpi-card{padding:14px}
     .digital-kpi-name{font-size:13px;font-weight:700;color:#1a1714;margin-bottom:10px}
 
+
+    /* ── Activity Type Inline Picker ── */
+    .type-picker-wrap{position:relative;display:inline-block}
+    .type-picker-btn{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:6px 10px;border-radius:3px;font-size:12px;font-weight:600;
+      background:#e8eddf;border:1px solid #b8ccaa;color:#3d5228;
+      cursor:pointer;transition:all .15s;min-width:100px;
+    }
+    .type-picker-btn:hover{background:#dce8cc;border-color:#9ab890}
+    .type-picker-btn .arrow{font-size:10px;margin-left:auto;color:#6b8a50}
+    .type-picker-dropdown{
+      position:absolute;left:0;top:calc(100% + 4px);z-index:500;
+      background:#fdfcf9;border:1px solid #d4cec5;border-radius:6px;
+      box-shadow:0 8px 24px rgba(60,50,40,.14);min-width:180px;
+      overflow:hidden;
+    }
+    .type-picker-list{max-height:220px;overflow-y:auto;padding:4px}
+    .type-picker-item{
+      display:flex;align-items:center;gap:8px;padding:7px 10px;
+      border-radius:3px;cursor:pointer;font-size:12px;font-weight:500;color:#1a1714;
+      transition:background .12s;
+    }
+    .type-picker-item:hover{background:#f0ede6}
+    .type-picker-item.selected{background:#e8eddf;color:#3d5228;font-weight:700}
+    .type-picker-item .check{font-size:13px;flex-shrink:0;width:16px}
+    .type-picker-divider{height:1px;background:#e8e4dc;margin:4px 0}
+    .type-picker-add{
+      display:flex;align-items:center;gap:6px;padding:7px 10px;
+      cursor:pointer;font-size:12px;color:#5c6b4a;font-weight:600;
+      border-top:1px solid #e8e4dc;
+    }
+    .type-picker-add:hover{background:#e8eddf}
+    .type-picker-add-input{
+      flex:1;background:transparent;border:none;outline:none;
+      font-size:12px;color:#1a1714;font-family:var(--font-body);
+      min-width:0;
+    }
+    .type-picker-add-confirm{
+      background:#5c6b4a;color:#fff;border:none;border-radius:2px;
+      padding:2px 8px;font-size:11px;cursor:pointer;font-family:var(--font-body);
+    }
+
     /* ── Spinner ── */
     .spinner{
       width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;
@@ -863,7 +906,7 @@
   <!-- Hero -->
   <section class="hero">
     <div>
-      <h1 class="hero-title">KPI 운영 대시보드</h1>
+      <h1 class="hero-title">마케팅커뮤니케이션 대시보드</h1>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <button class="btn btn-secondary" onclick="openMemberModal()"
@@ -882,23 +925,7 @@
     <button id="addTaskBtn"  class="btn btn-primary">＋ 업무 추가</button>
   </section>
 
-  <!-- 마케팅 활동 유형 관리 -->
-  <details id="typeManagerDetails" style="margin-bottom:12px">
-    <summary style="cursor:pointer;font-size:12px;font-weight:600;color:#5c6b4a;
-      list-style:none;display:flex;align-items:center;gap:6px;padding:8px 12px;
-      background:#e8eddf;border:1px solid #b8ccaa;border-radius:4px;width:fit-content">
-      <span>🏷️ 마케팅 활동 유형 관리</span>
-      <span style="font-size:10px;color:#6b8a50;font-weight:400">▾ 클릭하여 펼치기</span>
-    </summary>
-    <div style="margin-top:8px;padding:12px;background:#fdfcf9;border:1px solid #d8e4cc;border-radius:4px">
-      <p style="font-size:11px;color:#6b6259;margin-bottom:10px">
-        × 클릭으로 삭제 · 우측 입력창에 입력 후 Enter 또는 추가 버튼으로 추가
-      </p>
-      <div id="typeManagerWrap"></div>
-    </div>
-  </details>
-
-  <div id="statusLine" class="status-line">초기화 중…</div>
+  <!-- 마케팅 활동 유형 관리 -->  <div id="statusLine" class="status-line">초기화 중…</div>
 
   <!-- KPI cards -->
   <section id="kpiGrid" class="grid kpi-grid"></section>
@@ -1934,12 +1961,14 @@ function renderKPIAccordion(kpis, tasks) {
           </div>
           <div class="inline-add-field">
             <label>마케팅 활동 유형</label>
-            <select id="af_type_${esc(kpi.id)}"
-              data-type-select="1" data-placeholder="선택"
-              onchange="handleTypeSelectChange(this)"
-              style="min-width:110px">
-              ${buildTypeOptions('','선택')}
-            </select>
+            <div class="type-picker-wrap" id="af_type_wrap_${esc(kpi.id)}">
+              <div class="type-picker-btn" style="min-width:110px"
+                onclick="openTypePicker('af_type_wrap_${esc(kpi.id)}','')">
+                <span class="af-type-label">선택</span>
+                <span class="arrow">▾</span>
+              </div>
+              <input type="hidden" id="af_type_${esc(kpi.id)}" value="" />
+            </div>
           </div>
           <div class="inline-add-field">
             <label>배정예산</label>
@@ -2512,12 +2541,16 @@ function renderDrawerEditForm(task) {
         <div class="field"><label>시작일</label><input id="de_start" type="date" value="${task.started_at||''}" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" /></div>
         <div class="field"><label>마감일</label><input id="de_due" type="date" value="${task.due_date||''}" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" /></div>
       </div>
-      <div class="field" style="grid-column:1/-1"><label>마케팅 활동 유형</label>
-        <select id="de_type" data-type-select="1" data-placeholder="선택 안 함"
-          onchange="handleTypeSelectChange(this)"
-          style="background:#fff;border:1px solid var(--line);color:var(--text);border-radius:var(--radius);padding:10px 12px;font-family:var(--font-body);font-size:13px;outline:none;width:100%">
-          ${buildTypeOptions(tt,'선택 안 함')}
-        </select>
+      <div class="field" style="grid-column:1/-1">
+        <label>마케팅 활동 유형</label>
+        <div class="type-picker-wrap" id="de_type_wrap">
+          <div class="type-picker-btn" onclick="openTypePicker('de_type_wrap', '${tt}')"
+            id="de_type_display">
+            <span id="de_type_label">${tt || '선택 안 함'}</span>
+            <span class="arrow">▾</span>
+          </div>
+          <input type="hidden" id="de_type" value="${tt}" />
+        </div>
       </div>
       <div class="field" style="grid-column:1/-1"><label>메모</label><textarea id="de_notes" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none;min-height:80px;resize:vertical">${esc(task.notes||'')}</textarea></div>
       <div id="de_error" style="font-size:12px;color:#ff9f9f;min-height:16px"></div>
@@ -2544,7 +2577,7 @@ async function saveDrawerEdit(id) {
     started_at: document.getElementById('de_start').value || null,
     due_date:   document.getElementById('de_due').value || null,
     notes:    document.getElementById('de_notes').value.trim() || null,
-    task_type: document.getElementById('de_type')?.value || null,
+    task_type: document.getElementById('de_type')?.value || null, // hidden input
   };
   if(!payload.title){ err.textContent='업무명을 입력하세요.'; return; }
   try {
@@ -3530,7 +3563,7 @@ async function saveInlineTask(kpiId) {
     status:   gv('af_status')   || 'todo',
     priority: 'medium',
     progress: Math.min(100, Math.max(0, Number(gv('af_progress'))||0)),
-    task_type: gv('af_type') || null,
+    task_type: document.getElementById('af_type_'+kpiId)?.value || null,
     allocated_budget: Number(gv('af_budget'))||0,
     spend:    Number(gv('af_spend'))||0,
     revenue:  0, leads: 0,
@@ -4010,13 +4043,112 @@ function renderRegionOrderChart(tasks) {
   });
 }
 
+
+// ── Activity Type Picker ──
+let _activeTypePicker = null;
+
+function openTypePicker(wrapId, currentVal) {
+  // 이미 열린 picker 닫기
+  document.querySelectorAll('.type-picker-dropdown').forEach(el=>el.remove());
+  _activeTypePicker = null;
+
+  const wrap = document.getElementById(wrapId);
+  if(!wrap) return;
+  const types = getMktgTypes();
+  const dropdown = document.createElement('div');
+  dropdown.className = 'type-picker-dropdown';
+  dropdown.id = 'typeDrop_' + wrapId;
+
+  const listHTML = types.map(t => `
+    <div class="type-picker-item${t===currentVal?' selected':''}"
+      onclick="selectTypePickerItem('${wrapId}','${esc(t)}')">
+      <span class="check">${t===currentVal?'✓':''}</span>
+      <span>${esc(t)}</span>
+    </div>`).join('');
+
+  dropdown.innerHTML = `
+    <div class="type-picker-list">
+      <div class="type-picker-item${!currentVal?' selected':''}"
+        onclick="selectTypePickerItem('${wrapId}','')">
+        <span class="check">${!currentVal?'✓':''}</span>
+        <span style="color:#8a8278">선택 안 함</span>
+      </div>
+      <div class="type-picker-divider"></div>
+      ${listHTML}
+    </div>
+    <div class="type-picker-add" id="typeAddRow_${wrapId}">
+      <span style="font-size:14px;line-height:1">＋</span>
+      <input class="type-picker-add-input" id="typeAddInput_${wrapId}"
+        placeholder="새 유형 입력…" maxlength="30"
+        onclick="event.stopPropagation()"
+        onkeydown="if(event.key==='Enter'){event.stopPropagation();confirmAddType('${wrapId}',this.value)}"
+      />
+      <button class="type-picker-add-confirm"
+        onclick="event.stopPropagation();confirmAddType('${wrapId}',document.getElementById('typeAddInput_${wrapId}').value)">
+        추가
+      </button>
+    </div>`;
+
+  wrap.appendChild(dropdown);
+  _activeTypePicker = wrapId;
+
+  // 외부 클릭 닫기
+  setTimeout(() => {
+    document.addEventListener('click', function closeHandler(e) {
+      if(!wrap.contains(e.target)) {
+        dropdown.remove();
+        _activeTypePicker = null;
+        document.removeEventListener('click', closeHandler);
+      }
+    });
+  }, 50);
+}
+
+function selectTypePickerItem(wrapId, value) {
+  const wrap = document.getElementById(wrapId);
+  if(!wrap) return;
+  const hidden  = wrap.querySelector('input[type="hidden"]');
+  const label   = wrap.querySelector('[class*="-label"]') || wrap.querySelector('.type-picker-btn span');
+  const btnText = wrap.querySelector('.type-picker-btn span:first-child');
+
+  if(hidden)  hidden.value = value;
+  if(btnText) btnText.textContent = value || '선택 안 함';
+
+  // 드로어 de_type 특별 처리
+  if(wrapId === 'de_type_wrap') {
+    const lbl = document.getElementById('de_type_label');
+    if(lbl) lbl.textContent = value || '선택 안 함';
+  }
+  // af_type_ 처리
+  if(wrapId.startsWith('af_type_wrap_')) {
+    const afLabel = wrap.querySelector('.af-type-label');
+    if(afLabel) afLabel.textContent = value || '선택';
+  }
+
+  // 드롭다운 닫기
+  document.getElementById('typeDrop_'+wrapId)?.remove();
+  _activeTypePicker = null;
+}
+
+function confirmAddType(wrapId, name) {
+  const clean = (name||'').trim();
+  if(!clean) return;
+  if(addMktgType(clean)) {
+    // 목록 갱신 후 바로 선택
+    openTypePicker(wrapId, clean);
+    setTimeout(() => selectTypePickerItem(wrapId, clean), 50);
+  } else {
+    // 이미 있으면 그냥 선택
+    selectTypePickerItem(wrapId, clean);
+  }
+}
+
 // ── 14. Init ───────────────────────────────────────────────
 (async function init() {
   const url=window.__SUPABASE_URL__, key=window.__SUPABASE_ANON_KEY__;
 
   try {
     state.sb = createClient(url, key);
-    renderTypeManagerPanel();
     restorePanelStates();
     setStatus("Supabase 연결 중…");
     await refreshDashboard();
