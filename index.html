@@ -1603,20 +1603,11 @@ async function hydrateFilters() {
   el.regionFilter.innerHTML  = `<option value="all">전체 지역</option>` +rs.map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join("");
   el.quarterFilter.value = state.filters.quarter;
   el.regionFilter.value  = state.filters.region;
-  // 담당자 필터: KPI owners 필드에서 이름 추출
+  // 담당자 필터: owners 테이블 전체 (이름 순 정렬)
   if(el.ownerFilter) {
-    // kpis의 owners 텍스트 필드에서 모든 담당자 이름 추출
-    const kpiOwnerNames = new Set();
-    (state.kpis||[]).forEach(k => {
-      (k.owners||'').split(',').map(n=>n.trim()).filter(Boolean).forEach(n=>kpiOwnerNames.add(n));
-    });
-    // owners 테이블과 매칭 (이름 기준)
-    const matchedOwners = (state.owners||[]).filter(o => kpiOwnerNames.has(o.name));
-    // 매칭 안 된 이름도 옵션에 추가 (텍스트 전용)
-    const unmatchedNames = [...kpiOwnerNames].filter(n => !matchedOwners.find(o=>o.name===n));
+    const sorted = [...(state.owners||[])].sort((a,b)=>a.name.localeCompare(b.name,'ko'));
     el.ownerFilter.innerHTML = '<option value="all">전체 담당자</option>' +
-      matchedOwners.map(o=>`<option value="${esc(o.id)}">${esc(o.name)}</option>`).join('') +
-      unmatchedNames.map(n=>`<option value="name:${esc(n)}">${esc(n)}</option>`).join('');
+      sorted.map(o=>`<option value="${esc(o.id)}">${esc(o.name)}</option>`).join('');
     el.ownerFilter.value = state.filters.owner;
   }
 }
@@ -1630,14 +1621,7 @@ async function fetchTasks() {
   if(state.filters.quarter!=="all") q=q.eq("quarter",state.filters.quarter);
   if(state.filters.region !=="all") q=q.eq("region", state.filters.region);
   if(state.filters.owner !== "all") {
-    if(state.filters.owner.startsWith("name:")) {
-      // 이름으로 owner_id 찾기
-      const oName = state.filters.owner.slice(5);
-      const matched = (state.owners||[]).filter(o=>o.name===oName);
-      if(matched.length) q=q.in("owner_id", matched.map(o=>o.id));
-    } else {
-      q=q.eq("owner_id",state.filters.owner);
-    }
+    q=q.eq("owner_id", state.filters.owner);
   }
   const { data, error } = await q;
   if(error) throw error;
@@ -4131,6 +4115,7 @@ async function deleteMember(ownerId, name) {
     document.getElementById('mc_'+ownerId)?.remove();
     state.owners = state.owners.filter(o=>o.id!==ownerId);
     const msg = document.getElementById('memberMsg');
+    refreshOwnerFilterOptions();
     if(msg) { msg.style.color='#4a7c59'; msg.textContent='삭제됨'; setTimeout(()=>msg.textContent='',2000); }
   } catch(e) { alert('삭제 실패: '+(e.message||e)); }
 }
@@ -4142,6 +4127,8 @@ async function addMemberRow(btn) {
   // 재열기로 갱신
   btn.closest('.modal-backdrop').remove();
   openMemberModal();
+  await fetchMetaWithWebhook();
+  refreshOwnerFilterOptions();
 }
 
 
@@ -4926,6 +4913,19 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
       }
     }
   });
+}
+
+
+function refreshOwnerFilterOptions() {
+  const sel = el.ownerFilter || document.getElementById('ownerFilter');
+  if(!sel) return;
+  const cur = sel.value;
+  const sorted = [...(state.owners||[])].sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  sel.innerHTML = '<option value="all">전체 담당자</option>' +
+    sorted.map(o=>`<option value="${esc(o.id)}">${esc(o.name)}</option>`).join('');
+  // 현재 선택값 유지
+  if([...sel.options].some(o=>o.value===cur)) sel.value = cur;
+  else sel.value = 'all';
 }
 
 // ── 14. Init ───────────────────────────────────────────────
