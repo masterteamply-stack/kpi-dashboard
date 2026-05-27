@@ -8,12 +8,7 @@ jobs:
     steps:
       - name: Query budget_plan
         run: |
-          QUERY=$(python3 -c "import json; print(json.dumps({'query': '''SELECT kpi_key, title, budget_plan
-FROM public.kpis
-WHERE budget_plan IS NOT NULL
-  AND budget_plan != 'null'
-  AND budget_plan != '[]'
-ORDER BY kpi_key;'''}))") 
+          QUERY=$(python3 -c "import json; print(json.dumps({'query': "SELECT kpi_key, title, budget_plan FROM public.kpis WHERE budget_plan IS NOT NULL AND budget_plan != 'null' AND budget_plan != '[]' ORDER BY kpi_key;"}))")
           curl -s -X POST \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_TOKEN }}" \
             -H "Content-Type: application/json" \
