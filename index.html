@@ -2026,37 +2026,21 @@ function renderSummary(s) {
   h += '<div class="progress-shell" style="margin-top:5px"><div class="progress-bar" style="width:' + Math.min(100,s.avgProg) + '%"></div></div>';
   h += '</div>';
 
-  // 관련 오더 + Marketing Lead: 나란히
+  // 관련 오더 + Marketing Lead
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
   h += miniCard('관련 오더', orderVal, (state.choiceKitOrder.count ? fmtNum(state.choiceKitOrder.count)+'건·USD' : '로딩중'), '#1a1714');
-  h += '<div style="background:#f5f2ed;border-radius:6px;padding:7px 10px">'
-    + '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:2px">Marketing Lead</div>'
-    + '<div style="font-size:17px;font-weight:800;color:#1a1714;line-height:1">' + fmtNum(ml.total) + '건</div>'
-    + '<div style="font-size:10px;color:#5c6b4a;margin-top:2px">이번달 ' + (thisMonthTot > 0 ? fmtNum(thisMonthTot)+'건' : '–') + '</div>'
-    + '</div>';
+  h += '<div style="background:#f5f2ed;border-radius:6px;padding:7px 10px">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">';
+  h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278">Marketing Lead</div>';
+  h += '<a href="https://sheissweet79.github.io/CTR-WebLead/" target="_blank" style="font-size:9px;color:#5c6b4a;text-decoration:none;border:1px solid #b8ccaa;border-radius:2px;padding:1px 5px;font-weight:600">상세 분석 →</a>';
   h += '</div>';
-
-  // 월별 상세 토글 (max-height 애니메이션)
-  h += '<div style="border:1px solid #e8e4dc;border-radius:6px;overflow:hidden">';
-  h += '<button onclick="toggleLeadDetail()" style="width:100%;background:#fdfcf9;border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:6px 10px;font-family:var(--font-body)">';
-  h += '<span style="font-size:11px;font-weight:600;color:#1a1714">' + (detailOpen ? '▲' : '▼') + ' 월별 상세</span>';
-  h += '<span style="font-size:10px;color:#8a8278">채널 + O2O</span>';
-  h += '</button>';
-  h += '<div id="leadDetailBody" style="overflow:hidden;max-height:' + (detailOpen ? '260px' : '0') + ';transition:max-height .2s ease">';
-  h += '<table style="width:100%;border-collapse:collapse;background:#fff">';
-  h += '<thead><tr style="background:#f0ede6">';
-  ['월','채널','O2O','합계'].forEach(col =>
-    h += '<th style="padding:4px 6px;font-size:10px;font-weight:700;color:#8a8278;text-align:' + (col==='월'?'left':'right') + '">' + col + '</th>'
-  );
-  h += '</tr></thead>';
-  h += '<tbody>' + monthRows + '</tbody>';
-  h += '<tfoot><tr style="background:#eceae3">';
-  h += '<td style="padding:4px 6px;font-size:11px;font-weight:700">전체</td>';
-  h += '<td style="padding:4px 6px;font-size:11px;text-align:right">' + fmtNum(ml.channelTotal) + '</td>';
-  h += '<td style="padding:4px 6px;font-size:11px;text-align:right">' + fmtNum(ml.o2oTotal) + '</td>';
-  h += '<td style="padding:4px 6px;font-size:11px;font-weight:800;text-align:right;color:#1a1714">' + fmtNum(ml.total) + '</td>';
-  h += '</tr></tfoot>';
-  h += '</table></div></div>';  // table + leadDetailBody + toggle container
+  h += '<div style="font-size:15px;font-weight:800;color:#1a1714;line-height:1;margin-bottom:4px">' + fmtNum(ml.total) + '건</div>';
+  h += '<div style="display:flex;gap:8px">';
+  h += '<span style="font-size:10px;color:#5c6b4a">✉️ ' + fmtNum(ml.channelTotal||0) + '</span>';
+  h += '<span style="font-size:10px;color:#7a6010">🤝 ' + fmtNum(ml.o2oTotal||0) + '</span>';
+  h += '</div>';
+  h += '</div>';
+  h += '</div>';
 
   // Engagement + Click
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
