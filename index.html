@@ -74,7 +74,7 @@
     /* ── Grid layouts ── */
     .grid{display:grid;gap:16px}
     .kpi-grid{grid-template-columns:repeat(6,minmax(0,1fr));margin-bottom:18px}
-    .main-grid{grid-template-columns:1.15fr .85fr;margin-bottom:18px}
+    .main-grid{grid-template-columns:1fr 1fr 1.1fr;margin-bottom:18px}
 
     /* ── Panel ── */
     .panel{
@@ -245,8 +245,8 @@
 
     /* ── KPI Accordion MUJI ── */
     .kpi-accordion-wrap{
-      border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden;
-      background:var(--panel);
+      border:1px solid #d4cec5;border-radius:var(--radius-lg);overflow:hidden;
+      background:#fdfcf9;
     }
     .kpi-accordion-header{
       display:grid;
@@ -317,8 +317,8 @@
     .kpi-status-pill::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
     .target-cell{text-align:right;padding-right:8px}
     .target-val{
-      font-family:var(--font-display);font-weight:600;font-size:14px;
-      color:var(--text);line-height:1;
+      font-family:var(--font-display);font-weight:700;font-size:14px;
+      color:#1a1714;line-height:1;
     }
     .accordion-task-count{
       display:inline-flex;align-items:center;
@@ -327,25 +327,25 @@
     }
     /* Task sub-table */
     .kpi-tasks-wrap{
-      background:#f0ede6;border-bottom:1px solid var(--line);
+      background:#faf8f4;border-bottom:1px solid var(--line);
       display:none;overflow:hidden;
     }
     .kpi-tasks-wrap.open{display:block}
     .kpi-tasks-table{width:100%;border-collapse:collapse}
     .kpi-tasks-table th{
       font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#3d3830;
-      padding:8px 12px 8px 48px;border-bottom:1px solid #d0cbc2;
-      background:#dedad2;text-align:left;white-space:nowrap;
+      padding:8px 12px 8px 48px;border-bottom:1px solid #d8d3cc;
+      background:#eceae3;text-align:left;white-space:nowrap;
       position:relative;
     }
     .kpi-tasks-table th:first-child{padding-left:48px}
     .kpi-tasks-table td{
-      padding:11px 12px 11px 48px;border-bottom:1px solid #e0dbd2;
-      font-size:13px;vertical-align:middle;color:#1a1714;
+      padding:11px 12px 11px 48px;border-bottom:1px solid #e8e4dc;
+      font-size:13px;vertical-align:middle;color:#1a1714;background:#faf8f4;
     }
     .kpi-tasks-table td:first-child{padding-left:48px}
     .kpi-tasks-table tr:last-child td{border-bottom:0}
-    .kpi-tasks-table tr:hover td{background:#dedad2}
+    .kpi-tasks-table tr:hover td{background:#f0ede6}
     .task-title-cell{font-weight:600;color:#1a1714;font-size:13px}
     .task-note-cell{font-size:11.5px;color:#5a5148;margin-top:2px;line-height:1.4}
     .month-chip{
@@ -729,6 +729,37 @@
     .kpi-stat-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#8a8278;margin-bottom:6px;font-weight:600}
     .kpi-stat-val{font-size:20px;font-weight:700;color:#1a1714}
 
+
+    /* ── Top7 Toggle ── */
+    .toggle-switch-wrap{display:flex;background:#eceae3;border-radius:4px;padding:3px;gap:3px}
+    .toggle-btn{
+      padding:4px 10px;border:0;border-radius:3px;font-family:var(--font-body);
+      font-size:11px;font-weight:600;cursor:pointer;transition:all .18s;
+      background:transparent;color:#6b6259;
+    }
+    .toggle-btn.active{background:#fff;color:#1a1714;box-shadow:0 1px 3px rgba(60,50,40,.1)}
+
+    /* ── Top7 KPI Row ── */
+    .top7-row{
+      display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;
+      padding:9px 11px;border-radius:4px;border:1px solid #e8e4dc;
+      background:#fdfcf9;cursor:pointer;transition:background .15s;
+    }
+    .top7-row:hover{background:#f0ede6}
+    .top7-kpi-name{font-size:12.5px;font-weight:600;color:#1a1714;line-height:1.3;margin-bottom:3px}
+    .top7-kpi-owner{font-size:11px;color:#6b6259}
+    .top7-pct{font-family:var(--font-display);font-size:15px;font-weight:700;text-align:right;white-space:nowrap}
+    .top7-bar-wrap{height:4px;background:#e2ddd6;border-radius:999px;overflow:hidden;margin-top:4px}
+    .top7-bar{height:100%;border-radius:999px;transition:width .5s ease}
+    .top7-rank{
+      font-size:10px;font-weight:700;color:#8a8278;
+      width:18px;text-align:center;flex-shrink:0;
+    }
+    @media(max-width:1200px){
+      .main-grid{grid-template-columns:1fr 1fr !important}
+      .main-grid > div:last-child{grid-column:1/-1}
+    }
+
     /* ── Spinner ── */
     .spinner{
       width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;
@@ -789,6 +820,16 @@
     <div class="panel">
       <h3>운영 요약</h3>
       <div id="summaryBox"></div>
+    </div>
+    <div class="panel" style="display:flex;flex-direction:column;min-height:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-shrink:0">
+        <h3 style="margin-bottom:0" id="top7Title">TOP 7 KPI</h3>
+        <div class="toggle-switch-wrap">
+          <button id="top7BtnBest" class="toggle-btn active" onclick="switchTop7('best')">잘됨 ▲</button>
+          <button id="top7BtnWorst" class="toggle-btn" onclick="switchTop7('worst')">문제 ▼</button>
+        </div>
+      </div>
+      <div id="top7List" style="flex:1;overflow-y:auto;display:grid;gap:7px"></div>
     </div>
   </section>
 
@@ -1494,7 +1535,7 @@ function renderKPIAccordion(kpis, tasks) {
   const statusPillClass = s => ({'진행 중':'active','완료':'done','시작 전':'pending'}[s]||'pending');
 
   const colLabels = window._colLabels || {
-    kpiName:'KPI명 / 목표', owners:'담당자', status:'진행상태',
+    kpiName:'KPI명 / 목표', owners:'담당자', status:'진행상태', progress:'진척도',
     q1:'Q1', q2:'Q2', q3:'Q3', q4:'Q4', unit:'단위'
   };
   window._colLabels = colLabels;
@@ -1555,7 +1596,7 @@ function renderKPIAccordion(kpis, tasks) {
             >${esc((t.notes||'').slice(0,80))}${(t.notes||'').length>80?'…':''}</span>
           </div>` : ''}
         </td>
-        <td style="color:#c8d8f0">${esc(t.owners?.name||'-')}</td>
+        <td style="color:#2a2520;font-weight:500">${esc(t.owners?.name||'-')}</td>
         <td>
           <select class="cell-select" data-task-id="${t.id}" data-field="status"
             onchange="saveTaskSelectEdit(this)" onclick="event.stopPropagation()">
@@ -1632,6 +1673,7 @@ function renderKPIAccordion(kpis, tasks) {
   wrap.innerHTML = `<div class="kpi-accordion-wrap">${headerHTML}${rows}</div>`;
   state._lastKpis = kpis;
   state._lastKpiTasks = tasks;
+  renderTop7KPI(kpis, tasks);
   setTimeout(()=>{ window.applyAllSavedWidths(); window.rebuildAccGrid && window.rebuildAccGrid(); }, 0);
 }
 
@@ -2743,6 +2785,70 @@ function renderTeamsWebhookRows() {
       <div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;
         background:${o.teams_webhook_url?'#4a7c59':'#c4bdb3'}"></div>
     </div>`).join('');
+}
+
+
+// ── Top7 KPI ──
+let _top7Mode = 'best';
+
+function switchTop7(mode) {
+  _top7Mode = mode;
+  document.getElementById('top7BtnBest')?.classList.toggle('active', mode==='best');
+  document.getElementById('top7BtnWorst')?.classList.toggle('active', mode==='worst');
+  const title = document.getElementById('top7Title');
+  if(title) title.textContent = mode==='best' ? 'TOP 7 KPI ✦ 잘 진행 중' : 'TOP 7 KPI ✦ 주의 필요';
+  renderTop7KPI(state._lastKpis||[], state._lastKpiTasks||[]);
+}
+
+function renderTop7KPI(kpis, tasks) {
+  const wrap = document.getElementById('top7List');
+  if(!wrap || !kpis.length) return;
+
+  // KPI별 평균 진척도 계산
+  const scores = kpis.map(kpi => {
+    const kpiTasks = tasks.filter(t => t.kpi_id === kpi.id);
+    const avg = kpiTasks.length
+      ? Math.round(kpiTasks.reduce((s,t)=>s+Number(t.progress||0),0)/kpiTasks.length)
+      : 0;
+    const donePct = kpiTasks.length
+      ? Math.round(kpiTasks.filter(t=>t.status==='done').length/kpiTasks.length*100)
+      : 0;
+    const score = avg * 0.7 + donePct * 0.3;
+    return { kpi, avg, donePct, score, taskCnt: kpiTasks.length };
+  });
+
+  const sorted = [...scores].sort((a,b) =>
+    _top7Mode === 'best' ? b.score - a.score : a.score - b.score
+  ).slice(0,7);
+
+  const maxScore = Math.max(...sorted.map(s=>s.avg), 1);
+
+  wrap.innerHTML = sorted.map(({ kpi, avg, donePct, taskCnt }, i) => {
+    const rank    = i + 1;
+    const color   = _top7Mode === 'best'
+      ? (avg>=70?'#5c6b4a':avg>=40?'#b8962e':'#9e4a3a')
+      : (avg<30?'#9e4a3a':avg<60?'#b8962e':'#5c6b4a');
+    const barW    = Math.round(avg);
+    const owners  = (kpi.owners||'').split(',').map(o=>o.trim()).filter(Boolean).join(', ');
+    const problem = _top7Mode==='worst' && avg < 40;
+
+    return `<div class="top7-row" onclick="openKpiDetail('${esc(kpi.id)}')">
+      <div style="min-width:0">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="top7-rank" style="color:${rank<=3?'#5c6b4a':'#8a8278'}">${rank}</span>
+          <div class="top7-kpi-name">${esc(kpi.title||'')}</div>
+          ${problem?'<span style="font-size:10px;color:#9e4a3a;background:#f5e8e6;padding:1px 6px;border-radius:2px;flex-shrink:0">주의</span>':''}
+        </div>
+        <div style="padding-left:24px">
+          <div class="top7-kpi-owner">${esc(owners||'-')} · ${taskCnt}개 Task</div>
+          <div class="top7-bar-wrap">
+            <div class="top7-bar" style="width:${barW}%;background:${color}"></div>
+          </div>
+        </div>
+      </div>
+      <div class="top7-pct" style="color:${color}">${avg}%</div>
+    </div>`;
+  }).join('');
 }
 
 // ── 14. Init ───────────────────────────────────────────────
