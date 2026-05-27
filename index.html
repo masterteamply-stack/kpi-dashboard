@@ -1231,7 +1231,7 @@
           <div id="orderMiniSub" style="font-size:10px;color:#8a8278;margin-top:1px">로딩 중…</div>
         </div>
         <div style="flex:1;min-width:0">
-          <canvas id="orderMiniChart" height="40" style="width:100%"></canvas>
+          <canvas id="orderMiniChart" height="60" style="width:100%;display:block"></canvas>
         </div>
       </div>
     </div>
@@ -1521,6 +1521,7 @@ const { createClient } = window.supabase;
 const state = {
   webLead: { total: null, thisMonth: null, lastUpdated: null },
   choiceKitOrder: { total: null, count: null, lastUpdated: null },
+  channelDiscriber: { total: null, manual: null },
   leadDetail: { showDetail: false },
   sb: null,
   tasks: [], owners: [], kpis: [],
@@ -1785,7 +1786,7 @@ async function fetchAttachments(taskId) {
 async function fetchKpisWithTasks() {
   const { data: kpis, error: ke } = await state.sb
     .from('kpis')
-    .select('id,title,kpi_key,statement,owners,progress_status,q1_target,q2_target,q3_target,q4_target,q1_result,q2_result,unit,strategic_theme,budget_plan')
+    .select('id,title,kpi_key,statement,owners,progress_status,q1_target,q2_target,q3_target,q4_target,q1_result,q2_result,q3_result,q4_result,unit,strategic_theme,budget_plan')
     .order('kpi_key');
   if(ke) throw ke;
 
@@ -1910,88 +1911,158 @@ function renderSummary(s) {
   const thisKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   const prevDate = new Date(now.getFullYear(), now.getMonth()-1, 1);
   const prevKey  = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}`;
-  const thisMonthCh  = ml.channelMonthly[thisKey]?.total  ?? ml.channelMonthly[prevKey]?.total  ?? 0;
-  const thisMonthO2O = ml.o2oMonthly[thisKey] ?? ml.o2oMonthly[prevKey] ?? 0;
+  const thisMonthCh  = (ml.channelMonthly[thisKey] ? ml.channelMonthly[thisKey].total : null)
+                    ?? (ml.channelMonthly[prevKey] ? ml.channelMonthly[prevKey].total : null)
+                    ?? 0;
+  const thisMonthO2O = ml.o2oMonthly[thisKey] != null ? ml.o2oMonthly[thisKey]
+                     : (ml.o2oMonthly[prevKey] != null ? ml.o2oMonthly[prevKey] : 0);
   const thisMonthTot = thisMonthCh + thisMonthO2O;
-  const detailOpen   = state.leadDetail?.showDetail || false;
+  const detailOpen   = state.leadDetail && state.leadDetail.showDetail;
 
-  // 월별 rows
+  // Digital KPI (B2D-10, B2D-11)
+  const kpis      = state._lastKpis || [];
+  const kpi10     = kpis.find(k => k.kpi_key === 'B2D-10');
+  const kpi11     = kpis.find(k => k.kpi_key === 'B2D-11');
+  const parseKpiR = v => {
+    if(!v || String(v).trim() === '' || String(v) === 'nan') return null;
+    const m = String(v).replace(/,/g,'').match(/[\d.]+/);
+    return m ? Number(m[0]) : null;
+  };
+  const getLatestResult = kpi => {
+    if(!kpi) return null;
+    for(const q of ['q2_result','q1_result','q3_result','q4_result']) {
+      const v = parseKpiR(kpi[q]);
+      if(v !== null) return v;
+    }
+    return null;
+  };
+  const engVal = getLatestResult(kpi10);
+  const clkVal = getLatestResult(kpi11);
+
+  // Channel Discriber
+  const discTotal = (state.channelDiscriber && state.channelDiscriber.manual != null)
+    ? state.channelDiscriber.manual
+    : (state.channelDiscriber && state.channelDiscriber.total != null ? state.channelDiscriber.total : null);
+
+  // 관련 오더
+  const orderVal  = state.choiceKitOrder.total !== null
+    ? '$' + new Intl.NumberFormat('en-US').format(Math.round(state.choiceKitOrder.total)) : '–';
+  const orderCount = state.choiceKitOrder.count !== null
+    ? fmtNum(state.choiceKitOrder.count) + '건' : '–';
+
+  // 월별 rows (채널+O2O)
   const monthRows = ml.allMonths.map(mo => {
-    const ch  = ml.channelMonthly[mo]?.total || 0;
+    const ch  = ml.channelMonthly[mo] ? (ml.channelMonthly[mo].total || 0) : 0;
     const o2o = ml.o2oMonthly[mo] || 0;
     const tot = ch + o2o;
-    const [y,m] = mo.split('-');
+    const parts = mo.split('-');
     return '<tr style="border-bottom:1px solid #f0ede6">'
-      + '<td style="padding:4px 8px;color:#1a1714">' + y + '년 ' + parseInt(m) + '월</td>'
-      + '<td style="padding:4px 8px;text-align:right;color:#6b6259">' + fmtNum(ch) + '</td>'
-      + '<td style="padding:4px 8px;text-align:right;color:#7a6010">' + fmtNum(o2o) + '</td>'
-      + '<td style="padding:4px 8px;text-align:right;font-weight:700;color:#1a1714">' + fmtNum(tot) + '</td>'
+      + '<td style="padding:5px 8px;color:#1a1714">' + parts[0] + '년 ' + parseInt(parts[1]) + '월</td>'
+      + '<td style="padding:5px 8px;text-align:right;color:#6b6259">' + fmtNum(ch) + '</td>'
+      + '<td style="padding:5px 8px;text-align:right;color:#7a6010">' + fmtNum(o2o) + '</td>'
+      + '<td style="padding:5px 8px;text-align:right;font-weight:700;color:#1a1714">' + fmtNum(tot) + '</td>'
       + '</tr>';
-  }).join('') || '<tr><td colspan="4" style="text-align:center;padding:8px;color:#8a8278">데이터 없음</td></tr>';
+  }).join('');
 
-  let html = '';
-  html += '<div style="display:grid;gap:14px">';
+  // KPI 단위
+  const eng10unit = kpi10 ? (kpi10.unit || '') : '';
+  const clk11unit = kpi11 ? (kpi11.unit || '') : '';
+
+  let h = '';
+  h += '<div style="display:grid;gap:12px">';
 
   // 진척도
-  html += '<div>';
-  html += '<div class="muted" style="font-size:12px;margin-bottom:6px">전체 평균 진척도</div>';
-  html += '<div style="font-family:var(--font-display);font-size:28px;font-weight:800">' + fmtPct(s.avgProg) + '</div>';
-  html += '<div class="progress-shell"><div class="progress-bar" style="width:' + Math.min(100,s.avgProg) + '%"></div></div>';
-  html += '</div>';
+  h += '<div>';
+  h += '<div class="muted" style="font-size:11px;margin-bottom:5px">전체 평균 진척도</div>';
+  h += '<div style="font-family:var(--font-display);font-size:26px;font-weight:800">' + fmtPct(s.avgProg) + '</div>';
+  h += '<div class="progress-shell" style="margin-top:4px"><div class="progress-bar" style="width:' + Math.min(100,s.avgProg) + '%"></div></div>';
+  h += '</div>';
 
-  // Marketing Lead 카드 (고정 크기 - overflow:hidden으로 레이아웃 변경 방지)
-  html += '<div class="panel" style="padding:14px;border-radius:13px;overflow:hidden">';
+  // ── 총 관련 오더 (MARKETING LEAD 위) ──
+  h += '<div style="background:#f5f2ed;border-radius:8px;padding:10px 12px">';
+  h += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:4px">관련 오더 (ChoiceKit)</div>';
+  h += '<div style="display:flex;align-items:baseline;gap:8px">';
+  h += '<div style="font-family:var(--font-display);font-size:20px;font-weight:800;color:#1a1714">' + orderVal + '</div>';
+  h += '<div class="muted" style="font-size:11px">' + orderCount + '</div>';
+  h += '</div>';
+  h += '</div>';
 
-  // 헤더: 레이블 + 이번달
-  html += '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">';
-  html += '<div>';
-  html += '<div class="muted" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Marketing Lead</div>';
-  html += '<div style="font-family:var(--font-display);font-size:28px;font-weight:800;line-height:1.1;margin-top:2px">' + fmtNum(ml.total) + '건</div>';
-  html += '</div>';
-  html += '<div style="text-align:right">';
-  html += '<div class="muted" style="font-size:10px">이번달</div>';
-  html += '<div style="font-size:16px;font-weight:700;color:#5c6b4a">' + (thisMonthTot > 0 ? fmtNum(thisMonthTot) + '건' : '–') + '</div>';
-  html += '</div>';
-  html += '</div>';
+  // ── MARKETING LEAD ──
+  h += '<div class="panel" style="padding:12px 14px;border-radius:10px">';
+  h += '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">';
+  h += '<div>';
+  h += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278">Marketing Lead</div>';
+  h += '<div style="font-family:var(--font-display);font-size:24px;font-weight:800;color:#1a1714;line-height:1.1;margin-top:2px">' + fmtNum(ml.total) + '건</div>';
+  h += '</div>';
+  h += '<div style="text-align:right">';
+  h += '<div class="muted" style="font-size:10px">이번달</div>';
+  h += '<div style="font-size:15px;font-weight:700;color:#5c6b4a">' + (thisMonthTot > 0 ? fmtNum(thisMonthTot) + '건' : '–') + '</div>';
+  h += '</div>';
+  h += '</div>';
 
-  // 월별 토글 버튼
-  html += '<div style="border-top:1px solid #e8e4dc;padding-top:8px">';
-  html += '<button onclick="toggleLeadDetail()" style="display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;padding:3px 0;font-family:var(--font-body);font-size:12px;color:#5a5148">';
-  html += '<span style="font-weight:600">' + (detailOpen ? '▲' : '▼') + ' 월별 상세</span>';
-  html += '<span class="muted" style="font-size:10px">채널 문의 + O2O 리드</span>';
-  html += '</button>';
+  // 월별 상세 토글 (프레임 고정)
+  h += '<div style="border-top:1px solid #e8e4dc;padding-top:6px">';
+  h += '<button onclick="toggleLeadDetail()" style="width:100%;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:2px 0;font-family:var(--font-body);font-size:11px;color:#5a5148">';
+  h += '<span style="font-weight:600">' + (detailOpen ? '▲' : '▼') + ' 월별 상세</span>';
+  h += '<span class="muted" style="font-size:10px">채널 문의 + O2O 리드</span>';
+  h += '</button>';
+  // 테이블 컨테이너 - max-height 애니메이션으로 크기 변화 없게
+  h += '<div id="leadDetailBody" style="overflow:hidden;transition:max-height .25s ease;max-height:' + (detailOpen ? '300px' : '0') + '">';
+  h += '<div style="padding-top:6px">';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+  h += '<thead><tr style="background:#f0ede6">';
+  h += '<th style="padding:4px 8px;text-align:left;font-size:10px;font-weight:700;color:#8a8278">월</th>';
+  h += '<th style="padding:4px 8px;text-align:right;font-size:10px;font-weight:700;color:#5c6b4a">채널</th>';
+  h += '<th style="padding:4px 8px;text-align:right;font-size:10px;font-weight:700;color:#7a6010">O2O</th>';
+  h += '<th style="padding:4px 8px;text-align:right;font-size:10px;font-weight:700;color:#1a1714">합계</th>';
+  h += '</tr></thead>';
+  h += '<tbody>' + (monthRows || '<tr><td colspan="4" style="text-align:center;padding:8px;color:#8a8278">데이터 로딩 중…</td></tr>') + '</tbody>';
+  h += '<tfoot><tr style="background:#eceae3;border-top:2px solid #d4cec5">';
+  h += '<td style="padding:4px 8px;font-weight:700;font-size:11px">전체</td>';
+  h += '<td style="padding:4px 8px;text-align:right;font-size:11px">' + fmtNum(ml.channelTotal) + '</td>';
+  h += '<td style="padding:4px 8px;text-align:right;font-size:11px">' + fmtNum(ml.o2oTotal) + '</td>';
+  h += '<td style="padding:4px 8px;text-align:right;font-weight:800;font-size:11px">' + fmtNum(ml.total) + '</td>';
+  h += '</tr></tfoot>';
+  h += '</table>';
+  h += '</div></div>';  // padding-top + leadDetailBody
+  h += '</div>';        // border-top section
+  h += '</div>';        // Marketing Lead panel
 
-  // 월별 테이블 (토글 영역 - position:absolute로 레이아웃 영향 없게)
-  html += '<div style="position:relative">';
-  html += '<div id="leadDetailBody" style="display:' + (detailOpen ? 'block' : 'none') + ';margin-top:6px;border-radius:6px;overflow:hidden;border:1px solid #e8e4dc">';
-  html += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
-  html += '<thead><tr style="background:#f0ede6">';
-  html += '<th style="padding:5px 8px;text-align:left;font-size:10px;font-weight:700;color:#8a8278">월</th>';
-  html += '<th style="padding:5px 8px;text-align:right;font-size:10px;font-weight:700;color:#5c6b4a">채널</th>';
-  html += '<th style="padding:5px 8px;text-align:right;font-size:10px;font-weight:700;color:#7a6010">O2O</th>';
-  html += '<th style="padding:5px 8px;text-align:right;font-size:10px;font-weight:700;color:#1a1714">합계</th>';
-  html += '</tr></thead>';
-  html += '<tbody>' + monthRows + '</tbody>';
-  html += '<tfoot><tr style="background:#eceae3;border-top:2px solid #d4cec5">';
-  html += '<td style="padding:5px 8px;font-weight:700;font-size:11px;color:#1a1714">전체</td>';
-  html += '<td style="padding:5px 8px;text-align:right;font-size:11px">' + fmtNum(ml.channelTotal) + '</td>';
-  html += '<td style="padding:5px 8px;text-align:right;font-size:11px">' + fmtNum(ml.o2oTotal) + '</td>';
-  html += '<td style="padding:5px 8px;text-align:right;font-weight:800;font-size:11px;color:#1a1714">' + fmtNum(ml.total) + '</td>';
-  html += '</tr></tfoot>';
-  html += '</table>';
-  html += '</div></div>';  // leadDetailBody + relative
-  html += '</div>';        // border-top section
-  html += '</div>';        // Marketing Lead panel
+  // ── Digital KPI: ENGAGEMENT + CLICK ──
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+  // ENGAGEMENT (B2D-10)
+  h += '<div style="background:#f5f2ed;border-radius:8px;padding:10px 12px">';
+  h += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:3px">Engagement</div>';
+  h += '<div style="font-size:18px;font-weight:800;color:#1a1714">' + (engVal !== null ? fmtNum(engVal) + (eng10unit ? '<span style="font-size:11px;color:#6b6259;font-weight:500;margin-left:3px">' + eng10unit + '</span>' : '') : '–') + '</div>';
+  h += '<div class="muted" style="font-size:10px;margin-top:1px">B2D-10 최신 실적</div>';
+  h += '</div>';
+  // CLICK (B2D-11)
+  h += '<div style="background:#f5f2ed;border-radius:8px;padding:10px 12px">';
+  h += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:3px">Click</div>';
+  h += '<div style="font-size:18px;font-weight:800;color:#1a1714">' + (clkVal !== null ? fmtNum(clkVal) + (clk11unit ? '<span style="font-size:11px;color:#6b6259;font-weight:500;margin-left:3px">' + clk11unit + '</span>' : '') : '–') + '</div>';
+  h += '<div class="muted" style="font-size:10px;margin-top:1px">B2D-11 최신 실적</div>';
+  h += '</div>';
+  h += '</div>';
+
+  // ── Channel Discriber ──
+  h += '<div style="background:#f5f2ed;border-radius:8px;padding:10px 12px">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">';
+  h += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278">Channel Discriber</div>';
+  h += '<button onclick="editChannelDiscriber()" style="font-size:10px;background:none;border:1px solid #d4cec5;border-radius:3px;padding:1px 6px;cursor:pointer;color:#5a5148;font-family:var(--font-body)">수동 입력</button>';
+  h += '</div>';
+  h += '<div style="font-size:20px;font-weight:800;color:#1a1714">' + (discTotal !== null ? fmtNum(discTotal) : '–') + '</div>';
+  h += '<div class="muted" style="font-size:10px;margin-top:1px">총 팔로워 · bi.ctr.co.kr</div>';
+  h += '</div>';
 
   // 완료율 / 지연 / ROI
-  html += '<p class="muted" style="font-size:12px;line-height:1.7">';
-  html += '완료율 <strong style="color:var(--green)">' + fmtPct(s.compRate) + '</strong> · ';
-  html += '지연 <strong style="color:var(--red)">' + fmtNum(s.delayed) + '건</strong> · ';
-  html += 'ROI <strong style="color:var(--primary)">' + fmtPct(s.roi) + '</strong>';
-  html += '</p>';
-  html += '</div>';
+  h += '<p class="muted" style="font-size:11px;line-height:1.7">';
+  h += '완료율 <strong style="color:var(--green)">' + fmtPct(s.compRate) + '</strong> · ';
+  h += '지연 <strong style="color:var(--red)">' + fmtNum(s.delayed) + '건</strong> · ';
+  h += 'ROI <strong style="color:var(--primary)">' + fmtPct(s.roi) + '</strong>';
+  h += '</p>';
+  h += '</div>';
 
-  el.summaryBox.innerHTML = html;
+  el.summaryBox.innerHTML = h;
 }
 
 
@@ -5313,6 +5384,30 @@ async function fetchWebLeadData() {
     state.webLead = { total: null, thisMonth: null, lastUpdated: null };
   }
 }
+
+
+function editChannelDiscriber() {
+  const cur = state.channelDiscriber && state.channelDiscriber.manual != null
+    ? state.channelDiscriber.manual : '';
+  const val = prompt('총 팔로워 수를 입력하세요 (bi.ctr.co.kr 기준):', cur);
+  if(val === null) return;
+  const num = parseInt(String(val).replace(/[^0-9]/g,''));
+  if(isNaN(num)) { alert('숫자를 입력해주세요.'); return; }
+  if(!state.channelDiscriber) state.channelDiscriber = {};
+  state.channelDiscriber.manual = num;
+  try { localStorage.setItem('channelDiscriber_manual', String(num)); } catch(e) {}
+  const s = computeSummary(state.tasks||[]);
+  renderSummary(s);
+}
+
+// Channel Discriber 수동값 복원
+try {
+  const saved = localStorage.getItem('channelDiscriber_manual');
+  if(saved) {
+    if(!state.channelDiscriber) state.channelDiscriber = {};
+    state.channelDiscriber.manual = parseInt(saved);
+  }
+} catch(e) {}
 
 // ── 14. Init ───────────────────────────────────────────────
 (async function init() {
