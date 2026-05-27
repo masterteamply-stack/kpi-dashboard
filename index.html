@@ -334,19 +334,21 @@
       display:none;overflow:hidden;
     }
     .kpi-tasks-wrap.open{display:block}
-    .kpi-tasks-table{width:100%;border-collapse:collapse}
+    .kpi-tasks-table{width:100%;border-collapse:collapse;table-layout:fixed}
     .kpi-tasks-table th{
-      font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#3d3830;
-      padding:8px 12px 8px 48px;border-bottom:1px solid #d8d3cc;
+      font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#3d3830;
+      padding:6px 4px;border-bottom:1px solid #d8d3cc;
       background:#eceae3;text-align:left;white-space:nowrap;
+      overflow:hidden;
       position:relative;
     }
-    .kpi-tasks-table th:first-child{padding-left:48px}
+    .kpi-tasks-table th:first-child{padding-left:10px}
     .kpi-tasks-table td{
-      padding:11px 12px 11px 48px;border-bottom:1px solid #e8e4dc;
-      font-size:13px;vertical-align:middle;color:#1a1714 !important;background:#faf8f4;
+      padding:7px 4px;border-bottom:1px solid #e8e4dc;
+      font-size:12px;vertical-align:middle;color:#1a1714 !important;
+      overflow:hidden;
     }
-    .kpi-tasks-table td:first-child{padding-left:48px}
+    .kpi-tasks-table td:first-child{padding-left:10px}
     .kpi-tasks-table tr:last-child td{border-bottom:0}
     .kpi-tasks-table tr:hover td{background:#f0ede6}
     .task-title-cell{font-weight:600;color:#1a1714;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
