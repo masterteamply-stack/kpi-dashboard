@@ -1473,6 +1473,7 @@ const { createClient } = window.supabase;
 // ── 1. State ───────────────────────────────────────────────
 const state = {
   webLead: { total: null, thisMonth: null, lastUpdated: null },
+  choiceKitOrder: { total: null, count: null, lastUpdated: null },
   sb: null,
   tasks: [], owners: [], kpis: [],
   filters: { quarter: "all", region: "all", owner: "all" },
@@ -1846,9 +1847,24 @@ function renderSummary(s) {
               : '로딩 중…'}
           </div>
         </div>
-        <div class="panel" style="padding:14px;border-radius:13px">
-          <div class="muted" style="font-size:11px">총 관련 오더</div>
-          <div style="font-family:var(--font-display);font-size:22px;font-weight:800;margin-top:4px">${fmtKRW(s.revenue)}</div>
+        <div class="panel" style="padding:14px;border-radius:13px;position:relative">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+            <div class="muted" style="font-size:11px">총 관련 오더</div>
+            <a href="https://masterteamply-stack.github.io/choicekit-dashboard/" target="_blank"
+              style="font-size:9px;color:#5c6b4a;text-decoration:none;font-weight:600;
+                padding:1px 5px;border-radius:2px;background:#e8eddf;border:1px solid #b8ccaa"
+              title="ChoiceKit 대시보드 열기">↗ 상세</a>
+          </div>
+          <div style="font-family:var(--font-display);font-size:22px;font-weight:800">
+            ${state.choiceKitOrder.total !== null
+              ? '$' + new Intl.NumberFormat('en-US').format(Math.round(state.choiceKitOrder.total))
+              : '–'}
+          </div>
+          <div class="muted" style="font-size:10px;margin-top:2px">
+            ${state.choiceKitOrder.count !== null
+              ? fmtNum(state.choiceKitOrder.count) + '건 · USD'
+              : '로딩 중…'}
+          </div>
         </div>
       </div>
       <p class="muted" style="font-size:12px;line-height:1.7">
@@ -2281,7 +2297,8 @@ async function refreshDashboard() {
       console.warn('KPI accordion load error:', e);
       renderKPIAccordion([], state.tasks);
     }
-    fetchWebLeadData(); // 비동기 - 완료 시 자동 갱신
+    fetchWebLeadData();      // 비동기 - 완료 시 자동 갱신
+    fetchChoiceKitOrders(); // 비동기 - 완료 시 자동 갱신
     setStatus(`마지막 업데이트: ${new Date().toLocaleTimeString("ko-KR")} · 총 ${state.tasks.length}건`);
   } catch(e) {
     console.error("refreshDashboard error:", e);
@@ -5012,6 +5029,63 @@ function refreshOwnerFilterOptions() {
   else sel.value = 'all';
 }
 
+
+
+// ── ChoiceKit 관련 오더 실시간 데이터 ──
+async function fetchChoiceKitOrders() {
+  try {
+    // orders.csv는 EUC-KR(CP949) 인코딩
+    const res = await fetch(
+      'https://raw.githubusercontent.com/masterteamply-stack/choicekit-dashboard/main/orders.csv',
+      { cache: 'no-cache' }
+    );
+    if(!res.ok) throw new Error('fetch failed: ' + res.status);
+
+    const buf = await res.arrayBuffer();
+    // TextDecoder로 EUC-KR 디코딩
+    let text;
+    try {
+      text = new TextDecoder('euc-kr').decode(buf);
+    } catch(e) {
+      text = new TextDecoder('utf-8').decode(buf);
+    }
+
+    // CSV 파싱 (헤더 행 + 데이터 행)
+    const lines = text.split(/?
+/).filter(l => l.trim());
+    if(lines.length < 2) throw new Error('CSV empty');
+
+    // 헤더에서 amount 컬럼 인덱스 찾기
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const amtIdx = headers.findIndex(h => h === 'amount');
+    const curIdx = headers.findIndex(h => h === 'currency');
+    if(amtIdx < 0) throw new Error('amount column not found');
+
+    let totalAmount = 0;
+    let count = 0;
+    for(let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',');
+      const amt = parseFloat((cols[amtIdx]||'').replace(/,/g,''));
+      if(!isNaN(amt) && amt > 0) {
+        totalAmount += amt;
+        count++;
+      }
+    }
+
+    state.choiceKitOrder = {
+      total: totalAmount,
+      count,
+      lastUpdated: new Date().toLocaleTimeString('ko-KR')
+    };
+
+    // 요약 UI 즉시 갱신
+    const s = computeSummary(state.tasks||[]);
+    renderSummary(s);
+  } catch(e) {
+    console.warn('ChoiceKit orders fetch error:', e.message);
+    state.choiceKitOrder = { total: null, count: null, lastUpdated: null };
+  }
+}
 
 // ── CTR WebLead 실시간 데이터 ──
 async function fetchWebLeadData() {
