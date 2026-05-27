@@ -349,7 +349,7 @@
     .kpi-tasks-table td:first-child{padding-left:48px}
     .kpi-tasks-table tr:last-child td{border-bottom:0}
     .kpi-tasks-table tr:hover td{background:#f0ede6}
-    .task-title-cell{font-weight:600;color:#1a1714;font-size:13px}
+    .task-title-cell{font-weight:600;color:#1a1714;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .task-note-cell{font-size:11.5px;color:#5a5148;margin-top:2px;line-height:1.4}
     .month-chip{
       display:inline-block;padding:2px 8px;border-radius:2px;font-size:11px;font-weight:700;
@@ -427,18 +427,32 @@
       display:none;overflow:hidden;
     }
     .kpi-tasks-wrap.open{display:block}
-    .kpi-tasks-table{width:100%;border-collapse:collapse;min-width:900px}
+    .kpi-tasks-table{
+      width:100%;border-collapse:collapse;
+      table-layout:fixed;  /* 고정 레이아웃 - 스크롤 없음 */
+    }
+    .kpi-tasks-table colgroup col:nth-child(1){width:28px}   /* 월 */
+    .kpi-tasks-table colgroup col:nth-child(2){width:28px}   /* 분기 */
+    .kpi-tasks-table colgroup col:nth-child(3){width:auto}   /* Task명 - 남은 공간 */
+    .kpi-tasks-table colgroup col:nth-child(4){width:54px}   /* 담당자 */
+    .kpi-tasks-table colgroup col:nth-child(5){width:68px}   /* 상태 */
+    .kpi-tasks-table colgroup col:nth-child(6){width:84px}   /* Deadline */
+    .kpi-tasks-table colgroup col:nth-child(7){width:40px}   /* 실적 */
+    .kpi-tasks-table colgroup col:nth-child(8){width:76px}   /* 유형 */
+    .kpi-tasks-table colgroup col:nth-child(9){width:60px}   /* 예산 */
+    .kpi-tasks-table colgroup col:nth-child(10){width:80px}  /* 관리 */
     .kpi-tasks-table th{
-      font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
-      padding:9px 14px 9px 40px;border-bottom:1px solid rgba(255,255,255,.05);
+      font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);
+      padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.05);
       background:rgba(255,255,255,.02);text-align:left;white-space:nowrap;
+      overflow:hidden;
     }
-    .kpi-tasks-table th:first-child{padding-left:48px}
+    .kpi-tasks-table th:first-child{padding-left:10px}
     .kpi-tasks-table td{
-      padding:11px 14px 11px 40px;border-bottom:1px solid rgba(255,255,255,.03);
-      font-size:12.5px;vertical-align:middle;
+      padding:8px 4px;border-bottom:1px solid rgba(255,255,255,.03);
+      font-size:12px;vertical-align:middle;overflow:hidden;
     }
-    .kpi-tasks-table td:first-child{padding-left:48px}
+    .kpi-tasks-table td:first-child{padding-left:10px}
     .kpi-tasks-table tr:last-child td{border-bottom:0}
     .kpi-tasks-table tr:hover td{background:rgba(91,142,255,.04)}
     .month-chip{
@@ -2216,14 +2230,14 @@ function renderKPIAccordion(kpis, tasks) {
             onchange="saveTaskDateEdit(this)"
             style="background:transparent;border:1px solid #e2ddd6;border-radius:3px;
               padding:3px 6px;font-size:11px;color:#1a1714;outline:none;cursor:pointer;
-              font-family:var(--font-body);width:110px"
+              font-family:var(--font-body);width:82px"
             title="Deadline 변경"
           />
         </td>
         <td onclick="event.stopPropagation()">
           <div style="display:flex;align-items:center;gap:4px">
             <span class="cell-editable"
-              style="font-size:12px;font-weight:700;color:#1a1714;min-width:28px;text-align:right"
+              style="font-size:11px;font-weight:700;color:#1a1714;text-align:right;display:block;width:100%"
               contenteditable="true"
               data-task-id="${t.id}"
               data-field="progress"
@@ -2239,8 +2253,8 @@ function renderKPIAccordion(kpis, tasks) {
         <td style="color:#6b6259;font-size:12px">${fmtKRW(t.allocated_budget)}</td>
         <td>
           <div class="row-actions">
-            <button class="btn btn-ghost" onclick="openDetailDrawer('${esc(t.id)}')">상세/수정</button>
-            <button class="btn btn-ghost" style="color:var(--red)" onclick="openDeleteModal('${esc(t.id)}','${esc(t.title||'')}')">삭제</button>
+            <button class="btn btn-ghost" style="font-size:10px;padding:3px 6px" onclick="openDetailDrawer('${esc(t.id)}')">수정</button>
+            <button class="btn btn-ghost" style="color:var(--red);font-size:10px;padding:3px 6px" onclick="openDeleteModal('${esc(t.id)}','${esc(t.title||'')}')">삭제</button>
           </div>
         </td>
       </tr>`;
@@ -2348,15 +2362,14 @@ function renderKPIAccordion(kpis, tasks) {
       </div>
     </div>
     <div class="kpi-tasks-wrap">
-      <div style="overflow-x:auto">
-        <table class="kpi-tasks-table">
+      <table class="kpi-tasks-table">
+          <colgroup><col style="width:28px"><col style="width:28px"><col><col style="width:54px"><col style="width:68px"><col style="width:84px"><col style="width:40px"><col style="width:76px"><col style="width:60px"><col style="width:80px"></colgroup>
           <thead><tr>
             <th>월</th><th>분기</th><th>Task명</th><th>담당자</th>
             <th>상태</th><th>Deadline</th><th>실적</th><th>유형</th><th>예산</th><th>관리</th>
           </tr></thead>
           <tbody>${taskRows}</tbody>
         </table>
-      </div>
       <!-- Inline Add Row -->
       <div class="inline-add-row" id="addRow_${esc(kpi.id)}">
         <div class="inline-add-grid">
