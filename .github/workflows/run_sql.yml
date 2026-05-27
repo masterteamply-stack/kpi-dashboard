@@ -1,0 +1,38 @@
+name: Run Supabase INSERT
+on:
+  push:
+    paths: ['.github/workflows/run_sql.yml']
+  workflow_dispatch:
+
+jobs:
+  insert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Part 1 - owners & kpis
+        run: |
+          QUERY=$(cat sql_part1.sql | python3 -c "import sys,json; print(json.dumps({'query': sys.stdin.read()}))")
+          curl -s -X POST \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "$QUERY" \
+            "https://api.supabase.com/v1/projects/oehfptlkpqlpruaqogkk/database/query" | python3 -c "import sys,json; r=json.load(sys.stdin); print('Part1:', r)" 2>&1
+
+      - name: Part 2 - tasks (first half)
+        run: |
+          QUERY=$(cat sql_part2.sql | python3 -c "import sys,json; print(json.dumps({'query': sys.stdin.read()}))")
+          curl -s -X POST \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "$QUERY" \
+            "https://api.supabase.com/v1/projects/oehfptlkpqlpruaqogkk/database/query" | python3 -c "import sys,json; r=json.load(sys.stdin); print('Part2:', r)" 2>&1
+
+      - name: Part 3 - tasks (second half)
+        run: |
+          QUERY=$(cat sql_part3.sql | python3 -c "import sys,json; print(json.dumps({'query': sys.stdin.read()}))")
+          curl -s -X POST \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "$QUERY" \
+            "https://api.supabase.com/v1/projects/oehfptlkpqlpruaqogkk/database/query" | python3 -c "import sys,json; r=json.load(sys.stdin); print('Part3:', r)" 2>&1
