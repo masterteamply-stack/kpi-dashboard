@@ -1928,7 +1928,7 @@ function renderSummary(s) {
 
   const detailOpen = state.leadDetail.showDetail;
 
-  el.summaryBox.innerHTML = \`
+  el.summaryBox.innerHTML = `
     <div style="display:grid;gap:14px">
       <div>
         <div class="muted" style="font-size:12px;margin-bottom:6px">전체 평균 진척도</div>
@@ -2026,7 +2026,7 @@ function renderSummary(s) {
         지연 <strong style="color:var(--red)">\${fmtNum(s.delayed)}건</strong> ·
         ROI <strong style="color:var(--primary)">\${fmtPct(s.roi)}</strong>
       </p>
-    </div>\`;
+    </div>`;
 }
 
 function renderChart(tasks) {
@@ -5205,8 +5205,7 @@ async function fetchChoiceKitOrders() {
     }
 
     // CSV 파싱 (헤더 행 + 데이터 행)
-    const lines = text.split(/?
-/).filter(l => l.trim());
+    const lines = text.split('\n').map(l=>l.replace('\r','')).filter(l => l.trim());
     if(lines.length < 2) throw new Error('CSV empty');
 
     // 헤더에서 amount 컬럼 인덱스 찾기
