@@ -2029,23 +2029,36 @@ function renderSummary(s) {
   // 관련 오더 + Marketing Lead
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
   h += miniCard('관련 오더', orderVal, (state.choiceKitOrder.count ? fmtNum(state.choiceKitOrder.count)+'건·USD' : '로딩중'), '#1a1714');
+  // Marketing Lead 카드: 총 누적 + 이달 WebLead/O2O
+  const thisChMo   = ml.channelMonthly[thisKey] ? (ml.channelMonthly[thisKey].total||0) : 0;
+  const thisO2OMo  = ml.o2oMonthly[thisKey] || 0;
   h += '<div style="background:#f5f2ed;border-radius:6px;padding:7px 10px">';
-  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">';
   h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278">Marketing Lead</div>';
   h += '<a href="https://sheissweet79.github.io/CTR-WebLead/" target="_blank" style="font-size:9px;color:#5c6b4a;text-decoration:none;border:1px solid #b8ccaa;border-radius:2px;padding:1px 5px;font-weight:600">상세 분석 →</a>';
   h += '</div>';
-  h += '<div style="font-size:15px;font-weight:800;color:#1a1714;line-height:1;margin-bottom:4px">' + fmtNum(ml.total) + '건</div>';
-  h += '<div style="display:flex;gap:8px">';
-  h += '<span style="font-size:10px;color:#5c6b4a">✉️ ' + fmtNum(ml.channelTotal||0) + '</span>';
-  h += '<span style="font-size:10px;color:#7a6010">🤝 ' + fmtNum(ml.o2oTotal||0) + '</span>';
+  h += '<div style="font-size:16px;font-weight:800;color:#1a1714;line-height:1;margin-bottom:6px">' + fmtNum(ml.total) + ' 건</div>';
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">';
+  // WebLead
+  h += '<div style="background:rgba(92,107,74,.08);border-radius:4px;padding:5px 7px">';
+  h += '<div style="font-size:9px;color:#5c6b4a;font-weight:700;margin-bottom:2px">✉️ 이메일 리드</div>';
+  h += '<div style="font-size:13px;font-weight:800;color:#1a1714">' + fmtNum(ml.channelTotal||0) + '</div>';
+  h += '<div style="font-size:9px;color:#5c6b4a">이달 ' + (thisChMo > 0 ? fmtNum(thisChMo) : '–') + '</div>';
+  h += '</div>';
+  // O2O
+  h += '<div style="background:rgba(122,96,16,.08);border-radius:4px;padding:5px 7px">';
+  h += '<div style="font-size:9px;color:#7a6010;font-weight:700;margin-bottom:2px">🤝 O2O 리드</div>';
+  h += '<div style="font-size:13px;font-weight:800;color:#1a1714">' + fmtNum(ml.o2oTotal||0) + '</div>';
+  h += '<div style="font-size:9px;color:#7a6010">이달 ' + (thisO2OMo > 0 ? fmtNum(thisO2OMo) : '–') + '</div>';
+  h += '</div>';
   h += '</div>';
   h += '</div>';
   h += '</div>';
 
   // Engagement + Click
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-  h += miniCard('Engagement', engVal !== null ? fmtNum(engVal) : '–', 'B2D-10', '#4a6b7c');
-  h += miniCard('Click', clkVal !== null ? fmtNum(clkVal) : '–', 'B2D-11', '#7a6010');
+  h += miniCard('Engagement', engVal !== null ? fmtNum(engVal) : '–', '', '#4a6b7c');
+  h += miniCard('Click', clkVal !== null ? fmtNum(clkVal) : '–', '', '#7a6010');
   h += '</div>';
 
   // Channel Discriber
@@ -3517,27 +3530,12 @@ async function saveOwnerField(input) {
 
 // ── KPI Progress Gauge ──
 function renderKpiGauge(kpi, taskList) {
-  // 현재 분기 기준 q_result / q_target 달성률
-  const curQ = (() => {
-    const m = new Date().getMonth(); // 0-11
-    if(m < 3) return 'q1'; if(m < 6) return 'q2'; if(m < 9) return 'q3'; return 'q4';
-  })();
-
+  // KPI 전체 진척도: tasks의 실적(progress) 합계 vs KPI 연간 목표(q1~q4 target 합)
   const parseN = v => {
     if(!v || String(v).trim() === '' || String(v) === 'nan') return null;
     const m = String(v).replace(/,/g,'').match(/[\d.]+/);
     return m ? Number(m[0]) : null;
   };
-
-  // 가장 최신 결과가 있는 분기 우선
-  let qKey = curQ;
-  for(const q of [curQ,'q2','q1','q3','q4']) {
-    if(parseN(kpi[q+'_result']) !== null) { qKey = q; break; }
-  }
-
-  const result = parseN(kpi[qKey+'_result']);
-  const target = parseN(kpi[qKey+'_target']);
-  const unit   = kpi.unit || '';
 
   const fmtV = v => {
     if(v === null) return '–';
@@ -3546,32 +3544,69 @@ function renderKpiGauge(kpi, taskList) {
     return String(Math.round(v));
   };
 
-  if(result === null && target === null) {
-    // 데이터 없으면 task 평균으로 fallback
-    const avgProg = taskList.length
-      ? Math.round(taskList.reduce((s,t)=>s+Number(t.progress||0),0)/taskList.length) : 0;
-    const cc = avgProg>=70?'':'warn';
-    return `<div class="kpi-gauge-pct">${avgProg}%</div>`
-      + `<div class="kpi-gauge-outer"><div class="kpi-gauge-bar ${cc}" style="width:${avgProg}%"></div></div>`
-      + `<div class="kpi-gauge-label">Task 평균</div>`;
+  // Task 실적 합계
+  const taskResultSum = taskList.reduce((s,t) => s + Number(t.progress||0), 0);
+
+  // KPI 연간 목표: 입력된 분기 목표의 최대값 (누적 목표 기준)
+  // q4_target이 있으면 연간 목표, 없으면 입력된 것 중 최댓값
+  const annualTarget = (() => {
+    const q4 = parseN(kpi.q4_target);
+    if(q4 !== null) return q4;
+    const vals = ['q1_target','q2_target','q3_target'].map(k=>parseN(kpi[k])).filter(v=>v!==null);
+    return vals.length ? Math.max(...vals) : null;
+  })();
+
+  // DB의 최신 q_result (비교용 보조 지표)
+  let latestQResult = null;
+  for(const q of ['q2_result','q1_result','q3_result','q4_result']) {
+    const v = parseN(kpi[q]);
+    if(v !== null) { latestQResult = v; break; }
   }
 
-  const achvPct = (result !== null && target !== null && target > 0)
-    ? Math.round((result / target) * 100) : null;
-  const colorClass = achvPct === null ? '' : achvPct >= 80 ? '' : achvPct >= 50 ? 'warn' : 'danger';
-  const barW = achvPct !== null ? Math.min(100, achvPct) : 0;
+  // 달성률 계산: task 실적합 / 연간목표 우선, 없으면 최신 q_result / q_target
+  let achvPct = null, actualVal = null, targetVal = null;
+
+  if(annualTarget !== null && annualTarget > 0 && taskList.length > 0) {
+    actualVal = taskResultSum;
+    targetVal = annualTarget;
+    achvPct   = Math.round((taskResultSum / annualTarget) * 100);
+  } else if(latestQResult !== null) {
+    // fallback: DB q_result
+    let qKey = 'q2';
+    for(const q of ['q2','q1','q3','q4']) { if(parseN(kpi[q+'_result'])!==null){qKey=q;break;} }
+    actualVal = parseN(kpi[qKey+'_result']);
+    targetVal = parseN(kpi[qKey+'_target']);
+    achvPct   = (actualVal!==null && targetVal!==null && targetVal>0)
+      ? Math.round((actualVal/targetVal)*100) : null;
+  }
+
+  if(achvPct === null && taskList.length === 0) {
+    return '<div class="kpi-gauge-pct">–</div>'
+      + '<div class="kpi-gauge-outer"><div class="kpi-gauge-bar" style="width:0%"></div></div>'
+      + '<div class="kpi-gauge-label">데이터 없음</div>';
+  }
+  if(achvPct === null) {
+    const avgProg = taskList.length ? Math.round(taskResultSum/taskList.length) : 0;
+    return `<div class="kpi-gauge-pct">${avgProg > 0 ? fmtV(avgProg) : '–'}</div>`
+      + `<div class="kpi-gauge-outer"><div class="kpi-gauge-bar" style="width:0%"></div></div>`
+      + `<div class="kpi-gauge-label">목표 미설정</div>`;
+  }
+
+  const colorClass = achvPct >= 80 ? '' : achvPct >= 50 ? 'warn' : 'danger';
+  const barW = Math.min(100, achvPct);
+  const unit = kpi.unit || '';
 
   return ''
-    + `<div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px">`
-    +   `<span class="kpi-gauge-pct">${achvPct !== null ? achvPct+'%' : '–'}</span>`
-    +   `<span style="font-size:9px;color:#8a8278;font-weight:600">${qKey.toUpperCase()}</span>`
-    + `</div>`
+    + '<div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px">'
+    +   `<span class="kpi-gauge-pct">${achvPct}%</span>`
+    +   '<span style="font-size:9px;color:#8a8278;font-weight:600">달성</span>'
+    + '</div>'
     + `<div class="kpi-gauge-outer"><div class="kpi-gauge-bar ${colorClass}" style="width:${barW}%"></div></div>`
-    + `<div style="font-size:10px;color:#6b6259;margin-top:3px;line-height:1.3">`
-    +   `<span style="color:#5c6b4a;font-weight:700">${fmtV(result)}</span>`
-    +   `<span style="color:#8a8278"> / ${fmtV(target)}</span>`
+    + '<div style="font-size:10px;color:#6b6259;margin-top:3px;line-height:1.3">'
+    +   `<span style="color:#5c6b4a;font-weight:700">${fmtV(actualVal)}</span>`
+    +   `<span style="color:#8a8278"> / ${fmtV(targetVal)}</span>`
     +   (unit ? `<span style="color:#8a8278;margin-left:2px">${unit}</span>` : '')
-    + `</div>`;
+    + '</div>';
 }
 
 // ── KPI 상세 모달 ──
