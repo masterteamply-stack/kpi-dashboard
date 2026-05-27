@@ -1671,12 +1671,12 @@ async function hydrateFilters() {
   el.quarterFilter.value = state.filters.quarter;
   el.regionFilter.value  = state.filters.region;
   // 담당자 필터: owners 테이블 전체 (이름 순 정렬)
-  el.ownerFilter = el.ownerFilter || document.getElementById("ownerFilter");
-  if(el.ownerFilter) {
+  const ownerFilterEl = el.ownerFilter || document.getElementById("ownerFilter");
+  if(ownerFilterEl) { el.ownerFilter = ownerFilterEl;
     const sorted = [...(state.owners||[])].sort((a,b)=>a.name.localeCompare(b.name,'ko'));
     el.ownerFilter.innerHTML = '<option value="all">전체 담당자</option>' +
       sorted.map(o=>`<option value="${esc(o.id)}">${esc(o.name)}</option>`).join('');
-    el.ownerFilter.value = state.filters.owner;
+    if(el.ownerFilter) el.ownerFilter.value = state.filters.owner;
   }
 }
 
@@ -2219,7 +2219,7 @@ function renderKPIAccordion(kpis, tasks) {
   renderTop7KPI(kpis, tasks);
   renderThemeInteractiveChart(kpis, tasks);
   renderRegionOrderChart(tasks);
-  renderActivityTypeChart(tasks);
+  renderActivityTypeChartWithBudget(kpis, tasks);
   renderActivityTrendChart(tasks);
   renderDigitalKpiCharts(kpis, tasks);
   setTimeout(()=>{ window.applyAllSavedWidths(); window.rebuildAccGrid && window.rebuildAccGrid(); }, 0);
@@ -2252,7 +2252,7 @@ async function refreshDashboard() {
       const tasks = state._lastKpiTasks||[];
       renderThemeInteractiveChart(kpis, tasks);
       renderRegionOrderChart(tasks);
-      renderActivityTypeChart(tasks);
+      renderActivityTypeChartWithBudget(kpis, tasks);
       renderActivityTrendChart(tasks);
       renderDigitalKpiCharts(kpis, tasks);
     }, 100);
@@ -3631,7 +3631,7 @@ function renderActivityTypeChart(tasks) {
   if(window._actChart) window._actChart.destroy();
 
   if(!entries.length) {
-    if(!ctx.dataset.noDataShown) {
+    if(!ctx.dataset.noDataShown && ctx.parentElement) {
       ctx.dataset.noDataShown = '1';
       const p = document.createElement('p');
       p.className='empty';
@@ -4255,7 +4255,7 @@ function renderRegionOrderChart(tasks) {
   if(!ctx) return;
 
   const MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
-  const regionMap = {};
+  const regionMap = {}; // eslint-disable-line
 
   for(const t of tasks) {
     const r  = (t.region||'KR').toUpperCase();
@@ -4967,7 +4967,7 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
 
 
 function refreshOwnerFilterOptions() {
-  const sel = document.getElementById('ownerFilter') || el.ownerFilter;
+  const sel = document.getElementById('ownerFilter');
   if(!sel) return;
   const cur = sel.value;
   const sorted = [...(state.owners||[])].sort((a,b)=>a.name.localeCompare(b.name,'ko'));
