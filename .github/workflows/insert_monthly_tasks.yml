@@ -13,19 +13,19 @@ jobs:
       - name: Batch 1 (rows 1-72)
         run: |
           QUERY=$(python3 -c "import sys,json; print(json.dumps({'query': open('task_insert_1.sql').read()}))")
-          curl -s -X POST \
+          RESULT=$(curl -s -X POST \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d "$QUERY" \
-            "https://api.supabase.com/v1/projects/oehfptlkpqlpruaqogkk/database/query" \
-          | python3 -c "import sys,json; r=json.load(sys.stdin); print('Batch1:', r)"
+            "https://api.supabase.com/v1/projects/oehfptlkpqlpruaqogkk/database/query")
+          echo "Batch1 result: $RESULT"
 
       - name: Batch 2 (rows 73-143)
         run: |
           QUERY=$(python3 -c "import sys,json; print(json.dumps({'query': open('task_insert_2.sql').read()}))")
-          curl -s -X POST \
+          RESULT=$(curl -s -X POST \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d "$QUERY" \
-            "https://api.supabase.com/v1/projects/oehfptlkpqlpruaqogkk/database/query" \
-          | python3 -c "import sys,json; r=json.load(sys.stdin); print('Batch2:', r)"
+            "https://api.supabase.com/v1/projects/oehfptlkpqlpruaqogkk/database/query")
+          echo "Batch2 result: $RESULT"
