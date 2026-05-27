@@ -3244,7 +3244,7 @@ function renderKpiGauge(kpi, taskList) {
 
 // ── KPI 상세 모달 ──
 function openKpiDetail(kpiId) {
-  const _fmtT = typeof _fmtT !== "undefined" ? _fmtT : (v=>{if(v==null)return "-";const n=Number(v);if(n>=10000000)return (n/10000000).toFixed(1)+"천만";if(n>=1000000)return (n/1000000).toFixed(1)+"백만";return new Intl.NumberFormat("ko-KR").format(n);});
+  const _fmtT =  (v=>{if(v==null)return "-";const n=Number(v);if(n>=10000000)return (n/10000000).toFixed(1)+"천만";if(n>=1000000)return (n/1000000).toFixed(1)+"백만";return new Intl.NumberFormat("ko-KR").format(n);});
   const kpi   = (state._lastKpis||[]).find(k=>k.id===kpiId);
   const tasks = (state._lastKpiTasks||[]).filter(t=>t.kpi_id===kpiId);
   if(!kpi) return;
@@ -3480,15 +3480,14 @@ function switchTop7(mode) {
 function renderTop7KPI(kpis, tasks) {
   const wrap = document.getElementById('top7List');
   if(!wrap || !kpis.length) return;
-  // _fmtT 안전 참조 (스코프 문제 방지)
-  const _fmtT = typeof _fmtT !== 'undefined' ? _fmtT : (v => {
-    if(v==null||isNaN(Number(v))) return '-';
+  const _fmtT = v => {
+    if(v==null||v===''||isNaN(Number(v))) return '-';
     const n=Number(v);
     if(n>=10000000) return (n/10000000).toFixed(1)+'천만';
     if(n>=1000000)  return (n/1000000).toFixed(1)+'백만';
     if(n>=10000)    return (n/10000).toFixed(1)+'만';
     return new Intl.NumberFormat('ko-KR').format(n);
-  });
+  };
 
   // 현재 분기 달성률 기반 계산 (Q1~Q4 순서로 가장 최근 결과 우선)
   const parseResult = v => {
@@ -4505,13 +4504,13 @@ function selectTheme(themeName) {
 }
 
 function renderKpiPanelForTheme(theme, kpis, tasks) {
-  const _fmtT = typeof _fmtT !== 'undefined' ? _fmtT : (v => {
-    if(v==null||isNaN(Number(v))) return '-';
+  const _fmtT = v => {
+    if(v==null||v===''||isNaN(Number(v))) return '-';
     const n=Number(v);
     if(n>=10000000) return (n/10000000).toFixed(1)+'천만';
     if(n>=1000000) return (n/1000000).toFixed(1)+'백만';
     return new Intl.NumberFormat('ko-KR').format(n);
-  });
+  };
   const titleEl  = document.getElementById('kpiPanelTitle');
   const backBtn  = document.getElementById('kpiPanelBackBtn');
   const summary  = document.getElementById('summaryBox');
