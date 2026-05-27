@@ -524,8 +524,8 @@
 <script>
 // ── 0. Config ──────────────────────────────────────────────
 // ⚠️ 아래 두 줄을 본인의 Supabase 프로젝트 값으로 변경하세요
-window.__SUPABASE_URL__      = "https://YOUR_PROJECT.supabase.co";
-window.__SUPABASE_ANON_KEY__ = "eyJ...";
+window.__SUPABASE_URL__      = "https://oehfptlkpqlpruaqogkk.supabase.co";
+window.__SUPABASE_ANON_KEY__ = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9laGZwdGxrcHFscHJ1YXFvZ2trIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MjEyMzIsImV4cCI6MjA5NTM5NzIzMn0.8ssyrGtrrE0guYErEezDpsy7ckq6fPtke9ffxCj6FL0";
 
 const ATTACHMENT_BUCKET = "task-attachments";
 const { createClient } = window.supabase;
@@ -1304,20 +1304,7 @@ document.addEventListener("keydown", e => {
 // ── 14. Init ───────────────────────────────────────────────
 (async function init() {
   const url=window.__SUPABASE_URL__, key=window.__SUPABASE_ANON_KEY__;
-  if(!url||url.includes("YOUR_PROJECT")||!key||key.includes("YOUR_SUPABASE")) {
-    setStatus("⚠️ Supabase URL / Anon Key를 설정해주세요. (소스 코드 최상단 Config 섹션)", true);
-    el.kpiGrid.innerHTML=`
-      <div class="panel kpi-card" style="grid-column:1/-1;text-align:center;padding:32px">
-        <div style="font-size:32px;margin-bottom:12px">🔧</div>
-        <div style="font-family:var(--font-display);font-size:18px;margin-bottom:8px">Supabase 연결 필요</div>
-        <div class="muted" style="font-size:13px;line-height:1.7">
-          소스 코드에서 <code style="background:rgba(255,255,255,.08);padding:2px 6px;border-radius:6px">__SUPABASE_URL__</code>과
-          <code style="background:rgba(255,255,255,.08);padding:2px 6px;border-radius:6px">__SUPABASE_ANON_KEY__</code>를<br>
-          실제 값으로 변경한 뒤 <code style="background:rgba(255,255,255,.08);padding:2px 6px;border-radius:6px">supabase_schema.sql</code>을 실행하세요.
-        </div>
-      </div>`;
-    return;
-  }
+
   try {
     state.sb = createClient(url, key);
     setStatus("Supabase 연결 중…");
