@@ -1,0 +1,21 @@
+name: Migrate KPI Schema
+on:
+  push:
+    paths: ['.github/workflows/run_migrate.yml']
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run KPI schema migration
+        run: |
+          QUERY=$(cat migrate_kpis.sql | python3 -c "import sys,json; print(json.dumps({'query': sys.stdin.read()}))")
+          curl -s -X POST \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "$QUERY" \
+            "https://api.supabase.com/v1/projects/oehfptlkpqlpruaqogkk/database/query" \
+          | python3 -c "import sys,json; r=json.load(sys.stdin); print('Result:', r)"
