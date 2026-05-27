@@ -1,7 +1,10 @@
 name: Insert Tasks
 on:
+  workflow_dispatch:
   push:
-    paths: ['tasks_to_insert.json']
+    paths:
+      - 'tasks_to_insert.json'
+      - 'insert_tasks.py'
 
 jobs:
   insert:
@@ -11,5 +14,5 @@ jobs:
       - name: Insert tasks to Supabase
         env:
           SUPABASE_URL: https://oehfptlkpqlpruaqogkk.supabase.co
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9laGZwdGxrcHFscHJ1YXFvZ2trIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MjEyMzIsImV4cCI6MjA5NTM5NzIzMn0.8ssyrGtrrE0guYErEezDpsy7ckq6fPtke9ffxCj6FL0
         run: python3 insert_tasks.py
