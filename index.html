@@ -987,7 +987,7 @@
     <button id="addTaskBtn"  class="btn btn-primary">＋ 업무 추가</button>
   </section>
 
-  <!-- 마케팅 활동 유형 관리 -->  <div id="statusLine" class="status-line">초기화 중…</div>
+  <div id="statusLine" class="status-line">초기화 중…</div>
 
   <!-- KPI cards -->
   <section id="kpiGrid" class="grid kpi-grid"></section>
@@ -3755,7 +3755,6 @@ function renderTypeManagerPanel() {
 
 function addTypeAndRefresh(name) {
   if(addMktgType(name)) {
-    renderTypeManagerPanel();
     refreshTypeSelects();
   }
 }
