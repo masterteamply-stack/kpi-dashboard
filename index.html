@@ -724,6 +724,31 @@
     .digital-kpi-name{font-size:16px;font-weight:700;color:#1a1714;margin-bottom:14px}
     @media(max-width:900px){.digital-kpi-grid{grid-template-columns:1fr}}
 
+
+    /* ── Activity Type Manager ── */
+    .act-type-tag{
+      display:inline-flex;align-items:center;gap:4px;
+      padding:4px 9px;border-radius:3px;font-size:12px;font-weight:600;
+      background:#f0ede6;border:1px solid #d4cec5;color:#3d3830;
+      cursor:pointer;transition:all .15s;
+    }
+    .act-type-tag:hover{background:#e8e4dc;border-color:#b8b2a8}
+    .act-type-tag .remove{
+      font-size:14px;color:#8a8278;margin-left:2px;line-height:1;
+      font-weight:400;
+    }
+    .act-type-tag .remove:hover{color:#9e4a3a}
+    .act-type-add-input{
+      background:#fdfcf9;border:1px dashed #b8b2a8;border-radius:3px;
+      padding:4px 9px;font-size:12px;outline:none;color:#1a1714;
+      font-family:var(--font-body);width:120px;
+    }
+    .act-type-add-input:focus{border-color:#5c6b4a;border-style:solid;box-shadow:0 0 0 2px rgba(92,107,74,.1)}
+    .type-chip{
+      display:inline-block;padding:2px 8px;border-radius:3px;font-size:11px;
+      font-weight:600;white-space:nowrap;
+    }
+
     /* ── Spinner ── */
     .spinner{
       width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;
@@ -769,6 +794,22 @@
     <button id="refreshBtn"  class="btn btn-secondary">↻ 새로고침</button>
     <button id="addTaskBtn"  class="btn btn-primary">＋ 업무 추가</button>
   </section>
+
+  <!-- 마케팅 활동 유형 관리 -->
+  <details id="typeManagerDetails" style="margin-bottom:12px">
+    <summary style="cursor:pointer;font-size:12px;font-weight:600;color:#5c6b4a;
+      list-style:none;display:flex;align-items:center;gap:6px;padding:8px 12px;
+      background:#e8eddf;border:1px solid #b8ccaa;border-radius:4px;width:fit-content">
+      <span>🏷️ 마케팅 활동 유형 관리</span>
+      <span style="font-size:10px;color:#6b8a50;font-weight:400">▾ 클릭하여 펼치기</span>
+    </summary>
+    <div style="margin-top:8px;padding:12px;background:#fdfcf9;border:1px solid #d8e4cc;border-radius:4px">
+      <p style="font-size:11px;color:#6b6259;margin-bottom:10px">
+        × 클릭으로 삭제 · 우측 입력창에 입력 후 Enter 또는 추가 버튼으로 추가
+      </p>
+      <div id="typeManagerWrap"></div>
+    </div>
+  </details>
 
   <div id="statusLine" class="status-line">초기화 중…</div>
 
@@ -1653,7 +1694,7 @@ function renderKPIAccordion(kpis, tasks) {
           </div>
           <div class="progress-shell" style="width:80px"><div class="progress-bar" style="width:${Math.min(100,t.progress||0)}%"></div></div>
         </td>
-        <td><span style="font-size:11px;background:#f0ede6;border:1px solid #e2ddd6;border-radius:2px;padding:2px 6px;color:#5a5148;white-space:nowrap">${esc(t.task_type||'')}</span></td>
+        <td>${t.task_type?`<span style="font-size:10px;background:#e8eddf;border:1px solid #b8ccaa;border-radius:2px;padding:2px 7px;color:#3d5228;font-weight:600;white-space:nowrap">${esc(t.task_type)}</span>`:''}</td>
         <td style="color:#6b6259;font-size:12px">${fmtKRW(t.allocated_budget)}</td>
         <td>
           <div class="row-actions">
@@ -1742,18 +1783,12 @@ function renderKPIAccordion(kpis, tasks) {
             <input type="number" id="af_progress_${esc(kpi.id)}" value="0" min="0" max="100" />
           </div>
           <div class="inline-add-field">
-            <label>활동 유형</label>
-            <select id="af_type_${esc(kpi.id)}">
-              <option value="">선택</option>
-              <option value="기획">기획</option>
-              <option value="분석">분석</option>
-              <option value="실행">실행</option>
-              <option value="제작">제작</option>
-              <option value="평가">평가</option>
-              <option value="기획/분석">기획/분석</option>
-              <option value="기획/실행">기획/실행</option>
-              <option value="실행/분석">실행/분석</option>
-              <option value="제작/분석">제작/분석</option>
+            <label>마케팅 활동 유형</label>
+            <select id="af_type_${esc(kpi.id)}"
+              data-type-select="1" data-placeholder="선택"
+              onchange="handleTypeSelectChange(this)"
+              style="min-width:110px">
+              ${buildTypeOptions('','선택')}
             </select>
           </div>
           <div class="inline-add-field">
@@ -2325,18 +2360,11 @@ function renderDrawerEditForm(task) {
         <div class="field"><label>시작일</label><input id="de_start" type="date" value="${task.started_at||''}" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" /></div>
         <div class="field"><label>마감일</label><input id="de_due" type="date" value="${task.due_date||''}" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" /></div>
       </div>
-      <div class="field" style="grid-column:1/-1"><label>활동 유형</label>
-        <select id="de_type" style="background:#fff;border:1px solid var(--line);color:var(--text);border-radius:var(--radius);padding:10px 12px;font-family:var(--font-body);font-size:13px;outline:none;width:100%">
-          <option value="">선택 안 함</option>
-          <option value="기획" ${'기획'===tt?'selected':''}>기획</option>
-          <option value="분석" ${'분석'===tt?'selected':''}>분석</option>
-          <option value="실행" ${'실행'===tt?'selected':''}>실행</option>
-          <option value="제작" ${'제작'===tt?'selected':''}>제작</option>
-          <option value="평가" ${'평가'===tt?'selected':''}>평가</option>
-          <option value="기획/분석" ${'기획/분석'===tt?'selected':''}>기획/분석</option>
-          <option value="기획/실행" ${'기획/실행'===tt?'selected':''}>기획/실행</option>
-          <option value="실행/분석" ${'실행/분석'===tt?'selected':''}>실행/분석</option>
-          <option value="제작/분석" ${'제작/분석'===tt?'selected':''}>제작/분석</option>
+      <div class="field" style="grid-column:1/-1"><label>마케팅 활동 유형</label>
+        <select id="de_type" data-type-select="1" data-placeholder="선택 안 함"
+          onchange="handleTypeSelectChange(this)"
+          style="background:#fff;border:1px solid var(--line);color:var(--text);border-radius:var(--radius);padding:10px 12px;font-family:var(--font-body);font-size:13px;outline:none;width:100%">
+          ${buildTypeOptions(tt,'선택 안 함')}
         </select>
       </div>
       <div class="field" style="grid-column:1/-1"><label>메모</label><textarea id="de_notes" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none;min-height:80px;resize:vertical">${esc(task.notes||'')}</textarea></div>
@@ -3140,43 +3168,87 @@ function renderActivityTypeChart(tasks) {
   const ctx = document.getElementById('activityChart');
   if(!ctx) return;
 
+  // 마케팅 활동 유형별 집계
   const typeMap = {};
   for(const t of tasks) {
-    const tp = t.task_type || '미분류';
+    const tp = t.task_type;
+    if(!tp) continue; // 미설정 제외
     if(!typeMap[tp]) typeMap[tp] = { spend:0, budget:0, count:0 };
     typeMap[tp].spend  += Number(t.spend||0);
     typeMap[tp].budget += Number(t.allocated_budget||0);
     typeMap[tp].count++;
   }
 
-  const entries = Object.entries(typeMap).filter(([,v])=>v.count>0)
-    .sort((a,b)=>b[1].spend-a[1].spend);
-  const labels  = entries.map(([k])=>k);
-  const spends  = entries.map(([,v])=>v.spend);
-  const budgets = entries.map(([,v])=>v.budget);
-  const COLS = ['rgba(92,107,74,.8)','rgba(74,124,89,.8)','rgba(184,150,46,.8)',
-                'rgba(74,107,124,.8)','rgba(158,74,58,.8)','rgba(120,100,80,.8)',
-                'rgba(100,80,140,.8)','rgba(80,120,100,.8)','rgba(140,120,60,.8)'];
+  const entries = Object.entries(typeMap).filter(([,v])=>v.budget>0||v.spend>0)
+    .sort((a,b)=>b[1].budget-a[1].budget);
 
   if(window._actChart) window._actChart.destroy();
-  if(!labels.length) { ctx.parentElement.innerHTML += '<p class="empty" style="text-align:center;padding:20px">활동 유형 데이터가 없습니다<br><small style="color:#8a8278">Task에서 활동 유형을 설정하세요</small></p>'; return; }
+
+  if(!entries.length) {
+    if(!ctx.dataset.noDataShown) {
+      ctx.dataset.noDataShown = '1';
+      const p = document.createElement('p');
+      p.className='empty';
+      p.style.cssText='text-align:center;padding:24px 0;font-size:13px';
+      p.innerHTML='마케팅 활동 유형 미설정<br><small style="color:#8a8278;font-size:11px">Task 수정 탭에서 활동 유형을 지정하세요</small>';
+      ctx.parentElement.appendChild(p);
+      ctx.style.display='none';
+    }
+    return;
+  }
+  ctx.style.display=''; ctx.removeAttribute('data-no-data-shown');
+  ctx.parentElement.querySelectorAll('.empty').forEach(e=>e.remove());
+
+  const PALETTE = [
+    'rgba(92,107,74,.82)','rgba(74,124,89,.82)','rgba(184,150,46,.82)',
+    'rgba(74,107,124,.82)','rgba(158,74,58,.82)','rgba(124,86,140,.82)',
+    'rgba(80,120,160,.82)','rgba(160,100,60,.82)','rgba(60,140,120,.82)',
+    'rgba(140,80,100,.82)','rgba(100,140,60,.82)','rgba(80,80,160,.82)',
+    'rgba(160,120,80,.82)','rgba(60,100,140,.82)',
+  ];
+
+  const labels  = entries.map(([k])=>k);
+  const budgets = entries.map(([,v])=>v.budget);
+  const spends  = entries.map(([,v])=>v.spend);
+  const colors  = labels.map((_,i)=>PALETTE[i%PALETTE.length]);
 
   window._actChart = new Chart(ctx, {
     type:'bar',
     data:{
       labels,
       datasets:[
-        { label:'배정 예산', data:budgets, backgroundColor:'rgba(92,107,74,.25)', borderRadius:3 },
-        { label:'집행 금액', data:spends,  backgroundColor:COLS.slice(0,labels.length), borderRadius:3 }
+        { label:'배정 예산', data:budgets,
+          backgroundColor:'rgba(92,107,74,.18)', borderColor:'rgba(92,107,74,.5)',
+          borderWidth:1, borderRadius:3, borderSkipped:false },
+        { label:'집행 금액', data:spends,
+          backgroundColor:colors, borderRadius:3, borderSkipped:false }
       ]
     },
     options:{
       responsive:true, indexAxis:'y',
-      plugins:{ legend:{ labels:{ color:'#6b6259', font:{ size:11 } } },
-        tooltip:{ callbacks:{ label:c=>`${c.dataset.label}: ${fmtKRW(c.parsed.x)}` } } },
+      plugins:{
+        legend:{ labels:{ color:'#6b6259', font:{size:11}, boxWidth:10 } },
+        tooltip:{
+          callbacks:{
+            label: c => `${c.dataset.label}: ${fmtKRW(c.parsed.x)}`,
+            afterBody: items => {
+              const idx = items[0]?.dataIndex;
+              if(idx==null) return;
+              const [,v] = entries[idx];
+              const rate = v.budget>0?Math.round(v.spend/v.budget*100):0;
+              return [`집행율: ${rate}%  |  ${v.count}건`];
+            }
+          }
+        }
+      },
       scales:{
-        x:{ ticks:{ color:'#8a8278', font:{size:10}, callback:v=>v>=1000000?`${(v/1000000).toFixed(0)}M`:`${(v/1000).toFixed(0)}K` }, grid:{ color:'rgba(60,50,40,.06)' } },
-        y:{ ticks:{ color:'#3d3830', font:{size:12,weight:'600'} }, grid:{ display:false } }
+        x:{
+          ticks:{ color:'#8a8278', font:{size:10},
+            callback:v=>v>=1000000?`${(v/1000000).toFixed(1)}M`:v>=1000?`${(v/1000).toFixed(0)}K`:v
+          },
+          grid:{ color:'rgba(60,50,40,.06)' }
+        },
+        y:{ ticks:{ color:'#1a1714', font:{size:12,weight:'600'} }, grid:{ display:false } }
       }
     }
   });
@@ -3327,12 +3399,120 @@ async function saveInlineTask(kpiId) {
   }
 }
 
+
+// ── Marketing Activity Types ──
+const DEFAULT_MKTG_TYPES = ["앰배서더", "프로모션", "POS", "콘텐츠", "소셜미디어", "캠페인", "BizRewards", "Exhibition", "Seminar", "Conference", "Local PR", "이메일마케팅", "SEM/SEO", "브랜드캠페인"];
+
+function getMktgTypes() {
+  try {
+    const saved = localStorage.getItem('mktg_types');
+    if(saved) return JSON.parse(saved);
+  } catch(e) {}
+  return [...DEFAULT_MKTG_TYPES];
+}
+
+function saveMktgTypes(types) {
+  try { localStorage.setItem('mktg_types', JSON.stringify(types)); } catch(e) {}
+}
+
+function addMktgType(name) {
+  const clean = name.trim();
+  if(!clean) return false;
+  const types = getMktgTypes();
+  if(types.includes(clean)) return false;
+  types.push(clean);
+  saveMktgTypes(types);
+  return true;
+}
+
+function removeMktgType(name) {
+  const types = getMktgTypes().filter(t=>t!==name);
+  saveMktgTypes(types);
+}
+
+// select 옵션 빌드 (현재값 선택 포함)
+function buildTypeOptions(currentVal='', placeholder='선택') {
+  const types = getMktgTypes();
+  const opts = [`<option value="">${placeholder}</option>`]
+    .concat(types.map(t=>
+      `<option value="${esc(t)}"${t===currentVal?' selected':''}>
+        ${esc(t)}
+      </option>`
+    ));
+  // 현재값이 목록에 없으면 추가
+  if(currentVal && !types.includes(currentVal)) {
+    opts.push(`<option value="${esc(currentVal)}" selected>${esc(currentVal)}</option>`);
+  }
+  opts.push(`<option value="__custom__">＋ 직접 입력…</option>`);
+  return opts.join('');
+}
+
+function handleTypeSelectChange(sel) {
+  if(sel.value === '__custom__') {
+    const name = prompt('새 마케팅 활동 유형을 입력하세요:');
+    if(name && name.trim()) {
+      addMktgType(name.trim());
+      sel.innerHTML = buildTypeOptions(name.trim(), sel.dataset.placeholder||'선택');
+    } else {
+      sel.value = '';
+    }
+  }
+}
+
+// 유형 관리 패널 (toolbar 아래에 접을 수 있게)
+function renderTypeManagerPanel() {
+  const wrap = document.getElementById('typeManagerWrap');
+  if(!wrap) return;
+  const types = getMktgTypes();
+  wrap.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+      ${types.map(t=>`
+        <span class="act-type-tag" title="클릭하여 삭제">
+          ${esc(t)}
+          <span class="remove" onclick="event.stopPropagation();removeTypeAndRefresh('${esc(t)}')">×</span>
+        </span>`).join('')}
+      <input class="act-type-add-input" id="newTypeInput" placeholder="유형 추가…" maxlength="30"
+        onkeydown="if(event.key==='Enter'){addTypeAndRefresh(this.value);this.value=''}"
+        title="입력 후 Enter" />
+      <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px"
+        onclick="const v=document.getElementById('newTypeInput').value;addTypeAndRefresh(v);document.getElementById('newTypeInput').value=''">
+        추가
+      </button>
+    </div>`;
+}
+
+function addTypeAndRefresh(name) {
+  if(addMktgType(name)) {
+    renderTypeManagerPanel();
+    refreshTypeSelects();
+  }
+}
+
+function removeTypeAndRefresh(name) {
+  if(!confirm(`"${name}" 유형을 삭제할까요?`)) return;
+  removeMktgType(name);
+  renderTypeManagerPanel();
+  refreshTypeSelects();
+}
+
+function refreshTypeSelects() {
+  // 열려있는 모든 type select 갱신
+  document.querySelectorAll('[data-type-select]').forEach(sel => {
+    const cur = sel.value;
+    sel.innerHTML = buildTypeOptions(cur, sel.dataset.placeholder||'선택');
+  });
+  // 드로어 수정 폼 갱신
+  const de = document.getElementById('de_type');
+  if(de) { const cur=de.value; de.innerHTML=buildTypeOptions(cur,'선택 안 함'); }
+}
+
 // ── 14. Init ───────────────────────────────────────────────
 (async function init() {
   const url=window.__SUPABASE_URL__, key=window.__SUPABASE_ANON_KEY__;
 
   try {
     state.sb = createClient(url, key);
+    renderTypeManagerPanel();
     setStatus("Supabase 연결 중…");
     await refreshDashboard();
     setupRealtime();
