@@ -1014,7 +1014,7 @@
     /* ── Budget Entry List ── */
     .budget-entry-list{display:grid;gap:8px;padding:0 24px 12px}
     .budget-entry-row{
-      display:grid;grid-template-columns:130px 1fr 140px 32px;
+      display:grid;grid-template-columns:110px 1fr 130px 150px 32px;
       gap:8px;align-items:center;
       padding:10px 12px;background:#fdfcf9;
       border:1px solid #e8e4dc;border-radius:5px;
@@ -1061,7 +1061,7 @@
     }
     .budget-type-select:focus{border-color:#5c6b4a}
     .budget-entry-header{
-      display:grid;grid-template-columns:130px 1fr 140px 32px;
+      display:grid;grid-template-columns:110px 1fr 130px 150px 32px;
       gap:8px;padding:6px 12px;
       font-size:10px;font-weight:700;text-transform:uppercase;
       letter-spacing:.07em;color:#8a8278;
@@ -5064,7 +5064,7 @@ function openKpiBudgetModal(kpiId) {
   }
 }
 
-function addBudgetEntry(kpiId, region='', type='', amount='') {
+function addBudgetEntry(kpiId, region='', type='', amount='', owner='') {
   const container = document.getElementById('budgetEntries_'+kpiId);
   if(!container) return;
 
@@ -5075,6 +5075,12 @@ function addBudgetEntry(kpiId, region='', type='', amount='') {
 
   const typeOpts = getMktgTypes().map(t=>
     `<option value="${esc(t)}"${t===type?' selected':''}>${esc(t)}</option>`
+  ).join('');
+
+  // 오너 옵션 생성 (state.owners 기준, 이름 가나다 정렬)
+  const sortedOwners = [...(state.owners||[])].sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  const ownerOpts = sortedOwners.map(o=>
+    `<option value="${esc(o.name)}"${o.name===owner?' selected':''}>${esc(o.name)}</option>`
   ).join('');
 
   row.innerHTML = `
@@ -5095,6 +5101,12 @@ function addBudgetEntry(kpiId, region='', type='', amount='') {
       <select class="budget-type-select" data-field="type">
         <option value="">활동 유형 선택</option>
         ${typeOpts}
+      </select>
+    </div>
+    <div>
+      <select class="budget-type-select" data-field="owner" style="font-size:12px">
+        <option value="">담당자 선택</option>
+        ${ownerOpts}
       </select>
     </div>
     <div class="budget-entry-amount">
@@ -5137,9 +5149,12 @@ async function saveBudgetPlan(kpiId) {
     container.querySelectorAll('.budget-entry-row').forEach(row => {
       const region = row.querySelector('input[data-field="region"]')?.value.trim();
       const type   = row.querySelector('select[data-field="type"]')?.value;
+      const owner  = row.querySelector('select[data-field="owner"]')?.value || '';
       const amount = Number(row.querySelector('input[data-field="amount"]')?.value)||0;
       if(region && type && amount > 0) {
-        entries.push({ region, type, amount });
+        const entry = { region, type, amount };
+        if(owner) entry.owner = owner;
+        entries.push(entry);
       }
     });
   }
