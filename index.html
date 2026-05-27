@@ -874,6 +874,68 @@
       padding:2px 8px;font-size:11px;cursor:pointer;font-family:var(--font-body);
     }
 
+
+    /* ── Interactive Theme Chart ── */
+    .theme-bar-interactive{
+      display:grid;gap:10px;
+    }
+    .theme-bar-item{
+      padding:12px 14px;border-radius:6px;cursor:pointer;
+      border:2px solid transparent;transition:all .18s;
+      background:#fdfcf9;
+    }
+    .theme-bar-item:hover{background:#f0ede6;border-color:#d4cec5}
+    .theme-bar-item.active{
+      background:#e8eddf;border-color:#8aaa6a;
+      box-shadow:0 2px 8px rgba(92,107,74,.15);
+    }
+    .theme-bar-header{
+      display:flex;justify-content:space-between;align-items:center;
+      margin-bottom:8px;gap:8px;
+    }
+    .theme-bar-name{font-size:12.5px;font-weight:700;color:#1a1714;line-height:1.3}
+    .theme-bar-stats{
+      display:flex;gap:10px;font-size:11px;color:#6b6259;flex-shrink:0;
+    }
+    .theme-bar-stat strong{color:#3d3830;font-weight:700}
+    .theme-bar-track{
+      height:10px;background:#e2ddd6;border-radius:999px;overflow:hidden;
+    }
+    .theme-bar-fill{
+      height:100%;border-radius:999px;transition:width .5s ease;
+    }
+    .theme-bar-footer{
+      display:flex;justify-content:space-between;margin-top:5px;
+      font-size:10px;color:#8a8278;
+    }
+
+    /* ── KPI Detail Panel (right of theme chart) ── */
+    .kpi-detail-panel{
+      display:grid;gap:8px;overflow-y:auto;
+      max-height:320px;
+    }
+    .kpi-panel-item{
+      padding:10px 12px;background:#fdfcf9;border:1px solid #e8e4dc;
+      border-radius:5px;cursor:pointer;transition:background .15s;
+    }
+    .kpi-panel-item:hover{background:#f0ede6}
+    .kpi-panel-name{font-size:13px;font-weight:700;color:#1a1714;margin-bottom:4px;line-height:1.3}
+    .kpi-panel-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .kpi-panel-owner{font-size:11px;color:#6b6259}
+    .kpi-panel-progress{display:flex;align-items:center;gap:6px;flex:1;min-width:80px}
+    .kpi-panel-bar{flex:1;height:6px;background:#e2ddd6;border-radius:999px;overflow:hidden}
+    .kpi-panel-bar-fill{height:100%;border-radius:999px}
+    .kpi-panel-pct{font-size:11px;font-weight:700;min-width:30px;text-align:right}
+
+    /* ── Marketing Activity Trend ── */
+    .trend-toggle{display:flex;gap:3px;background:#eceae3;border-radius:4px;padding:3px}
+    .trend-btn{
+      padding:4px 10px;border:0;background:transparent;color:#6b6259;
+      font-family:var(--font-body);font-size:11px;font-weight:600;cursor:pointer;
+      border-radius:3px;transition:all .15s;
+    }
+    .trend-btn.active{background:#fff;color:#1a1714;box-shadow:0 1px 3px rgba(60,50,40,.1)}
+
     /* ── Spinner ── */
     .spinner{
       width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;
@@ -933,12 +995,17 @@
   <!-- Charts + summary -->
   <section class="grid main-grid">
     <div class="panel">
-      <h3>진행률 분포</h3>
-      <canvas id="progressChart" height="120"></canvas>
+      <h3>전략 영역별 진행 현황</h3>
+      <div id="themeInteractiveWrap" class="theme-bar-interactive"></div>
     </div>
     <div class="panel">
-      <h3>운영 요약</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <h3 style="margin-bottom:0" id="kpiPanelTitle">운영 요약</h3>
+        <button class="toggle-btn active" id="kpiPanelBackBtn"
+          onclick="resetKpiPanel()" style="display:none;font-size:11px">← 전체</button>
+      </div>
       <div id="summaryBox"></div>
+      <div id="kpiDetailPanel" class="kpi-detail-panel" style="display:none"></div>
     </div>
     <div class="panel" style="display:flex;flex-direction:column;min-height:0">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-shrink:0">
@@ -952,15 +1019,8 @@
     </div>
   </section>
 
-  <!-- Strategic + Regional + Activity charts -->
+  <!-- Regional + Activity + Trend charts -->
   <section class="grid" style="grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:18px">
-    <div class="panel">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <h3 style="margin-bottom:0">전략 영역별 진행 현황</h3>
-        <button class="panel-collapse-btn" onclick="togglePanel('themePanel',this)">−</button>
-      </div>
-      <div id="themeContent" class="panel-content"><div id="themeChartWrap" class="theme-chart-wrap"></div>
-    </div>
     <div class="panel">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
         <h3 style="margin-bottom:0">지역별 오더 &amp; 마케팅비</h3>
@@ -978,6 +1038,16 @@
       <div id="actContent" class="panel-content">
         <canvas id="activityChart" height="220"></canvas>
       </div>
+    </div>
+    <div class="panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <h3 style="margin-bottom:0">마케팅 활동 추이</h3>
+        <div class="trend-toggle">
+          <button class="trend-btn active" id="trendBtnM" onclick="switchTrendView('month')">월별</button>
+          <button class="trend-btn" id="trendBtnQ" onclick="switchTrendView('quarter')">분기별</button>
+        </div>
+      </div>
+      <canvas id="activityTrendChart" height="200"></canvas>
     </div>
   </section>
 
@@ -1998,9 +2068,10 @@ function renderKPIAccordion(kpis, tasks) {
   state._lastKpis = kpis;
   state._lastKpiTasks = tasks;
   renderTop7KPI(kpis, tasks);
-  renderStrategicThemeChart(kpis, tasks);
+  renderThemeInteractiveChart(kpis, tasks);
   renderRegionOrderChart(tasks);
   renderActivityTypeChart(tasks);
+  renderActivityTrendChart(tasks);
   renderDigitalKpiCharts(kpis, tasks);
   setTimeout(()=>{ window.applyAllSavedWidths(); window.rebuildAccGrid && window.rebuildAccGrid(); }, 0);
 }
@@ -2024,15 +2095,16 @@ async function refreshDashboard() {
     const s = computeSummary(state.tasks);
     renderKPICards(s);
     renderSummary(s);
-    renderChart(state.tasks);
+    // renderChart removed - replaced by themeInteractiveChart
     renderOwnerTable(state.tasks);
     // 전략 영역 + 활동 유형 차트 (KPI + task 데이터 필요 - renderKPIAccordion 이후 호출)
     setTimeout(()=>{
       const kpis = state._lastKpis||[];
       const tasks = state._lastKpiTasks||[];
-      renderStrategicThemeChart(kpis, tasks);
+      renderThemeInteractiveChart(kpis, tasks);
       renderRegionOrderChart(tasks);
       renderActivityTypeChart(tasks);
+      renderActivityTrendChart(tasks);
       renderDigitalKpiCharts(kpis, tasks);
     }, 100);
     // KPI accordion
@@ -4141,6 +4213,238 @@ function confirmAddType(wrapId, name) {
     // 이미 있으면 그냥 선택
     selectTypePickerItem(wrapId, clean);
   }
+}
+
+
+// ── Interactive Strategic Theme Chart ──
+let _selectedTheme = null;
+
+const THEME_COLORS = {
+  '고객 참여 기반의 수요 전환': { bg:'#5c6b4a', light:'rgba(92,107,74,.15)', text:'#3d5228' },
+  '판매 가속화':               { bg:'#b8962e', light:'rgba(184,150,46,.15)', text:'#7a6010' },
+  '데이터 기반 효율 강화':     { bg:'#4a6b7c', light:'rgba(74,107,124,.15)', text:'#2c4d5c' },
+};
+const shortTheme = t => (t||'')
+  .replace('시장 수요 창출 > ','')
+  .replace('시장 기회 확대 > ','')
+  .replace('마케팅 효능감 > ','') || '기타';
+
+function renderThemeInteractiveChart(kpis, tasks) {
+  const wrap = document.getElementById('themeInteractiveWrap');
+  if(!wrap) return;
+
+  const themeMap = {};
+  for(const kpi of kpis) {
+    const th = shortTheme(kpi.strategic_theme);
+    if(!themeMap[th]) themeMap[th] = { budget:0, spend:0, progs:[], done:0, total:0, kpis:[] };
+    const kt = tasks.filter(t=>t.kpi_id===kpi.id);
+    kt.forEach(t => {
+      themeMap[th].budget += Number(t.allocated_budget||0);
+      themeMap[th].spend  += Number(t.spend||0);
+      themeMap[th].progs.push(Number(t.progress||0));
+      themeMap[th].total++;
+      if(t.status==='done') themeMap[th].done++;
+    });
+    themeMap[th].kpis.push(kpi);
+  }
+
+  const themes = Object.entries(themeMap).sort((a,b)=>b[1].total-a[1].total);
+
+  wrap.innerHTML = themes.map(([name, v]) => {
+    const avg    = v.progs.length ? Math.round(v.progs.reduce((a,b)=>a+b,0)/v.progs.length) : 0;
+    const exec   = v.budget>0 ? Math.round(v.spend/v.budget*100) : 0;
+    const col    = THEME_COLORS[name] || { bg:'#8a8278', light:'rgba(138,130,120,.12)', text:'#5a5148' };
+    const isAct  = _selectedTheme === name;
+    const kpiCnt = v.kpis.length;
+    return `
+    <div class="theme-bar-item${isAct?' active':''}"
+      onclick="selectTheme('${esc(name)}')"
+      style="${isAct?'border-color:'+col.bg+';background:'+col.light:''}">
+      <div class="theme-bar-header">
+        <div class="theme-bar-name">${esc(name)}</div>
+        <div class="theme-bar-stats">
+          <span><strong>${avg}%</strong> 진척</span>
+          <span><strong>${exec}%</strong> 집행</span>
+          <span style="color:${col.text};background:${col.light};padding:1px 6px;border-radius:2px;font-weight:700">
+            KPI ${kpiCnt}개
+          </span>
+        </div>
+      </div>
+      <div class="theme-bar-track">
+        <div class="theme-bar-fill" style="width:${avg}%;background:${col.bg}"></div>
+      </div>
+      <div class="theme-bar-footer">
+        <span>완료 ${v.done}/${v.total} Task</span>
+        <span>집행 ${fmtKRW(v.spend)} / ${fmtKRW(v.budget)}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectTheme(themeName) {
+  _selectedTheme = _selectedTheme === themeName ? null : themeName;
+  const kpis  = state._lastKpis||[];
+  const tasks = state._lastKpiTasks||[];
+  renderThemeInteractiveChart(kpis, tasks);
+  if(_selectedTheme) {
+    renderKpiPanelForTheme(_selectedTheme, kpis, tasks);
+  } else {
+    resetKpiPanel();
+  }
+}
+
+function renderKpiPanelForTheme(theme, kpis, tasks) {
+  const titleEl  = document.getElementById('kpiPanelTitle');
+  const backBtn  = document.getElementById('kpiPanelBackBtn');
+  const summary  = document.getElementById('summaryBox');
+  const panel    = document.getElementById('kpiDetailPanel');
+  if(!panel) return;
+
+  const shortName = theme.length > 14 ? theme.slice(0,13)+'…' : theme;
+  if(titleEl) titleEl.textContent = shortName;
+  if(backBtn) backBtn.style.display = 'flex';
+  if(summary) summary.style.display = 'none';
+  panel.style.display = 'grid';
+
+  const col = THEME_COLORS[theme] || { bg:'#5c6b4a', light:'rgba(92,107,74,.12)' };
+  const filtered = kpis.filter(k => shortTheme(k.strategic_theme)===theme)
+    .sort((a,b)=>(a.kpi_key||'').localeCompare(b.kpi_key||''));
+
+  panel.innerHTML = filtered.map(kpi => {
+    const kt  = tasks.filter(t=>t.kpi_id===kpi.id);
+    const avg = kt.length ? Math.round(kt.reduce((s,t)=>s+Number(t.progress||0),0)/kt.length) : 0;
+    const owners = (kpi.owners||'').split(',').slice(0,2).map(o=>o.trim()).filter(Boolean).join(', ');
+    const sc  = {'진행 중':'active','완료':'done','시작 전':'pending','보류':'pending'}[kpi.progress_status]||'pending';
+    const barColor = avg>=70?'#5c6b4a':avg>=40?'#b8962e':'#9e4a3a';
+    return `
+    <div class="kpi-panel-item" onclick="openKpiDetail('${esc(kpi.id)}')">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+        <span style="font-size:10px;background:${col.light};color:${col.bg};padding:1px 6px;border-radius:2px;font-weight:700;flex-shrink:0">${esc(kpi.kpi_key||'')}</span>
+        <span class="kpi-panel-name" style="margin-bottom:0">${esc(kpi.title||'')}</span>
+      </div>
+      <div class="kpi-panel-meta">
+        <span class="kpi-panel-owner">${esc(owners||'-')} · ${kt.length}건</span>
+        <div class="kpi-panel-progress">
+          <div class="kpi-panel-bar"><div class="kpi-panel-bar-fill" style="width:${avg}%;background:${barColor}"></div></div>
+          <span class="kpi-panel-pct" style="color:${barColor}">${avg}%</span>
+        </div>
+        <span class="kpi-status-pill ${sc}" style="font-size:10px;padding:2px 7px">${esc(kpi.progress_status||'-')}</span>
+      </div>
+    </div>`;
+  }).join('') || '<p class="empty">해당 영역의 KPI가 없습니다.</p>';
+}
+
+function resetKpiPanel() {
+  _selectedTheme = null;
+  const titleEl = document.getElementById('kpiPanelTitle');
+  const backBtn = document.getElementById('kpiPanelBackBtn');
+  const summary = document.getElementById('summaryBox');
+  const panel   = document.getElementById('kpiDetailPanel');
+  if(titleEl) titleEl.textContent = '운영 요약';
+  if(backBtn) backBtn.style.display = 'none';
+  if(summary) summary.style.display = '';
+  if(panel)   panel.style.display   = 'none';
+  renderThemeInteractiveChart(state._lastKpis||[], state._lastKpiTasks||[]);
+}
+
+// ── Marketing Activity Trend Chart ──
+let _trendView = 'month';
+
+function switchTrendView(mode) {
+  _trendView = mode;
+  document.getElementById('trendBtnM')?.classList.toggle('active', mode==='month');
+  document.getElementById('trendBtnQ')?.classList.toggle('active', mode==='quarter');
+  renderActivityTrendChart(state._lastKpiTasks||[]);
+}
+
+function renderActivityTrendChart(tasks) {
+  const ctx = document.getElementById('activityTrendChart');
+  if(!ctx) return;
+
+  const isMonth  = _trendView === 'month';
+  const QLABELS  = ['Q1','Q2','Q3','Q4'];
+  const MLABELS  = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const labels   = isMonth ? MLABELS : QLABELS;
+  const len      = isMonth ? 12 : 4;
+
+  // 활동 유형별 집계
+  const typeMap  = {};
+  const totalCount = new Array(len).fill(0);
+  const totalSpend = new Array(len).fill(0);
+
+  for(const t of tasks) {
+    const tp = t.task_type || '미분류';
+    const mo = t.started_at ? new Date(t.started_at).getMonth() : -1;
+    if(mo < 0) continue;
+    const idx = isMonth ? mo : Math.floor(mo/3);
+
+    if(!typeMap[tp]) typeMap[tp] = new Array(len).fill(0);
+    typeMap[tp][idx]++;
+    totalCount[idx]++;
+    totalSpend[idx] += Number(t.spend||0);
+  }
+
+  const PALETTE = ['rgba(92,107,74,.8)','rgba(74,124,89,.8)','rgba(184,150,46,.8)',
+    'rgba(74,107,124,.8)','rgba(158,74,58,.8)','rgba(124,86,140,.8)',
+    'rgba(80,120,160,.8)','rgba(160,100,60,.8)','rgba(60,140,120,.8)'];
+
+  const typeEntries = Object.entries(typeMap)
+    .filter(([k])=>k!=='미분류')
+    .sort((a,b)=>b[1].reduce((s,v)=>s+v,0)-a[1].reduce((s,v)=>s+v,0));
+
+  const datasets = typeEntries.map(([tp, counts], i) => ({
+    type: 'bar',
+    label: tp,
+    data: counts,
+    backgroundColor: PALETTE[i%PALETTE.length],
+    borderRadius: 3,
+    stack: 'count',
+  }));
+
+  // 마케팅 비용 (선, y축 오른쪽)
+  datasets.push({
+    type: 'line',
+    label: '마케팅 비용',
+    data: totalSpend,
+    borderColor: '#9e4a3a',
+    borderWidth: 2,
+    pointRadius: 3,
+    pointBackgroundColor: '#9e4a3a',
+    fill: false, tension: .3,
+    borderDash: [4,3],
+    yAxisID: 'y2',
+  });
+
+  if(window._trendChart) window._trendChart.destroy();
+  window._trendChart = new Chart(ctx, {
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color:'#6b6259', font:{size:10}, boxWidth:10 } },
+        tooltip: { callbacks: {
+          label: c => c.dataset.yAxisID === 'y2'
+            ? `${c.dataset.label}: ${fmtKRW(c.parsed.y)}`
+            : `${c.dataset.label}: ${c.parsed.y}건`
+        }}
+      },
+      scales: {
+        x: { stacked:true, ticks:{color:'#8a8278',font:{size:10}}, grid:{color:'rgba(60,50,40,.05)'} },
+        y: { stacked:true, beginAtZero:true, position:'left',
+          title:{display:true,text:'활동 건수',color:'#8a8278',font:{size:10}},
+          ticks:{color:'#8a8278',font:{size:10},stepSize:1},
+          grid:{color:'rgba(60,50,40,.06)'}
+        },
+        y2: { beginAtZero:true, position:'right',
+          title:{display:true,text:'마케팅 비용',color:'#9e4a3a',font:{size:10}},
+          ticks:{color:'#9e4a3a',font:{size:10},
+            callback:v=>v>=1000000?`${(v/1000000).toFixed(1)}M`:v>=1000?`${(v/1000).toFixed(0)}K`:v
+          },
+          grid:{drawOnChartArea:false}
+        }
+      }
+    }
+  });
 }
 
 // ── 14. Init ───────────────────────────────────────────────
