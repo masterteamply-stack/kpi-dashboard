@@ -1530,6 +1530,16 @@ const formEls = {
 
 // ── 3. Utils ───────────────────────────────────────────────
 const fmtNum  = v => new Intl.NumberFormat("ko-KR").format(Number(v||0));
+
+// KPI 목표값 포맷 (전역)
+const fmtT = v => {
+  if(v==null||v===undefined||v===''||isNaN(Number(v))) return '-';
+  const n=Number(v);
+  if(n>=10000000) return (n/10000000).toFixed(1)+'천만';
+  if(n>=1000000)  return (n/1000000).toFixed(1)+'백만';
+  if(n>=10000)    return (n/10000).toFixed(1)+'만';
+  return new Intl.NumberFormat('ko-KR').format(n);
+};
 const fmtPct  = v => `${Number(v||0).toFixed(1)}%`;
 const fmtKRW  = v => `${fmtNum(v)}원`;
 const fmtDate = v => { if(!v) return "-"; const d=new Date(v); return isNaN(d)?v:d.toLocaleDateString("ko-KR"); };
@@ -1894,14 +1904,7 @@ function renderKPIAccordion(kpis, tasks) {
     byKpi[kid].push(t);
   }
 
-  const fmtT = v => {
-    if(v==null||v===undefined||v===''||isNaN(Number(v))) return '-';
-    const n=Number(v);
-    if(n>=10000000) return `${(n/10000000).toFixed(1)}천만`;
-    if(n>=1000000)  return `${(n/1000000).toFixed(1)}백만`;
-    if(n>=1000)     return `${(n/1000).toFixed(0)}K`;
-    return String(n);
-  };
+    // fmtT는 전역에 정의됨
 
   const statusPillClass = s => ({'진행 중':'active','완료':'done','시작 전':'pending'}[s]||'pending');
 
