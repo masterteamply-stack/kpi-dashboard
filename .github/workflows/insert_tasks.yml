@@ -1,0 +1,15 @@
+name: Insert Tasks
+on:
+  push:
+    paths: ['tasks_to_insert.json']
+
+jobs:
+  insert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Insert tasks to Supabase
+        env:
+          SUPABASE_URL: https://oehfptlkpqlpruaqogkk.supabase.co
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: python3 insert_tasks.py
