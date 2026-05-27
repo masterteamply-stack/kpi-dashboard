@@ -1,0 +1,19 @@
+name: Add budget_plan column
+on:
+  push:
+    paths: ['.github/workflows/add_budget_plan.yml']
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run SQL
+        run: |
+          QUERY=$(python3 -c "import json; print(json.dumps({'query': open('add_budget_plan.sql').read()}))")
+          curl -s -X POST \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "$QUERY" \
+            "https://api.supabase.com/v1/projects/oehfptlkpqlpruaqogkk/database/query" \
+          | python3 -c "import sys,json; r=json.load(sys.stdin); print('Result:', r)"
