@@ -250,7 +250,7 @@
     }
     .kpi-accordion-header{
       display:grid;
-      grid-template-columns:var(--acc-grid, 32px 1fr 140px 100px 72px 72px 72px 72px 80px);
+      grid-template-columns:var(--acc-grid, 32px 1fr 140px 100px 120px 72px 72px 72px 72px 80px);
       padding:10px 16px;border-bottom:1px solid var(--line);
       font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#4a4038;
       background:#e8e4dc;align-items:center;
@@ -275,7 +275,7 @@
     .col-resize-handle:hover::after,.col-resize-handle.dragging::after{background:var(--primary)}
     .kpi-accordion-row{
       display:grid;
-      grid-template-columns:var(--acc-grid, 32px 1fr 140px 100px 72px 72px 72px 72px 80px);
+      grid-template-columns:var(--acc-grid, 32px 1fr 140px 100px 120px 72px 72px 72px 72px 80px);
       align-items:start;gap:0;
       padding:14px 16px;border-bottom:1px solid var(--line);
       cursor:pointer;transition:background .15s;font-size:13px;
@@ -388,14 +388,14 @@
       pointer-events:none;z-index:9998;display:none;opacity:.7;
     }
     @media(max-width:1200px){
-      :root{ --acc-grid:32px 1fr 120px 90px 64px 64px 64px 64px 70px }
+      :root{ --acc-grid:32px 1fr 120px 90px 100px 56px 56px 56px 56px 64px }
     }
     .kpi-accordion-wrap{
       border:1px solid rgba(91,142,255,.15);border-radius:16px;overflow:hidden;
     }
     .kpi-accordion-row{
       display:grid;
-      grid-template-columns:var(--acc-grid, 32px 1fr 140px 100px 72px 72px 72px 72px 80px);
+      grid-template-columns:var(--acc-grid, 32px 1fr 140px 100px 120px 72px 72px 72px 72px 80px);
       align-items:center;gap:0;
       padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.06);
       cursor:pointer;transition:background .18s;font-size:13.5px;
@@ -480,7 +480,7 @@
     .accordion-empty{padding:22px 52px;color:#5a6a8a;font-size:13px;font-style:italic}
     .kpi-accordion-header{
       display:grid;
-      grid-template-columns:var(--acc-grid, 32px 1fr 140px 100px 72px 72px 72px 72px 80px);
+      grid-template-columns:var(--acc-grid, 32px 1fr 140px 100px 120px 72px 72px 72px 72px 80px);
       padding:11px 18px;border-bottom:1px solid rgba(255,255,255,.08);
       font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#5a6a8a;
       background:rgba(0,0,0,.2);
@@ -646,6 +646,88 @@
       padding:1px 6px;border-radius:2px;
     }
     textarea#commentContent{padding-bottom:8px}
+
+
+    /* ── KPI Progress Gauge ── */
+    .kpi-progress-wrap{
+      display:flex;flex-direction:column;gap:4px;justify-content:center;
+    }
+    .kpi-gauge-outer{
+      width:100%;height:8px;background:#dedad2;border-radius:999px;overflow:hidden;
+      position:relative;
+    }
+    .kpi-gauge-bar{
+      height:100%;border-radius:999px;transition:width .6s ease;
+      background:linear-gradient(90deg,#5c6b4a,#7a8f62);
+    }
+    .kpi-gauge-bar.warn{background:linear-gradient(90deg,#b8962e,#d4af42)}
+    .kpi-gauge-bar.danger{background:linear-gradient(90deg,#9e4a3a,#c06050)}
+    .kpi-gauge-pct{font-size:11px;font-weight:700;color:#3d3830;line-height:1}
+    .kpi-gauge-label{font-size:10px;color:#8a8278}
+
+    /* ── KPI Detail Modal ── */
+    .kpi-detail-modal{
+      width:min(780px,100%);max-height:90vh;overflow-y:auto;
+      background:#fdfcf9;border:1px solid #e0dbd2;
+      border-radius:12px;box-shadow:0 12px 48px rgba(60,50,40,.16);
+    }
+    .kpi-detail-header{
+      padding:28px 28px 20px;border-bottom:1px solid #e8e4dc;
+      display:flex;justify-content:space-between;align-items:flex-start;gap:16px;
+    }
+    .kpi-detail-tag{
+      display:inline-block;padding:3px 10px;border-radius:2px;
+      background:#d8e4cc;color:#3d5228;font-size:11px;font-weight:700;
+      letter-spacing:.06em;margin-bottom:10px;
+    }
+    .kpi-detail-title{font-size:22px;font-weight:700;color:#1a1714;line-height:1.3;margin-bottom:6px}
+    .kpi-detail-stmt{font-size:13px;color:#5a5148;line-height:1.65}
+    .kpi-detail-body{padding:24px 28px;display:grid;gap:20px}
+    .kpi-detail-section h4{
+      font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;
+      color:#6b6259;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e8e4dc;
+    }
+
+    /* 분기별 진행 카드 */
+    .kpi-quarter-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+    .kpi-quarter-card{
+      background:#f5f2ed;border:1px solid #e2ddd6;border-radius:6px;padding:14px 12px;
+      text-align:center;
+    }
+    .kpi-quarter-card.current{
+      background:#e8eddf;border-color:#b8ccaa;
+    }
+    .kpi-qtr-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8a8278;margin-bottom:8px}
+    .kpi-qtr-target{font-size:11px;color:#8a8278;margin-bottom:4px}
+    .kpi-qtr-result{font-size:22px;font-weight:700;color:#1a1714;margin-bottom:8px;line-height:1}
+    .kpi-qtr-bar-wrap{height:6px;background:#dedad2;border-radius:999px;overflow:hidden;margin-bottom:6px}
+    .kpi-qtr-bar{height:100%;border-radius:999px;background:#5c6b4a}
+    .kpi-qtr-pct{font-size:11px;font-weight:700;color:#5c6b4a}
+
+    /* Task 목록 인라인 */
+    .kpi-detail-tasks{display:grid;gap:8px}
+    .kpi-detail-task-row{
+      display:grid;grid-template-columns:1fr auto auto auto;
+      align-items:center;gap:12px;
+      padding:10px 14px;background:#f5f2ed;border:1px solid #e2ddd6;border-radius:4px;
+    }
+    .kpi-detail-task-title{font-size:13px;font-weight:600;color:#1a1714}
+    .kpi-detail-task-meta{font-size:11px;color:#8a8278;margin-top:2px}
+    .kpi-detail-task-prog{
+      width:80px;text-align:right;
+    }
+    .kpi-detail-task-prog .val{font-size:12px;font-weight:700;color:#3d3830}
+    .kpi-detail-task-prog .bar{height:4px;background:#dedad2;border-radius:999px;overflow:hidden;margin-top:4px}
+    .kpi-detail-task-prog .fill{height:100%;background:#5c6b4a;border-radius:999px}
+
+    /* stat row */
+    .kpi-stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .kpi-stat-card{
+      background:#f5f2ed;border:1px solid #e2ddd6;border-radius:6px;
+      padding:14px;text-align:center;
+    }
+    .kpi-stat-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#8a8278;margin-bottom:6px;font-weight:600}
+    .kpi-stat-val{font-size:20px;font-weight:700;color:#1a1714}
 
     /* ── Spinner ── */
     .spinner{
@@ -1210,7 +1292,7 @@ async function fetchAttachments(taskId) {
 async function fetchKpisWithTasks() {
   const { data: kpis, error: ke } = await state.sb
     .from('kpis')
-    .select('id,title,kpi_key,statement,owners,progress_status,q1_target,q2_target,q3_target,q4_target,q1_result,unit,strategic_theme')
+    .select('id,title,kpi_key,statement,owners,progress_status,q1_target,q2_target,q3_target,q4_target,q1_result,q2_result,unit,strategic_theme')
     .order('kpi_key');
   if(ke) throw ke;
 
@@ -1408,6 +1490,7 @@ function renderKPIAccordion(kpis, tasks) {
       <div>${hdr('kpiName')}</div>
       <div>${hdr('owners')}</div>
       <div>${hdr('status')}</div>
+      <div>${hdr('progress','left')}</div>
       <div style="text-align:right">${hdr('q1','right')}</div>
       <div style="text-align:right">${hdr('q2','right')}</div>
       <div style="text-align:right">${hdr('q3','right')}</div>
@@ -1495,15 +1578,22 @@ function renderKPIAccordion(kpis, tasks) {
           <span class="accordion-task-count">${taskCount}</span>
         </div>
         <div class="kpi-statement">${esc((kpi.statement||'').slice(0,72))}${(kpi.statement||'').length>72?'…':''}</div>
-        ${theme ? `<span class="kpi-theme-badge">${esc(theme)}</span>` : ''}
+        <div style="display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap">
+          ${theme ? `<span class="kpi-theme-badge">${esc(theme)}</span>` : ''}
+          <button class="btn btn-ghost" style="font-size:10px;padding:2px 8px;border-radius:3px;line-height:1.4"
+            onclick="event.stopPropagation();openKpiDetail('${esc(kpi.id)}')">상세 ›</button>
+        </div>
       </div>
       <div><div class="kpi-owner-chips">${ownerHTML}</div></div>
       <div><span class="kpi-status-pill ${sc}">${esc(kpi.progress_status||'-')}</span></div>
+      <div class="kpi-progress-wrap">
+        ${renderKpiGauge(kpi, taskList)}
+      </div>
       <div class="target-cell"><div class="target-val">${fmtT(kpi.q1_target)}</div></div>
       <div class="target-cell"><div class="target-val">${fmtT(kpi.q2_target)}</div></div>
       <div class="target-cell"><div class="target-val">${fmtT(kpi.q3_target)}</div></div>
       <div class="target-cell"><div class="target-val">${fmtT(kpi.q4_target)}</div></div>
-      <div><div style="font-size:11px;color:#8a9ab8;font-weight:600">${esc(kpi.unit||'-')}</div></div>
+      <div><div style="font-size:11px;color:#6b6259;font-weight:600">${esc(kpi.unit||'-')}</div></div>
     </div>
     <div class="kpi-tasks-wrap">
       <div style="overflow-x:auto">
@@ -1519,6 +1609,8 @@ function renderKPIAccordion(kpis, tasks) {
   }).join('');
 
   wrap.innerHTML = `<div class="kpi-accordion-wrap">${headerHTML}${rows}</div>`;
+  state._lastKpis = kpis;
+  state._lastKpiTasks = tasks;
   setTimeout(()=>{ window.applyAllSavedWidths(); window.rebuildAccGrid && window.rebuildAccGrid(); }, 0);
 }
 
@@ -2211,7 +2303,7 @@ async function saveTaskCellEdit(el) {
     const cols = [
       window._colPx[0]+'px',
       '1fr',
-      ...[3,4,5,6,7,8,9].map(i => (window._colPx[i]||72)+'px')
+      ...[3,4,5,6,7,8,9,10].map(i => (window._colPx[i]||72)+'px')
     ];
     const val = cols.join(' ');
     document.querySelectorAll('.kpi-accordion-row, .kpi-accordion-header').forEach(el=>{
@@ -2460,6 +2552,135 @@ async function saveTeamsWebhook(input) {
     if(msg) msg.style.color='var(--red)';
     if(msg) msg.textContent = '저장 실패: ' + (e.message||e);
   }
+}
+
+
+// ── KPI Progress Gauge ──
+function renderKpiGauge(kpi, taskList) {
+  // Task들의 평균 진척도로 게이지 표시
+  const avgProg = taskList.length
+    ? Math.round(taskList.reduce((s,t)=>s+Number(t.progress||0),0)/taskList.length)
+    : 0;
+  const colorClass = avgProg >= 70 ? '' : avgProg >= 40 ? 'warn' : 'danger';
+  return `
+    <div class="kpi-gauge-pct">${avgProg}%</div>
+    <div class="kpi-gauge-outer">
+      <div class="kpi-gauge-bar ${colorClass}" style="width:${avgProg}%"></div>
+    </div>
+    <div class="kpi-gauge-label">${taskList.length}개 Task 평균</div>`;
+}
+
+// ── KPI 상세 모달 ──
+function openKpiDetail(kpiId) {
+  const kpi   = (state._lastKpis||[]).find(k=>k.id===kpiId);
+  const tasks = (state._lastKpiTasks||[]).filter(t=>t.kpi_id===kpiId);
+  if(!kpi) return;
+
+  const avgProg = tasks.length
+    ? Math.round(tasks.reduce((s,t)=>s+Number(t.progress||0),0)/tasks.length) : 0;
+  const totalBudget = tasks.reduce((s,t)=>s+Number(t.allocated_budget||0),0);
+  const totalSpend  = tasks.reduce((s,t)=>s+Number(t.spend||0),0);
+  const execRate    = totalBudget>0 ? Math.round(totalSpend/totalBudget*100) : 0;
+  const doneCnt     = tasks.filter(t=>t.status==='done').length;
+
+  // 분기 카드 – 현재 분기(Q2) 하이라이트
+  const quarters = [
+    {q:'Q1', target:kpi.q1_target, result:kpi.q1_result},
+    {q:'Q2', target:kpi.q2_target, result:kpi.q2_result},
+    {q:'Q3', target:kpi.q3_target, result:null},
+    {q:'Q4', target:kpi.q4_target, result:null},
+  ];
+  const curQ = 'Q2';
+  const quarterCards = quarters.map(({q, target, result}) => {
+    const pct = (target&&result&&!isNaN(Number(result)))
+      ? Math.min(100, Math.round(Number(result)/Number(target)*100)) : null;
+    const barW = pct !== null ? pct : 0;
+    const isCur = q===curQ;
+    return `<div class="kpi-quarter-card${isCur?' current':''}">
+      <div class="kpi-qtr-label">${q} ${isCur?'<span style="color:#5c6b4a">●</span>':''}</div>
+      <div class="kpi-qtr-target">목표 ${fmtT(target)||'-'}</div>
+      <div class="kpi-qtr-result">${result&&result!=='nan'?fmtT(result):'-'}</div>
+      <div class="kpi-qtr-bar-wrap"><div class="kpi-qtr-bar" style="width:${barW}%"></div></div>
+      <div class="kpi-qtr-pct">${pct!==null?pct+'%':'-'}</div>
+    </div>`;
+  }).join('');
+
+  // Task 목록
+  const taskRows = tasks.length ? tasks.map(t => {
+    const mo = t.started_at ? new Date(t.started_at).getMonth()+1+'월' : '';
+    const qtr = t.quarter ? t.quarter.replace('2026-','') : '';
+    return `<div class="kpi-detail-task-row">
+      <div>
+        <div class="kpi-detail-task-title">${esc(t.title||'')}</div>
+        <div class="kpi-detail-task-meta">${esc(t.owners?.name||'')} · ${esc(mo)} ${esc(qtr)}</div>
+      </div>
+      <div><span class="badge ${esc(t.status||'todo')}">${esc(statusLabel(t.status||'todo'))}</span></div>
+      <div class="kpi-detail-task-prog">
+        <div class="val">${t.progress||0}%</div>
+        <div class="bar"><div class="fill" style="width:${Math.min(100,t.progress||0)}%"></div></div>
+      </div>
+      <div style="font-size:12px;color:#6b6259">${fmtKRW(t.allocated_budget)}</div>
+    </div>`;
+  }).join('') : '<p style="color:#8a8278;font-size:13px;padding:12px 0">등록된 Task가 없습니다.</p>';
+
+  const modal = document.createElement('div');
+  modal.className = 'modal-backdrop open';
+  modal.style.zIndex = '1100';
+  modal.innerHTML = `
+    <div class="kpi-detail-modal">
+      <div class="kpi-detail-header">
+        <div style="flex:1;min-width:0">
+          <div class="kpi-detail-tag">${esc(kpi.kpi_key||'')}</div>
+          <div class="kpi-detail-title">${esc(kpi.title||'')}</div>
+          <div class="kpi-detail-stmt">${esc(kpi.statement||'')}</div>
+        </div>
+        <button class="modal-close" onclick="this.closest('.modal-backdrop').remove()">×</button>
+      </div>
+      <div class="kpi-detail-body">
+
+        <!-- 종합 지표 -->
+        <div class="kpi-detail-section">
+          <h4>종합 현황</h4>
+          <div class="kpi-stat-row">
+            <div class="kpi-stat-card">
+              <div class="kpi-stat-label">평균 진척도</div>
+              <div class="kpi-stat-val" style="color:#5c6b4a">${avgProg}%</div>
+              <div style="height:6px;background:#dedad2;border-radius:999px;overflow:hidden;margin-top:8px">
+                <div style="height:100%;width:${avgProg}%;background:#5c6b4a;border-radius:999px"></div>
+              </div>
+            </div>
+            <div class="kpi-stat-card">
+              <div class="kpi-stat-label">예산 집행율</div>
+              <div class="kpi-stat-val" style="color:#b8962e">${execRate}%</div>
+              <div style="font-size:11px;color:#8a8278;margin-top:4px">${fmtKRW(totalSpend)} / ${fmtKRW(totalBudget)}</div>
+            </div>
+            <div class="kpi-stat-card">
+              <div class="kpi-stat-label">Task 완료</div>
+              <div class="kpi-stat-val">${doneCnt}<span style="font-size:14px;color:#8a8278"> / ${tasks.length}</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 분기별 진행 -->
+        <div class="kpi-detail-section">
+          <h4>분기별 목표 달성</h4>
+          <div class="kpi-quarter-grid">${quarterCards}</div>
+        </div>
+
+        <!-- Task 목록 -->
+        <div class="kpi-detail-section">
+          <h4>관련 Task (${tasks.length}건)</h4>
+          <div class="kpi-detail-tasks">${taskRows}</div>
+        </div>
+
+      </div>
+    </div>`;
+
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if(e.target===modal) modal.remove(); });
+  document.addEventListener('keydown', function esc(e) {
+    if(e.key==='Escape'){ modal.remove(); document.removeEventListener('keydown',esc); }
+  });
 }
 
 // ── 14. Init ───────────────────────────────────────────────
