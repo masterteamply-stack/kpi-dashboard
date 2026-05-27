@@ -5057,7 +5057,7 @@ function openKpiBudgetModal(kpiId) {
   // 기존 항목 렌더링
   const container = document.getElementById('budgetEntries_'+kpiId);
   if(entries.length) {
-    entries.forEach(entry => addBudgetEntry(kpiId, entry.region, entry.type, entry.amount));
+    entries.forEach(entry => addBudgetEntry(kpiId, entry.region, entry.type, entry.amount, entry.owner||''));
   } else {
     // 빈 항목 하나 추가
     addBudgetEntry(kpiId);
