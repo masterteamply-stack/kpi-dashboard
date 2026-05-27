@@ -239,6 +239,70 @@
     .inline-error{font-size:11px;color:#ff9f9f;min-height:14px}
     .upload-help{font-size:11px;color:var(--muted);line-height:1.5}
 
+
+    /* ── KPI Accordion ── */
+    .kpi-accordion-row{
+      display:grid;
+      grid-template-columns:28px 90px 1fr 120px 80px repeat(4,70px) 80px;
+      align-items:center;gap:0;
+      padding:13px 14px;border-bottom:1px solid var(--line);
+      cursor:pointer;transition:background .15s;font-size:13px;
+    }
+    .kpi-accordion-row:hover{background:rgba(91,142,255,.06)}
+    .kpi-accordion-row.expanded{background:rgba(91,142,255,.07);border-left:3px solid var(--primary)}
+    .kpi-chevron{transition:transform .2s;color:var(--muted);font-size:12px;user-select:none}
+    .kpi-chevron.open{transform:rotate(90deg);color:var(--primary)}
+    .kpi-tag{
+      display:inline-block;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;
+      background:rgba(91,142,255,.14);color:#a4c7ff;letter-spacing:.02em;
+    }
+    .kpi-statement{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}
+    .kpi-owner-chips{display:flex;gap:4px;flex-wrap:wrap}
+    .kpi-owner-chip{
+      font-size:11px;padding:2px 7px;border-radius:999px;
+      background:rgba(255,255,255,.06);border:1px solid var(--line);color:#c0d0e8;
+    }
+    .target-val{font-family:var(--font-display);font-weight:700;font-size:13px}
+    .result-val{font-size:11px;color:var(--muted);margin-top:2px}
+    .kpi-tasks-wrap{
+      background:rgba(0,0,0,.18);border-bottom:1px solid var(--line);
+      display:none;overflow:hidden;
+    }
+    .kpi-tasks-wrap.open{display:block}
+    .kpi-tasks-table{width:100%;border-collapse:collapse;min-width:900px}
+    .kpi-tasks-table th{
+      font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+      padding:9px 14px 9px 40px;border-bottom:1px solid rgba(255,255,255,.05);
+      background:rgba(255,255,255,.02);text-align:left;white-space:nowrap;
+    }
+    .kpi-tasks-table th:first-child{padding-left:48px}
+    .kpi-tasks-table td{
+      padding:11px 14px 11px 40px;border-bottom:1px solid rgba(255,255,255,.03);
+      font-size:12.5px;vertical-align:middle;
+    }
+    .kpi-tasks-table td:first-child{padding-left:48px}
+    .kpi-tasks-table tr:last-child td{border-bottom:0}
+    .kpi-tasks-table tr:hover td{background:rgba(91,142,255,.04)}
+    .month-chip{
+      display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;
+      background:rgba(255,255,255,.07);color:#b0c8ff;min-width:28px;text-align:center;
+    }
+    .task-type-chip{
+      font-size:11px;padding:2px 7px;border-radius:6px;
+      background:rgba(124,86,255,.13);color:#c0a8ff;
+    }
+    .accordion-empty{padding:20px 48px;color:var(--muted);font-size:13px}
+    .kpi-accordion-header{
+      display:grid;
+      grid-template-columns:28px 90px 1fr 120px 80px repeat(4,70px) 80px;
+      padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.06);
+      font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+      background:rgba(255,255,255,.02);
+    }
+    @media(max-width:1100px){
+      .kpi-accordion-row,.kpi-accordion-header{grid-template-columns:28px 80px 1fr 100px 70px repeat(4,60px) 70px}
+    }
+
     /* ── Spinner ── */
     .spinner{
       width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;
@@ -319,22 +383,10 @@
   </section>
 
   <!-- Task table -->
-  <section class="panel">
+  <section class="panel" id="kpiAccordionPanel">
     <h3>업무 상세 테이블</h3>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>업무명</th><th>담당자</th><th>KPI</th><th>상태</th>
-            <th>우선순위</th><th>진척도</th><th>지역</th>
-            <th>예산</th><th>집행</th><th>매출</th><th>리드</th>
-            <th>마감일</th><th>관리</th>
-          </tr>
-        </thead>
-        <tbody id="taskTableBody"></tbody>
-      </table>
-    </div>
-    <p class="footer-note">tasks / task_comments / task_attachments 변경은 Realtime으로 자동 반영됩니다.</p>
+    <div id="kpiAccordionWrap"></div>
+    <p class="footer-note">KPI 행 클릭 시 관련 활동 Task 목록이 펼쳐집니다 · Realtime 자동 반영</p>
   </section>
 </div>
 
@@ -759,6 +811,23 @@ async function fetchAttachments(taskId) {
   return data||[];
 }
 
+async function fetchKpisWithTasks() {
+  const { data: kpis, error: ke } = await state.sb
+    .from('kpis')
+    .select('id,title,kpi_key,statement,owners,progress_status,q1_target,q2_target,q3_target,q4_target,q1_result,unit,strategic_theme')
+    .order('kpi_key');
+  if(ke) throw ke;
+
+  const { data: tasks, error: te } = await state.sb
+    .from('tasks')
+    .select('id,title,kpi_id,owner_id,quarter,status,priority,progress,allocated_budget,notes,started_at,due_date,owners(name),kpis(kpi_key)')
+    .order('started_at');
+  if(te) throw te;
+
+  return { kpis: kpis||[], tasks: tasks||[] };
+}
+
+
 // ── 6. Summary computation ─────────────────────────────────
 function computeSummary(tasks) {
   const today = todayD();
@@ -903,39 +972,105 @@ function renderOwnerTable(tasks) {
     </tr>`).join("");
 }
 
-function renderTaskTable(tasks) {
-  if(!tasks.length) { el.taskTableBody.innerHTML=`<tr><td colspan="13" class="empty">업무가 없습니다.</td></tr>`; return; }
-  el.taskTableBody.innerHTML = tasks.map(t=>`
-    <tr>
-      <td>
-        <div class="task-title">${esc(t.title)}</div>
-        ${t.notes?`<div class="task-note">${esc(t.notes.slice(0,60))}${t.notes.length>60?"…":""}</div>`:""}
-      </td>
-      <td>
-        <div>${esc(t.owners?.name||"-")}</div>
-        <div class="muted" style="font-size:12px">${esc(t.owners?.team||"")}</div>
-      </td>
-      <td class="muted" style="font-size:12px">${esc(t.kpis?.title||"-")}</td>
-      <td><span class="badge ${esc(t.status)}">${esc(statusLabel(t.status))}</span></td>
-      <td><span class="priority ${esc(t.priority)}">${esc(priorityLabel(t.priority))}</span></td>
-      <td style="min-width:100px">
-        <div>${fmtPct(t.progress)}</div>
-        <div class="progress-shell"><div class="progress-bar" style="width:${Math.min(100,t.progress||0)}%"></div></div>
-      </td>
-      <td class="muted">${esc(t.region||"-")}</td>
-      <td class="muted">${fmtKRW(t.allocated_budget)}</td>
-      <td>${fmtKRW(t.spend)}</td>
-      <td style="color:var(--green)">${fmtKRW(t.revenue)}</td>
-      <td>${fmtNum(t.leads)}</td>
-      <td class="${isDue(t)?'':'muted'}" style="${isDue(t)?'color:var(--red)':''}">${fmtDate(t.due_date)}</td>
-      <td>
-        <div class="row-actions">
-          <button class="btn btn-ghost" onclick="openDrawer('${esc(t.id)}')">상세</button>
-          <button class="btn btn-ghost" onclick="openEditModal('${esc(t.id)}')">수정</button>
-          <button class="btn btn-ghost" style="color:var(--red)" onclick="openDeleteModal('${esc(t.id)}','${esc(t.title)}')">삭제</button>
-        </div>
-      </td>
-    </tr>`).join("");
+function renderKPIAccordion(kpis, tasks) {
+  const wrap = document.getElementById('kpiAccordionWrap');
+  if(!kpis.length) { wrap.innerHTML='<p class="empty">KPI 데이터가 없습니다.</p>'; return; }
+
+  // group tasks by kpi_id
+  const byKpi = {};
+  for(const t of tasks) {
+    const kid = t.kpi_id || '__none__';
+    if(!byKpi[kid]) byKpi[kid] = [];
+    byKpi[kid].push(t);
+  }
+
+  const fmtT = v => { if(v==null||v===undefined) return '-'; const n=Number(v); return n>=1000000?`${(n/1000000).toFixed(1)}M`:n>=1000?`${(n/1000).toFixed(0)}K`:String(n); };
+
+  const headerHTML = `
+    <div class="kpi-accordion-header">
+      <div></div>
+      <div>KPI ID</div>
+      <div>KPI명 / 목표</div>
+      <div>담당자</div>
+      <div>진행상태</div>
+      <div>Q1 목표</div>
+      <div>Q2 목표</div>
+      <div>Q3 목표</div>
+      <div>Q4 목표</div>
+      <div>단위</div>
+    </div>`;
+
+  const rows = kpis.map(kpi => {
+    const taskList = byKpi[kpi.id] || [];
+    const owners = (kpi.owners||'').split(',').map(o=>o.trim()).filter(Boolean);
+    const ownerHTML = owners.map(o=>`<span class="kpi-owner-chip">${esc(o)}</span>`).join('');
+    const statusColor = {'진행 중':'var(--primary)','완료':'var(--green)','시작 전':'var(--muted)'}[kpi.progress_status]||'var(--muted)';
+
+    // tasks sub-table
+    const taskRows = taskList.length ? taskList.map(t => {
+      // derive month from started_at
+      const mo = t.started_at ? new Date(t.started_at).getMonth()+1+'월' : '-';
+      const qtr = t.quarter ? t.quarter.replace('2026-','') : '-';
+      return `<tr>
+        <td><span class="month-chip">${esc(mo)}</span></td>
+        <td><span class="month-chip" style="background:rgba(255,255,255,.05);color:var(--muted)">${esc(qtr)}</span></td>
+        <td>${esc(t.title||'')}</td>
+        <td>${esc(t.owners?.name||'-')}</td>
+        <td><span class="badge ${esc(t.status||'todo')}">${esc(statusLabel(t.status||'todo'))}</span></td>
+        <td>
+          <div style="font-size:12px">${fmtPct(t.progress)}</div>
+          <div class="progress-shell" style="width:80px"><div class="progress-bar" style="width:${Math.min(100,t.progress||0)}%"></div></div>
+        </td>
+        <td style="color:var(--muted);font-size:12px">${fmtKRW(t.allocated_budget)}</td>
+        <td>
+          <div class="row-actions">
+            <button class="btn btn-ghost" onclick="openDrawer('${esc(t.id)}')">상세</button>
+            <button class="btn btn-ghost" onclick="openEditModal('${esc(t.id)}')">수정</button>
+            <button class="btn btn-ghost" style="color:var(--red)" onclick="openDeleteModal('${esc(t.id)}','${esc(t.title||'')}')">삭제</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="8" class="accordion-empty">등록된 Task가 없습니다.</td></tr>`;
+
+    return `
+    <div class="kpi-accordion-row" onclick="toggleKpiRow(this)">
+      <div><span class="kpi-chevron">▶</span></div>
+      <div><span class="kpi-tag">${esc(kpi.kpi_key||'')}</span></div>
+      <div>
+        <div style="font-weight:700">${esc(kpi.title||'')}</div>
+        <div class="kpi-statement">${esc((kpi.statement||'').slice(0,60))}${(kpi.statement||'').length>60?'…':''}</div>
+      </div>
+      <div><div class="kpi-owner-chips">${ownerHTML}</div></div>
+      <div><span style="color:${statusColor};font-size:12px;font-weight:700">${esc(kpi.progress_status||'-')}</span></div>
+      <div><div class="target-val">${fmtT(kpi.q1_target)}</div></div>
+      <div><div class="target-val">${fmtT(kpi.q2_target)}</div></div>
+      <div><div class="target-val">${fmtT(kpi.q3_target)}</div></div>
+      <div><div class="target-val">${fmtT(kpi.q4_target)}</div></div>
+      <div style="color:var(--muted);font-size:11px">${esc(kpi.unit||'')}</div>
+    </div>
+    <div class="kpi-tasks-wrap">
+      <div style="overflow-x:auto">
+        <table class="kpi-tasks-table">
+          <thead><tr>
+            <th>월</th><th>분기</th><th>Task명</th><th>담당자</th>
+            <th>상태</th><th>진척도</th><th>예산</th><th>관리</th>
+          </tr></thead>
+          <tbody>${taskRows}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+
+  wrap.innerHTML = headerHTML + rows;
+}
+
+function toggleKpiRow(rowEl) {
+  const wrap = rowEl.nextElementSibling;
+  const chevron = rowEl.querySelector('.kpi-chevron');
+  const isOpen = wrap.classList.contains('open');
+  wrap.classList.toggle('open', !isOpen);
+  chevron.classList.toggle('open', !isOpen);
+  rowEl.classList.toggle('expanded', !isOpen);
 }
 
 function isDue(t) { return t.status!=="done"&&t.due_date&&new Date(t.due_date)<todayD(); }
@@ -950,7 +1085,14 @@ async function refreshDashboard() {
     renderSummary(s);
     renderChart(state.tasks);
     renderOwnerTable(state.tasks);
-    renderTaskTable(state.tasks);
+    // KPI accordion
+    try {
+      const { kpis, tasks } = await fetchKpisWithTasks();
+      renderKPIAccordion(kpis, tasks);
+    } catch(e) {
+      console.warn('KPI accordion load error:', e);
+      renderKPIAccordion([], state.tasks);
+    }
     setStatus(`마지막 업데이트: ${new Date().toLocaleTimeString("ko-KR")} · 총 ${state.tasks.length}건`);
   } catch(e) {
     console.error(e);
