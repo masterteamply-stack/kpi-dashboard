@@ -608,6 +608,45 @@
       pointer-events:none;z-index:9998;display:none;
     }
 
+
+    /* ── @Mention ── */
+    .mention-dropdown{
+      position:absolute;top:100%;left:0;right:0;z-index:200;
+      background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+      box-shadow:var(--shadow-lg);overflow:hidden;max-height:180px;overflow-y:auto;
+    }
+    .mention-item{
+      display:flex;align-items:center;gap:10px;
+      padding:9px 12px;cursor:pointer;transition:background .12s;font-size:13px;
+    }
+    .mention-item:hover,.mention-item.selected{background:var(--primary-light)}
+    .mention-avatar{
+      width:28px;height:28px;border-radius:50%;background:var(--primary);
+      display:flex;align-items:center;justify-content:center;
+      color:#fff;font-size:11px;font-weight:600;flex-shrink:0;
+    }
+    .mention-name{font-weight:500;color:var(--text)}
+    .mention-team{font-size:11px;color:var(--muted)}
+    .mention-webhook-dot{
+      width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-left:auto;
+    }
+    .mention-webhook-dot.connected{background:var(--green)}
+    .mention-webhook-dot.disconnected{background:var(--muted2)}
+    .mention-tags{display:flex;gap:6px;flex-wrap:wrap;min-height:0}
+    .mention-tag{
+      display:inline-flex;align-items:center;gap:5px;
+      padding:3px 8px;border-radius:2px;
+      background:var(--primary-light);border:1px solid rgba(92,107,74,.2);
+      color:var(--primary);font-size:12px;font-weight:500;
+    }
+    .mention-tag-at{opacity:.6;font-size:10px}
+    .mention-notify-badge{
+      display:inline-flex;align-items:center;gap:4px;
+      font-size:10px;color:var(--green);background:rgba(74,124,89,.1);
+      padding:1px 6px;border-radius:2px;
+    }
+    textarea#commentContent{padding-bottom:8px}
+
     /* ── Spinner ── */
     .spinner{
       width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;
@@ -651,6 +690,7 @@
     <select id="regionFilter"  class="control"><option value="all">전체 지역</option></select>
     <button id="refreshBtn"  class="btn btn-secondary">↻ 새로고침</button>
     <button id="addTaskBtn"  class="btn btn-primary">＋ 업무 추가</button>
+    <button type="button" class="btn btn-secondary" onclick="openTeamsSetupModal()" title="Teams 웹훅 설정">📣 Teams 설정</button>
   </section>
 
   <div id="statusLine" class="status-line">초기화 중…</div>
@@ -881,11 +921,22 @@
     <div id="drawerTabComments" class="drawer-tab-content" style="display:none">
     <section class="drawer-card">
       <h4>댓글</h4>
-      <div class="inline-form" style="margin-bottom:12px">
-        <input  id="commentAuthor"  type="text" maxlength="40"   placeholder="작성자 이름" />
-        <textarea id="commentContent" maxlength="2000" placeholder="댓글 내용을 입력하세요"></textarea>
+      <div class="inline-form" style="margin-bottom:14px;position:relative">
+        <input id="commentAuthor" type="text" maxlength="40" placeholder="작성자 이름" />
+        <div style="position:relative">
+          <textarea id="commentContent" maxlength="2000"
+            placeholder="댓글 내용을 입력하세요. @이름 으로 멘션하면 Teams 알람이 발송됩니다."
+            oninput="handleMentionInput(this)"
+            onkeydown="handleMentionKeydown(event)"
+            style="padding-right:12px"></textarea>
+          <div id="mentionDropdown" class="mention-dropdown" style="display:none"></div>
+        </div>
+        <div id="mentionTags" class="mention-tags"></div>
         <div id="commentError" class="inline-error"></div>
-        <button id="commentSubmitBtn" type="button" class="btn btn-primary" style="justify-self:start">댓글 등록</button>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button id="commentSubmitBtn" type="button" class="btn btn-primary">댓글 등록</button>
+          <span id="mentionHint" style="font-size:11px;color:var(--muted)"></span>
+        </div>
       </div>
       <div id="commentList" class="comment-list"></div>
     </section>
@@ -1477,7 +1528,7 @@ function isDue(t) { return t.status!=="done"&&t.due_date&&new Date(t.due_date)<t
 async function refreshDashboard() {
   setStatus("데이터 불러오는 중…");
   try {
-    await Promise.all([fetchMeta(), hydrateFilters()]);
+    await Promise.all([fetchMetaWithWebhook(), hydrateFilters()]);
     state.tasks = await fetchTasks();
     const s = computeSummary(state.tasks);
     renderKPICards(s);
@@ -2190,6 +2241,216 @@ async function saveTaskSelectEdit(sel) {
     renderKPICards(s); renderSummary(s); renderChart(state.tasks);
   } catch(e) { console.error('Select save error:', e); }
   finally { sel.disabled = false; }
+}
+
+
+// ══════════════════════════════════════
+// @Mention → Teams 알람
+// ══════════════════════════════════════
+const mentionState = {
+  query: '',
+  dropdownOpen: false,
+  selectedIdx: 0,
+  detected: new Set(),   // 멘션된 owner names
+};
+
+function handleMentionInput(ta) {
+  const val   = ta.value;
+  const caret = ta.selectionStart;
+  // @ 뒤 텍스트 추출
+  const before = val.slice(0, caret);
+  const match  = before.match(/@([^\s@]{0,20})$/);
+  if(match) {
+    mentionState.query = match[1].toLowerCase();
+    showMentionDropdown(ta, mentionState.query);
+  } else {
+    hideMentionDropdown();
+  }
+  updateMentionTags(val);
+}
+
+function showMentionDropdown(ta, query) {
+  const dd = document.getElementById('mentionDropdown');
+  const filtered = (state.owners||[]).filter(o =>
+    o.name.toLowerCase().includes(query) ||
+    (o.team||'').toLowerCase().includes(query)
+  );
+  if(!filtered.length) { hideMentionDropdown(); return; }
+
+  mentionState.dropdownOpen = true;
+  mentionState.selectedIdx  = 0;
+
+  dd.innerHTML = filtered.map((o, i) => {
+    const initial  = o.name.charAt(0);
+    const hasHook  = o.teams_webhook_url ? 'connected' : 'disconnected';
+    const hookTip  = o.teams_webhook_url ? 'Teams 알람 연결됨' : 'Teams 웹훅 미설정';
+    return `<div class="mention-item${i===0?' selected':''}"
+        onclick="selectMention('${esc(o.name)}','${esc(ta.id)}')"
+        data-idx="${i}" data-name="${esc(o.name)}">
+      <div class="mention-avatar">${esc(initial)}</div>
+      <div>
+        <div class="mention-name">${esc(o.name)}</div>
+        <div class="mention-team">${esc(o.team||'-')}</div>
+      </div>
+      <div class="mention-webhook-dot ${hasHook}" title="${hookTip}"></div>
+    </div>`;
+  }).join('');
+  dd.style.display = 'block';
+}
+
+function hideMentionDropdown() {
+  const dd = document.getElementById('mentionDropdown');
+  if(dd) dd.style.display = 'none';
+  mentionState.dropdownOpen = false;
+}
+
+function selectMention(name, taId) {
+  const ta   = document.getElementById(taId || 'commentContent');
+  const val  = ta.value;
+  const caret = ta.selectionStart;
+  const before = val.slice(0, caret);
+  const after  = val.slice(caret);
+  // @ 이후 입력 중인 부분 교체
+  const replaced = before.replace(/@([^\s@]*)$/, '@' + name + ' ');
+  ta.value = replaced + after;
+  ta.focus();
+  const pos = replaced.length;
+  ta.setSelectionRange(pos, pos);
+  hideMentionDropdown();
+  updateMentionTags(ta.value);
+}
+
+function handleMentionKeydown(e) {
+  if(!mentionState.dropdownOpen) return;
+  const dd = document.getElementById('mentionDropdown');
+  const items = dd ? dd.querySelectorAll('.mention-item') : [];
+  if(e.key === 'ArrowDown') {
+    e.preventDefault();
+    mentionState.selectedIdx = Math.min(mentionState.selectedIdx+1, items.length-1);
+  } else if(e.key === 'ArrowUp') {
+    e.preventDefault();
+    mentionState.selectedIdx = Math.max(mentionState.selectedIdx-1, 0);
+  } else if(e.key === 'Enter' || e.key === 'Tab') {
+    if(mentionState.dropdownOpen) {
+      e.preventDefault();
+      const sel = items[mentionState.selectedIdx];
+      if(sel) selectMention(sel.dataset.name, 'commentContent');
+      return;
+    }
+  } else if(e.key === 'Escape') {
+    hideMentionDropdown();
+    return;
+  }
+  items.forEach((el,i)=>el.classList.toggle('selected', i===mentionState.selectedIdx));
+}
+
+function updateMentionTags(content) {
+  const matches = [...content.matchAll(/@([^\s@,!?]+)/g)].map(m=>m[1]);
+  const uniqueNames = [...new Set(matches)];
+  mentionState.detected = new Set(uniqueNames);
+
+  const tagsEl = document.getElementById('mentionTags');
+  const hintEl = document.getElementById('mentionHint');
+  if(!tagsEl) return;
+
+  const ownerMap = {};
+  (state.owners||[]).forEach(o => ownerMap[o.name] = o);
+
+  const validMentions = uniqueNames.filter(n => ownerMap[n]);
+  if(!validMentions.length) { tagsEl.innerHTML=''; if(hintEl) hintEl.textContent=''; return; }
+
+  tagsEl.innerHTML = validMentions.map(name => {
+    const o = ownerMap[name];
+    const notifyTxt = o?.teams_webhook_url
+      ? '<span class="mention-notify-badge">📣 Teams 알람</span>'
+      : '<span style="font-size:10px;color:var(--muted)">웹훅 미설정</span>';
+    return `<span class="mention-tag"><span class="mention-tag-at">@</span>${esc(name)} ${notifyTxt}</span>`;
+  }).join('');
+
+  const notifiable = validMentions.filter(n => ownerMap[n]?.teams_webhook_url);
+  if(hintEl) {
+    hintEl.textContent = notifiable.length
+      ? `${notifiable.join(', ')}에게 Teams 알람이 발송됩니다.`
+      : '';
+  }
+}
+
+// fetchMeta override to include teams_webhook_url
+async function fetchMetaWithWebhook() {
+  const [{ data: owners, error: e1 }, { data: kpis, error: e2 }] = await Promise.all([
+    state.sb.from("owners").select("id,name,team,teams_webhook_url").order("name"),
+    state.sb.from("kpis").select("id,title,kpi_key,statement,owners,progress_status,q1_target,q2_target,q3_target,q4_target,q1_result,unit,strategic_theme").order("kpi_key")
+  ]);
+  if(e1) throw e1; if(e2) throw e2;
+  state.owners = owners||[]; state.kpis = kpis||[];
+}
+
+// ── Teams 웹훅 설정 모달 ──
+function openTeamsSetupModal() {
+  const rows = (state.owners||[]).map(o => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)">
+      <div class="mention-avatar" style="width:32px;height:32px;font-size:12px">${esc(o.name.charAt(0))}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:500;font-size:13px">${esc(o.name)}</div>
+        <div style="font-size:11px;color:var(--muted)">${esc(o.team||'-')}</div>
+      </div>
+      <input type="url" placeholder="Teams Incoming Webhook URL"
+        data-owner-id="${esc(o.id)}"
+        value="${esc(o.teams_webhook_url||'')}"
+        onblur="saveTeamsWebhook(this)"
+        style="flex:2;background:#fff;border:1px solid var(--line);border-radius:var(--radius);
+               padding:7px 10px;font-family:var(--font-body);font-size:12px;outline:none;color:var(--text);min-width:0"
+      />
+      <div style="width:8px;height:8px;border-radius:50%;background:${o.teams_webhook_url?'var(--green)':'var(--muted2)'};flex-shrink:0"></div>
+    </div>`).join('');
+
+  const modal = document.createElement('div');
+  modal.className = 'modal-backdrop open';
+  modal.innerHTML = `
+    <div class="modal small" style="max-width:600px">
+      <div class="modal-header">
+        <div>
+          <h2>Teams 웹훅 설정</h2>
+          <p>멤버별 Incoming Webhook URL을 등록하면 @멘션 시 Teams 알람이 발송됩니다.</p>
+        </div>
+        <button class="modal-close" onclick="this.closest('.modal-backdrop').remove()">×</button>
+      </div>
+      <div class="modal-body">
+        <div style="background:var(--primary-light);border:1px solid rgba(92,107,74,.2);border-radius:var(--radius);padding:12px;margin-bottom:14px;font-size:12px;color:var(--primary);line-height:1.7">
+          <strong>Teams Incoming Webhook 생성 방법</strong><br>
+          Teams 채널 → ⋯ → 커넥터 → Incoming Webhook → 구성<br>
+          URL 복사 후 아래 해당 멤버 칸에 붙여넣기
+        </div>
+        <div>${rows}</div>
+        <div id="teamsSetupMsg" style="margin-top:10px;font-size:12px;min-height:16px;color:var(--green)"></div>
+      </div>
+      <div class="modal-footer" style="justify-content:flex-end">
+        <button class="btn btn-primary" onclick="this.closest('.modal-backdrop').remove()">완료</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if(e.target===modal) modal.remove(); });
+}
+
+async function saveTeamsWebhook(input) {
+  const ownerId = input.dataset.ownerId;
+  const url     = input.value.trim();
+  const msg     = document.getElementById('teamsSetupMsg');
+  try {
+    const { error } = await state.sb.from('owners')
+      .update({ teams_webhook_url: url || null })
+      .eq('id', ownerId);
+    if(error) throw error;
+    // Update local state
+    const o = state.owners.find(o=>o.id===ownerId);
+    if(o) o.teams_webhook_url = url || null;
+    const dot = input.nextElementSibling;
+    if(dot) dot.style.background = url ? 'var(--green)' : 'var(--muted2)';
+    if(msg) { msg.textContent = '저장됨 ✓'; setTimeout(()=>{ if(msg) msg.textContent=''; },2000); }
+  } catch(e) {
+    if(msg) msg.style.color='var(--red)';
+    if(msg) msg.textContent = '저장 실패: ' + (e.message||e);
+  }
 }
 
 // ── 14. Init ───────────────────────────────────────────────
