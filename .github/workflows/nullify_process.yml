@@ -1,0 +1,17 @@
+name: Nullify Process Types
+on:
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set process task_type to NULL
+        run: |
+          QUERY=$(python3 -c "import json; print(json.dumps({'query': open('nullify_process_types.sql').read()}))")
+          curl -s -X POST \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "$QUERY" \
+            "https://api.supabase.com/v1/projects/oehfptlkpqlpruaqogkk/database/query"
