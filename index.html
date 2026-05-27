@@ -1472,6 +1472,7 @@ const { createClient } = window.supabase;
 
 // ── 1. State ───────────────────────────────────────────────
 const state = {
+  webLead: { total: null, thisMonth: null, lastUpdated: null },
   sb: null,
   tasks: [], owners: [], kpis: [],
   filters: { quarter: "all", region: "all", owner: "all" },
@@ -1828,9 +1829,22 @@ function renderSummary(s) {
         <div class="progress-shell"><div class="progress-bar" style="width:${Math.min(100,s.avgProg)}%"></div></div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
-        <div class="panel" style="padding:14px;border-radius:13px">
-          <div class="muted" style="font-size:11px">총 리드</div>
-          <div style="font-family:var(--font-display);font-size:22px;font-weight:800;margin-top:4px">${fmtNum(s.leads)}</div>
+        <div class="panel" style="padding:14px;border-radius:13px;position:relative">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+            <div class="muted" style="font-size:11px">Communication Lead</div>
+            <a href="https://sheissweet79.github.io/CTR-WebLead/" target="_blank"
+              style="font-size:9px;color:#5c6b4a;text-decoration:none;font-weight:600;
+                padding:1px 5px;border-radius:2px;background:#e8eddf;border:1px solid #b8ccaa"
+              title="CTR WebLead 보고서 열기">↗ 상세</a>
+          </div>
+          <div style="font-family:var(--font-display);font-size:22px;font-weight:800">
+            ${state.webLead.total !== null ? fmtNum(state.webLead.total) : '–'}
+          </div>
+          <div class="muted" style="font-size:10px;margin-top:2px">
+            ${state.webLead.thisMonth !== null
+              ? '이번달 ' + fmtNum(state.webLead.thisMonth) + '건'
+              : '로딩 중…'}
+          </div>
         </div>
         <div class="panel" style="padding:14px;border-radius:13px">
           <div class="muted" style="font-size:11px">총 관련 오더</div>
@@ -2267,6 +2281,7 @@ async function refreshDashboard() {
       console.warn('KPI accordion load error:', e);
       renderKPIAccordion([], state.tasks);
     }
+    fetchWebLeadData(); // 비동기 - 완료 시 자동 갱신
     setStatus(`마지막 업데이트: ${new Date().toLocaleTimeString("ko-KR")} · 총 ${state.tasks.length}건`);
   } catch(e) {
     console.error("refreshDashboard error:", e);
@@ -4995,6 +5010,59 @@ function refreshOwnerFilterOptions() {
   // 현재 선택값 유지
   if([...sel.options].some(o=>o.value===cur)) sel.value = cur;
   else sel.value = 'all';
+}
+
+
+// ── CTR WebLead 실시간 데이터 ──
+async function fetchWebLeadData() {
+  try {
+    // index.html에서 ALL_MONTHLY_DATA 파싱
+    const res = await fetch(
+      'https://raw.githubusercontent.com/sheissweet79/CTR-WebLead/refs/heads/main/index.html',
+      { cache: 'no-cache' }
+    );
+    if(!res.ok) throw new Error('fetch failed');
+    const text = await res.text();
+
+    // ALL_MONTHLY_DATA 추출
+    const s = text.indexOf('const ALL_MONTHLY_DATA = ');
+    if(s < 0) throw new Error('DATA not found');
+    let e = text.indexOf('\n// __DATA_END__', s);
+    if(e < 0) e = text.indexOf(';\n', s) + 1;
+    const raw = text.slice(s + 'const ALL_MONTHLY_DATA = '.length, e).replace(/;\s*$/, '');
+    const data = JSON.parse(raw);
+
+    // 전체 합산
+    const total = Object.values(data).reduce((sum, v) => sum + (v.total||0), 0);
+
+    // 이번 달
+    const now = new Date();
+    const thisKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const prevKey = (() => {
+      const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    })();
+    const thisMonth = data[thisKey]?.total ?? data[prevKey]?.total ?? null;
+
+    // 최신 업데이트
+    const allKeys = Object.keys(data).sort();
+    const latestKey = allKeys[allKeys.length - 1];
+
+    state.webLead = {
+      total,
+      thisMonth,
+      latestKey,
+      data,
+      lastUpdated: new Date().toLocaleTimeString('ko-KR')
+    };
+
+    // 요약 UI 즉시 갱신
+    const s2 = computeSummary(state.tasks||[]);
+    renderSummary(s2);
+  } catch(e) {
+    console.warn('WebLead fetch error:', e.message);
+    state.webLead = { total: null, thisMonth: null, lastUpdated: null };
+  }
 }
 
 // ── 14. Init ───────────────────────────────────────────────
