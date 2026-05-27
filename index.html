@@ -1829,6 +1829,7 @@ function buildOwnerSummary(tasks, kpis) {
     const entries = getKpiBudget(kpi);
     for(const e of entries) {
       if(!e.owner || e.amount <= 0) continue;
+      console.log('[Budget] KPI:', kpi.kpi_key, '| owner:', e.owner, '| amount:', e.amount, '| type:', e.type);
       kpiBudgetByOwner[e.owner] = (kpiBudgetByOwner[e.owner]||0) + Number(e.amount);
       if(!kpiBudgetDetail[e.owner]) kpiBudgetDetail[e.owner] = [];
       kpiBudgetDetail[e.owner].push({
@@ -5192,8 +5193,9 @@ async function saveBudgetPlan(kpiId) {
       const type   = row.querySelector('select[data-field="type"]')?.value;
       const owner  = row.querySelector('select[data-field="owner"]')?.value || '';
       const amount = Number(row.querySelector('input[data-field="amount"]')?.value)||0;
-      if(region && type && amount > 0) {
-        const entry = { region, type, amount };
+      // region은 선택사항, type과 amount는 필수
+      if(type && amount > 0) {
+        const entry = { region: region||'', type, amount };
         if(owner) entry.owner = owner;
         entries.push(entry);
       }
@@ -5212,6 +5214,8 @@ async function saveBudgetPlan(kpiId) {
     if(msg) { msg.style.color='#4a7c59'; msg.textContent='✅ 저장 완료! 차트에 반영됩니다.'; }
     renderActivityTypeChartWithBudget(state._lastKpis||[], state._lastKpiTasks||[]);
     renderRegionOrderChart(state._lastKpiTasks||[]);
+    // 담당자별 업무 현황 테이블도 즉시 갱신
+    renderOwnerTable(state.tasks||[], state._lastKpis||[]);
     setTimeout(()=>{ if(msg) msg.textContent=''; }, 3000);
   } catch(e) {
     if(msg) { msg.style.color='#9e4a3a'; msg.textContent='저장 실패: '+(e.message||e); }
@@ -5494,6 +5498,27 @@ try {
     state.channelDiscriber.manual = parseInt(saved);
   }
 } catch(e) {}
+
+
+// 디버그: budget_plan 현황 콘솔 출력
+window.debugBudgetPlan = function() {
+  const kpis = state._lastKpis || [];
+  console.log('=== KPI Budget Plan Debug ===');
+  kpis.forEach(kpi => {
+    const entries = getKpiBudget(kpi);
+    if(entries.length) {
+      console.log(`${kpi.kpi_key} (${kpi.title?.slice(0,20)}):`, entries);
+    }
+  });
+  const kpiBudgetByOwner = {};
+  kpis.forEach(kpi => {
+    getKpiBudget(kpi).forEach(e => {
+      if(e.owner && e.amount > 0)
+        kpiBudgetByOwner[e.owner] = (kpiBudgetByOwner[e.owner]||0) + e.amount;
+    });
+  });
+  console.log('Owner totals:', kpiBudgetByOwner);
+};
 
 // ── 14. Init ───────────────────────────────────────────────
 (async function init() {
