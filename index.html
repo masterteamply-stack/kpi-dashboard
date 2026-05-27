@@ -3244,6 +3244,7 @@ function renderKpiGauge(kpi, taskList) {
 
 // ── KPI 상세 모달 ──
 function openKpiDetail(kpiId) {
+  const _fmtT = typeof _fmtT !== "undefined" ? _fmtT : (v=>{if(v==null)return "-";const n=Number(v);if(n>=10000000)return (n/10000000).toFixed(1)+"천만";if(n>=1000000)return (n/1000000).toFixed(1)+"백만";return new Intl.NumberFormat("ko-KR").format(n);});
   const kpi   = (state._lastKpis||[]).find(k=>k.id===kpiId);
   const tasks = (state._lastKpiTasks||[]).filter(t=>t.kpi_id===kpiId);
   if(!kpi) return;
@@ -3270,8 +3271,8 @@ function openKpiDetail(kpiId) {
     const isCur = q===curQ;
     return `<div class="kpi-quarter-card${isCur?' current':''}">
       <div class="kpi-qtr-label">${q} ${isCur?'<span style="color:#5c6b4a">●</span>':''}</div>
-      <div class="kpi-qtr-target">목표 ${fmtT(target)||'-'}</div>
-      <div class="kpi-qtr-result">${result&&result!=='nan'?fmtT(result):'-'}</div>
+      <div class="kpi-qtr-target">목표 ${_fmtT(target)||'-'}</div>
+      <div class="kpi-qtr-result">${result&&result!=='nan'?_fmtT(result):'-'}</div>
       <div class="kpi-qtr-bar-wrap"><div class="kpi-qtr-bar" style="width:${barW}%"></div></div>
       <div class="kpi-qtr-pct">${pct!==null?pct+'%':'-'}</div>
     </div>`;
@@ -3479,6 +3480,15 @@ function switchTop7(mode) {
 function renderTop7KPI(kpis, tasks) {
   const wrap = document.getElementById('top7List');
   if(!wrap || !kpis.length) return;
+  // _fmtT 안전 참조 (스코프 문제 방지)
+  const _fmtT = typeof _fmtT !== 'undefined' ? _fmtT : (v => {
+    if(v==null||isNaN(Number(v))) return '-';
+    const n=Number(v);
+    if(n>=10000000) return (n/10000000).toFixed(1)+'천만';
+    if(n>=1000000)  return (n/1000000).toFixed(1)+'백만';
+    if(n>=10000)    return (n/10000).toFixed(1)+'만';
+    return new Intl.NumberFormat('ko-KR').format(n);
+  });
 
   // 현재 분기 달성률 기반 계산 (Q1~Q4 순서로 가장 최근 결과 우선)
   const parseResult = v => {
@@ -3527,7 +3537,7 @@ function renderTop7KPI(kpis, tasks) {
     const owners  = (kpi.owners||'').split(',').map(o=>o.trim()).filter(Boolean).join(', ');
     const problem = _top7Mode==='worst' && rate < 40;
     const rateLabel = hasData ? `${rate}%` : '–';
-    const targetLabel = target ? fmtT(target) : '–';
+    const targetLabel = target ? _fmtT(target) : '–';
     const unit = kpi.unit || '';
 
     return `<div class="top7-row" onclick="openKpiDetail('${esc(kpi.id)}')">
@@ -3540,7 +3550,7 @@ function renderTop7KPI(kpis, tasks) {
         <div style="padding-left:24px">
           <div class="top7-kpi-owner">${esc(owners||'-')} · Task ${taskCnt}건</div>
           <div style="font-size:10px;color:#8a8278;margin:2px 0">
-            목표 ${targetLabel} ${esc(unit)} ${hasData?'· 실적 '+fmtT(result):''}
+            목표 ${targetLabel} ${esc(unit)} ${hasData?'· 실적 '+_fmtT(result):''}
           </div>
           <div class="top7-bar-wrap">
             <div class="top7-bar" style="width:${barW}%;background:${color}"></div>
@@ -4495,6 +4505,13 @@ function selectTheme(themeName) {
 }
 
 function renderKpiPanelForTheme(theme, kpis, tasks) {
+  const _fmtT = typeof _fmtT !== 'undefined' ? _fmtT : (v => {
+    if(v==null||isNaN(Number(v))) return '-';
+    const n=Number(v);
+    if(n>=10000000) return (n/10000000).toFixed(1)+'천만';
+    if(n>=1000000) return (n/1000000).toFixed(1)+'백만';
+    return new Intl.NumberFormat('ko-KR').format(n);
+  });
   const titleEl  = document.getElementById('kpiPanelTitle');
   const backBtn  = document.getElementById('kpiPanelBackBtn');
   const summary  = document.getElementById('summaryBox');
