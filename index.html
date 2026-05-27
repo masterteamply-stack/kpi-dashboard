@@ -2991,9 +2991,34 @@ function renderDrawerEditForm(task) {
         </select></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field"><label>진척도 (%)</label><input id="de_progress" type="number" min="0" max="100" value="${task.progress??0}" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" /></div>
-        <div class="field"><label>배정 예산</label><input id="de_budget" type="number" min="0" value="${task.allocated_budget??0}" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" /></div>
+        <div class="field">
+          <label>목표 (KPI 기준)</label>
+          <div style="background:rgba(255,255,255,.03);border:1px solid var(--line);
+            border-radius:10px;padding:10px 12px;min-height:42px;
+            display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            ${(()=>{
+              const linkedKpi=(state._lastKpis||[]).find(k=>k.id===task.kpi_id);
+              if(!linkedKpi) return '<span style="color:#8a8278;font-size:12px">KPI 연결 없음</span>';
+              const curQ=(()=>{const m=new Date().getMonth();return m<3?'q1':m<6?'q2':m<9?'q3':'q4';})();
+              const pR=v=>{if(!v||String(v)==='nan')return null;const mx=String(v).replace(/,/g,'').match(/[\d.]+/);return mx?Number(mx[0]):null;};
+              const tNum=pR(linkedKpi[curQ+'_target']);
+              const fmtV=v=>{if(v===null)return '–';if(v>=1000000)return (v/1000000).toFixed(1)+'M';if(v>=1000)return (v/1000).toFixed(0)+'K';return String(Math.round(v));};
+              return '<span style="font-weight:700;color:var(--text);font-size:16px">'+fmtV(tNum)+'</span>'
+                +'<span style="font-size:10px;color:#8a8278;margin-left:3px">'+curQ.toUpperCase()+' 목표 '+(linkedKpi.unit?esc(linkedKpi.unit):'')
+                +'</span>';
+            })()}
+          </div>
+        </div>
+        <div class="field">
+          <label>실적</label>
+          <input id="de_progress" type="number" min="0" value="${task.progress??0}"
+            placeholder="실적 값 입력"
+            style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);
+              border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" />
+        </div>
       </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field"><label>배정 예산</label><input id="de_budget" type="number" min="0" value="${task.allocated_budget??0}" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" /></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="field"><label>집행 금액</label><input id="de_spend" type="number" min="0" value="${task.spend??0}" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" /></div>
         <div class="field"><label>관련 오더 (ORDER)</label><input id="de_revenue" type="number" min="0" value="${task.revenue??0}" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none" /></div>
