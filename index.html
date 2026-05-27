@@ -795,8 +795,8 @@
     }
     .kpi-status-select:focus{box-shadow:0 0 0 2px rgba(92,107,74,.25)}
     .kpi-row-actions{
-      position:absolute;right:10px;top:50%;transform:translateY(-50%);
-      display:none;gap:4px;align-items:center;
+      position:absolute;right:6px;top:4px;transform:none;
+      display:none;gap:4px;align-items:center;z-index:2;
     }
     .kpi-accordion-row:hover .kpi-row-actions{display:flex}
     .kpi-del-btn{
@@ -1258,15 +1258,16 @@
     <div class="panel">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
         <h3 style="margin-bottom:0">디지털 KPI 추이</h3>
-        </div>
         <div style="display:flex;align-items:center;gap:8px">
+          <button class="toggle-btn" onclick="toggleDkpiSheet()" id="dkpiSheetBtn" style="font-size:11px;background:#f0ede6;border-color:#d4cec5">📝 데이터 입력</button>
+          <div class="toggle-switch-wrap">
+            <button id="dkpiBtnQ" class="toggle-btn active" onclick="switchDkpiView('quarter')">분기별</button>
+            <button id="dkpiBtnM" class="toggle-btn" onclick="switchDkpiView('month')">월별</button>
+          </div>
           <button class="panel-collapse-btn" onclick="togglePanel('dkpiPanel',this)">−</button>
-        <div class="toggle-switch-wrap">
-          <button id="dkpiBtnQ" class="toggle-btn active" onclick="switchDkpiView('quarter')">분기별</button>
-          <button id="dkpiBtnM" class="toggle-btn" onclick="switchDkpiView('month')">월별</button>
         </div>
       </div>
-      <div id="dkpiContent" class="panel-content"><div class="digital-kpi-grid">
+      <div id="dkpiContent" class="panel-content"><div id="dkpiSheet" style="display:none;margin-bottom:16px;border:1px solid #e8e4dc;border-radius:10px;overflow:hidden"><div style="background:#f5f2ed;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="font-size:11px;font-weight:700;color:#3d3830">월별 데이터 입력</span><div style="display:flex;gap:4px"><button id="dkpiSheet10Btn" class="toggle-btn active" style="font-size:11px" onclick="switchDkpiSheet('B2D-10')">📊 Engagement</button><button id="dkpiSheet11Btn" class="toggle-btn" style="font-size:11px" onclick="switchDkpiSheet('B2D-11')">👆 Click</button></div><button onclick="saveDkpiSheet()" class="btn btn-primary" style="font-size:11px;padding:4px 12px;margin-left:auto">저장 → 차트 반영</button></div><div style="overflow-x:auto"><table id="dkpiSheetTable" style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#eceae3"><th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#8a8278">월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">1월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">2월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">3월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">4월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">5월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">6월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">7월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">8월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">9월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">10월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">11월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">12월</th></tr></thead><tbody id="dkpiSheetBody"></tbody></table></div></div><div class="digital-kpi-grid">
         <div class="digital-kpi-card">
           <div class="digital-kpi-name">📊 Engagement (노출/도달)</div>
           <canvas id="engagementChart" height="130"></canvas>
@@ -3072,9 +3073,10 @@ function renderDrawerEditForm(task) {
       </div>
       <div class="field" style="grid-column:1/-1"><label>메모</label><textarea id="de_notes" style="background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-family:var(--font-body);width:100%;outline:none;min-height:80px;resize:vertical">${esc(task.notes||'')}</textarea></div>
       <div id="de_error" style="font-size:12px;color:#ff9f9f;min-height:16px"></div>
-      <div style="display:flex;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
         <button type="button" class="btn btn-primary" onclick="saveDrawerEdit('${esc(task.id)}')">저장</button>
-        <button type="button" class="btn btn-danger" onclick="openDeleteModal('${esc(task.id)}','${esc(task.title||'')}')">삭제</button>
+        <button type="button" class="btn btn-secondary" onclick="closeDrawer()">닫기</button>
+        <button type="button" style="margin-left:auto;background:none;border:none;color:#9e4a3a;font-size:11px;cursor:pointer;text-decoration:underline;font-family:var(--font-body);padding:0" onclick="openDeleteModal('${esc(task.id)}','${esc(task.title||'')}')">삭제</button>
       </div>
     </div>`;
 }
@@ -4055,6 +4057,83 @@ function switchDkpiView(mode) {
   renderDigitalKpiCharts(state._lastKpis||[], state._lastKpiTasks||[]);
 }
 
+// ── 디지털 KPI 월별 localStorage 헬퍼 ──
+function getDkpiMonthly(kpiKey) {
+  try {
+    const raw = localStorage.getItem('dkpi_monthly_' + kpiKey);
+    return raw ? JSON.parse(raw) : {};
+  } catch(e) { return {}; }
+}
+function saveDkpiMonthlyData(kpiKey, data) {
+  try { localStorage.setItem('dkpi_monthly_' + kpiKey, JSON.stringify(data)); } catch(e) {}
+}
+
+let _dkpiSheetKpi = 'B2D-10'; // 현재 선택된 KPI
+
+function toggleDkpiSheet() {
+  const sheet = document.getElementById('dkpiSheet');
+  if(!sheet) return;
+  const isOpen = sheet.style.display !== 'none';
+  sheet.style.display = isOpen ? 'none' : 'block';
+  if(!isOpen) renderDkpiSheetBody(_dkpiSheetKpi);
+}
+
+function switchDkpiSheet(kpiKey) {
+  _dkpiSheetKpi = kpiKey;
+  document.getElementById('dkpiSheet10Btn')?.classList.toggle('active', kpiKey==='B2D-10');
+  document.getElementById('dkpiSheet11Btn')?.classList.toggle('active', kpiKey==='B2D-11');
+  renderDkpiSheetBody(kpiKey);
+}
+
+function renderDkpiSheetBody(kpiKey) {
+  const tbody = document.getElementById('dkpiSheetBody');
+  if(!tbody) return;
+  const data = getDkpiMonthly(kpiKey);
+  const months = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+
+  // 목표 행
+  let tRow = '<tr style="border-bottom:1px solid #e8e4dc">';
+  tRow += '<td style="padding:6px 10px;font-size:11px;font-weight:700;color:#6a7d9e;white-space:nowrap">목표</td>';
+  months.forEach(mm => {
+    const key = '2026-' + mm;
+    const val = data[key]?.target ?? '';
+    tRow += `<td style="padding:4px 4px;text-align:right"><input type="number" min="0" data-kpi="${kpiKey}" data-month="${key}" data-type="target" value="${val}" style="width:70px;text-align:right;border:1px solid #e0dbd2;border-radius:3px;padding:3px 5px;font-size:11px;font-family:var(--font-body);background:#fdfcf9" /></td>`;
+  });
+  tRow += '</tr>';
+
+  // 실적 행
+  let rRow = '<tr>';
+  rRow += '<td style="padding:6px 10px;font-size:11px;font-weight:700;color:#5c6b4a;white-space:nowrap">실적</td>';
+  months.forEach(mm => {
+    const key = '2026-' + mm;
+    const val = data[key]?.result ?? '';
+    rRow += `<td style="padding:4px 4px;text-align:right"><input type="number" min="0" data-kpi="${kpiKey}" data-month="${key}" data-type="result" value="${val}" style="width:70px;text-align:right;border:1px solid #e0dbd2;border-radius:3px;padding:3px 5px;font-size:11px;font-family:var(--font-body);background:#fdfcf9" /></td>`;
+  });
+  rRow += '</tr>';
+
+  tbody.innerHTML = tRow + rRow;
+}
+
+function saveDkpiSheet() {
+  const kpiKey = _dkpiSheetKpi;
+  const data = getDkpiMonthly(kpiKey);
+  const inputs = document.querySelectorAll('#dkpiSheetBody input');
+  inputs.forEach(inp => {
+    const month = inp.dataset.month;
+    const type  = inp.dataset.type; // target / result
+    const val   = inp.value.trim();
+    if(!data[month]) data[month] = {};
+    data[month][type] = val === '' ? null : Number(val);
+  });
+  saveDkpiMonthlyData(kpiKey, data);
+  // 차트 즉시 재렌더
+  const kpis = state._lastKpis || [];
+  renderDigitalKpiCharts(kpis, state.tasks || []);
+  // 피드백
+  const btn = document.querySelector('#dkpiSheet .btn-primary');
+  if(btn) { btn.textContent = '✅ 저장됨'; setTimeout(()=>{ btn.textContent='저장 → 차트 반영'; }, 1500); }
+}
+
 function renderDigitalKpiCharts(kpis, tasks) {
   const kpi10 = kpis.find(k=>k.kpi_key==='B2D-10');
   const kpi11 = kpis.find(k=>k.kpi_key==='B2D-11');
@@ -4089,23 +4168,26 @@ function renderDigitalKpiCharts(kpis, tasks) {
       targets = [kpi.q1_target,kpi.q2_target,kpi.q3_target,kpi.q4_target].map(v=>Number(v)||0);
       actuals = [kpi.q1_result,kpi.q2_result,kpi.q3_result,kpi.q4_result].map(parseResult);
     } else {
-      const qt = [Number(kpi.q1_target)||0, Number(kpi.q2_target)||0,
-                  Number(kpi.q3_target)||0, Number(kpi.q4_target)||0];
-      // 월별 목표: 분기 목표를 균등 분할
-      targets = [
-        qt[0]/3,   qt[0]*2/3, qt[0],
-        qt[0]+(qt[1]-qt[0])/3, qt[0]+(qt[1]-qt[0])*2/3, qt[1],
-        qt[1]+(qt[2]-qt[1])/3, qt[1]+(qt[2]-qt[1])*2/3, qt[2],
-        qt[2]+(qt[3]-qt[2])/3, qt[2]+(qt[3]-qt[2])*2/3, qt[3]
-      ].map(Math.round);
-      // 월별 실적: 분기말(3,6,9,12월)에만 표시
-      const qR = [kpi.q1_result,kpi.q2_result,kpi.q3_result,kpi.q4_result].map(parseResult);
-      actuals = [
-        null, null, qR[0],
-        null, null, qR[1],
-        null, null, qR[2],
-        null, null, qR[3]
-      ];
+      // localStorage 월별 데이터 우선, 없으면 분기 데이터 분배
+      const monthly = getDkpiMonthly(kpi.kpi_key);
+      const months = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+      const hasMonthly = months.some(mm => monthly['2026-'+mm]?.target || monthly['2026-'+mm]?.result);
+
+      if(hasMonthly) {
+        targets = months.map(mm => { const v = monthly['2026-'+mm]?.target; return v != null ? Number(v) : 0; });
+        actuals = months.map(mm => { const v = monthly['2026-'+mm]?.result; return v != null ? Number(v) : null; });
+      } else {
+        const qt = [Number(kpi.q1_target)||0, Number(kpi.q2_target)||0,
+                    Number(kpi.q3_target)||0, Number(kpi.q4_target)||0];
+        targets = [
+          qt[0]/3, qt[0]*2/3, qt[0],
+          qt[0]+(qt[1]-qt[0])/3, qt[0]+(qt[1]-qt[0])*2/3, qt[1],
+          qt[1]+(qt[2]-qt[1])/3, qt[1]+(qt[2]-qt[1])*2/3, qt[2],
+          qt[2]+(qt[3]-qt[2])/3, qt[2]+(qt[3]-qt[2])*2/3, qt[3]
+        ].map(Math.round);
+        const qR = [kpi.q1_result,kpi.q2_result,kpi.q3_result,kpi.q4_result].map(parseResult);
+        actuals = [null,null,qR[0],null,null,qR[1],null,null,qR[2],null,null,qR[3]];
+      }
     }
 
     // datalabels 플러그인 없이 Chart.js afterDraw로 직접 레이블 그리기
@@ -4444,7 +4526,8 @@ async function saveKpiSelectField(sel) {
 
 // ── KPI 삭제 ──
 async function deleteKpi(kpiId, title) {
-  if(!confirm(`"${title}" KPI를 삭제할까요?\n관련 Task의 KPI 연결이 해제됩니다.`)) return;
+  const msg = `⚠️ KPI 삭제 확인\n\n"${title}"\n\n이 KPI를 영구 삭제합니다.\n관련 Task의 KPI 연결이 해제되며 복구할 수 없습니다.\n\n정말 삭제하시겠습니까?`;
+  if(!confirm(msg)) return;
   try {
     const { error } = await state.sb.from('kpis').delete().eq('id', kpiId);
     if(error) throw error;
