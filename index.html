@@ -3409,20 +3409,64 @@ function renderDkpiSheetBody(kpiKey) {
 
 function saveDkpiSheet() {
   const kpiKey = _dkpiSheetKpi;
-  const data = getDkpiMonthly(kpiKey);
-  const inputs = document.querySelectorAll('#dkpiSheetBody input');
-  inputs.forEach(inp => {
-    const month = inp.dataset.month;
-    const type  = inp.dataset.type; // target / result
-    const val   = inp.value.trim();
-    if(!data[month]) data[month] = {};
-    data[month][type] = val === '' ? null : Number(val);
-  });
-  saveDkpiMonthlyData(kpiKey, data);
-  // 차트 즉시 재렌더
-  const kpis = state._lastKpis || [];
-  renderDigitalKpiCharts(kpis, state.tasks || []);
-  // 피드백
+
+  if(kpiKey === 'channel_discriber') {
+    const v = document.getElementById('cdSingleInput')?.value.trim();
+    const num = v ? Number(v) : null;
+    try { localStorage.setItem('channel_discriber_val', JSON.stringify({total:num})); } catch(e){}
+    if(!state.channelDiscriber) state.channelDiscriber = {};
+    state.channelDiscriber.manual = num;
+    const cs = computeSummary(state.tasks||[], state._lastKpis||[]);
+    renderSummary(cs);
+
+  } else if(kpiKey === 'region_sub') {
+    const saved = {};
+    document.querySelectorAll('#dkpiSheetBody .regionSubTotal').forEach(inp => {
+      const r = inp.dataset.region; if(!r) return;
+      if(!saved[r]) saved[r]={total:0,monthly:{}};
+      saved[r].total = inp.value ? Number(inp.value) : 0;
+    });
+    document.querySelectorAll('#dkpiSheetBody .regionSubInput').forEach(inp => {
+      const r=inp.dataset.region, mo=inp.dataset.month; if(!r||!mo) return;
+      if(!saved[r]) saved[r]={total:0,monthly:{}};
+      if(!saved[r].monthly) saved[r].monthly={};
+      saved[r].monthly[mo] = inp.value ? Number(inp.value) : 0;
+    });
+    try { localStorage.setItem('region_sub_detail', JSON.stringify(saved)); } catch(e){}
+    state._regionSubData = saved;
+    renderRegionSubChart();
+
+  } else if(kpiKey === 'revenue') {
+    const saved = {};
+    document.querySelectorAll('#dkpiSheetBody .revenueInput').forEach(inp => {
+      const r=inp.dataset.region, mo=inp.dataset.month;
+      if(!r||!mo||!inp.value.trim()) return;
+      if(!saved[r]) saved[r]={};
+      saved[r][mo] = Number(inp.value);
+    });
+    try { localStorage.setItem('revenue_by_region', JSON.stringify(saved)); } catch(e){}
+    state._revenueData = saved;
+    const cs = computeSummary(state.tasks||[], state._lastKpis||[]);
+    renderKPICards(cs); renderSummary(cs);
+
+  } else {
+    // B2D-10, B2D-11
+    const data = getDkpiMonthly(kpiKey);
+    const inputs = document.querySelectorAll('#dkpiSheetBody input');
+    inputs.forEach(inp => {
+      const month = inp.dataset.month;
+      const type  = inp.dataset.type;
+      const val   = inp.value.trim();
+      if(!data[month]) data[month] = {};
+      data[month][type] = val === '' ? null : Number(val);
+    });
+    saveDkpiMonthlyData(kpiKey, data);
+    const kpis = state._lastKpis || [];
+    renderDigitalKpiCharts(kpis, state.tasks || []);
+    const cs = computeSummary(state.tasks||[], state._lastKpis||[]);
+    renderSummary(cs);
+  }
+
   const btn = document.querySelector('#dkpiSheet .btn-primary');
   if(btn) { btn.textContent = '✅ 저장됨'; setTimeout(()=>{ btn.textContent='저장 → 차트 반영'; }, 1500); }
 }
