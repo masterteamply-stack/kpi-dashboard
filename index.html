@@ -3287,6 +3287,10 @@ async function saveTaskCellEdit(el) {
 
 
 async function saveTaskSelectEdit(sel) {
+  // task_type이 과정 지표이면 null(빈값)으로 처리
+  if(sel.dataset.field === 'task_type' && typeof PROCESS_TYPES_SET !== 'undefined' && PROCESS_TYPES_SET.has(sel.value)) {
+    sel.value = '';
+  }
   const taskId = sel.dataset.taskId;
   const field  = sel.dataset.field;
   const val    = sel.value;
