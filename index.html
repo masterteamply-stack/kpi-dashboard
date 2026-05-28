@@ -1270,6 +1270,7 @@
           <div class="toggle-switch-wrap">
             <button id="dkpiBtnQ" class="toggle-btn active" onclick="switchDkpiView('quarter')">분기별</button>
             <button id="dkpiBtnM" class="toggle-btn" onclick="switchDkpiView('month')">월별</button>
+            <button id="dkpiBtnC" class="toggle-btn" onclick="switchDkpiView('cumulative')">누적</button>
           </div>
           <button class="panel-collapse-btn" onclick="togglePanel('dkpiPanel',this)">−</button>
         </div>
@@ -4130,6 +4131,7 @@ function switchDkpiView(mode) {
   _dkpiView = mode;
   document.getElementById('dkpiBtnQ')?.classList.toggle('active', mode==='quarter');
   document.getElementById('dkpiBtnM')?.classList.toggle('active', mode==='month');
+  document.getElementById('dkpiBtnC')?.classList.toggle('active', mode==='cumulative');
   renderDigitalKpiCharts(state._lastKpis||[], state._lastKpiTasks||[]);
 }
 
@@ -4237,7 +4239,8 @@ function renderDigitalKpiCharts(kpis, tasks) {
     const ctx = document.getElementById(canvasId);
     if(!ctx || !kpi) return;
 
-    const isQ = _dkpiView === 'quarter';
+    const isQ   = _dkpiView === 'quarter';
+    const isCum = _dkpiView === 'cumulative';
     const labels = isQ
       ? ['Q1','Q2','Q3','Q4']
       : ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
@@ -4247,6 +4250,7 @@ function renderDigitalKpiCharts(kpis, tasks) {
     if(isQ) {
       targets = [kpi.q1_target,kpi.q2_target,kpi.q3_target,kpi.q4_target].map(v=>Number(v)||0);
       actuals = [kpi.q1_result,kpi.q2_result,kpi.q3_result,kpi.q4_result].map(parseResult);
+      // 분기 누적은 별도 처리하지 않음 (분기 목표가 이미 누계형인 경우가 많음)
     } else {
       // localStorage 월별 데이터 우선, 없으면 분기 데이터 분배
       const monthly = getDkpiMonthly(kpi.kpi_key);
@@ -4267,6 +4271,16 @@ function renderDigitalKpiCharts(kpis, tasks) {
         ].map(Math.round);
         const qR = [kpi.q1_result,kpi.q2_result,kpi.q3_result,kpi.q4_result].map(parseResult);
         actuals = [null,null,qR[0],null,null,qR[1],null,null,qR[2],null,null,qR[3]];
+      }
+
+      // 누적 뷰: 월별 누계
+      if(_dkpiView === 'cumulative') {
+        let cumT = 0, cumA = 0;
+        targets = targets.map(v => { cumT += (v||0); return cumT; });
+        actuals = actuals.map(v => {
+          if(v !== null) { cumA += v; return cumA; }
+          return null;
+        });
       }
     }
 
@@ -4322,23 +4336,36 @@ function renderDigitalKpiCharts(kpis, tasks) {
         datasets: [
           {
             type:'line', label:'목표', data:targets,
-            borderColor:'#8a9ab8', borderWidth:2,
-            pointBackgroundColor:'#8a9ab8', pointRadius:4, pointHoverRadius:5,
-            fill:false, tension:.3, order:1, borderDash:[5,3]
+            borderColor: isCum ? '#4a6b7c' : '#8a9ab8',
+            borderWidth: isCum ? 2.5 : 2,
+            pointBackgroundColor: isCum ? '#4a6b7c' : '#8a9ab8',
+            pointRadius:4, pointHoverRadius:5,
+            fill: isCum ? {target:'origin', above:'rgba(74,107,124,.08)'} : false,
+            tension: isCum ? .4 : .3,
+            order:1, borderDash: isCum ? [] : [5,3]
           },
           {
-            type:'bar', label:'실적', data:actuals,
-            backgroundColor: actuals.map(v =>
+            type: isCum ? 'line' : 'bar',
+            label:'실적', data:actuals,
+            backgroundColor: isCum ? 'rgba(92,107,74,.15)' : actuals.map(v =>
               v == null ? 'transparent' : 'rgba(92,107,74,.75)'
             ),
-            borderRadius:3, order:2,
-            barPercentage:0.55
+            borderColor: isCum ? '#5c6b4a' : undefined,
+            borderWidth: isCum ? 2.5 : undefined,
+            pointBackgroundColor: isCum ? '#5c6b4a' : undefined,
+            pointRadius: isCum ? 4 : undefined,
+            fill: isCum ? {target:'origin', above:'rgba(92,107,74,.1)'} : false,
+            tension: isCum ? .4 : undefined,
+            spanGaps: isCum ? false : undefined,
+            borderRadius: isCum ? 0 : 3,
+            order:2,
+            barPercentage: isCum ? undefined : 0.55
           }
         ]
       },
       options: {
         responsive:true,
-        layout:{ padding:{ top:22 } },
+        layout:{ padding:{ top: isCum ? 30 : 22 } },
         plugins: {
           legend:{ labels:{ color:'#6b6259', font:{size:11}, boxWidth:10 } },
           tooltip:{
