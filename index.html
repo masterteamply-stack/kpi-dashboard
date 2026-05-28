@@ -1376,8 +1376,8 @@
             <div class="error-text"></div>
           </div>
           <div class="field" data-field="progress">
-            <label for="task_progress">진척도 (%) *</label>
-            <input id="task_progress" name="progress" type="number" min="0" max="100" step="1" />
+            <label for="task_progress">실적</label>
+            <input id="task_progress" name="progress" type="number" min="0" step="1" placeholder="실제 수치 입력" />
             <div class="error-text"></div>
           </div>
           <div class="field" data-field="allocated_budget">
@@ -2263,8 +2263,8 @@ function renderKPIAccordion(kpis, tasks) {
               onblur="saveTaskCellEdit(this)"
               onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
               onfocus="this.dataset.orig=this.textContent"
-              title="실적 값 입력"
-            >${t.progress||0}</span>
+              title="실적 수치 입력 (달성률 아님)"
+            >${(v=>v>=1000000?(v/1000000).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'K':String(v))(Number(t.progress)||0)}</span>
             </div>
         </td>
         <td onclick="event.stopPropagation()"><select class="cell-select" data-task-id="${t.id}" data-field="task_type" onchange="saveTaskSelectEdit(this)" style="font-size:10px;padding:2px 4px;max-width:90px;background:#fdfcf9;border:1px solid #e0dbd2;border-radius:3px;color:#3d5228;font-weight:600;cursor:pointer;outline:none"><option value="">-</option>${getMktgTypes().map(tp=>`<option value="${esc(tp)}"${tp===t.task_type?' selected':''} style="color:#1a1714">${esc(tp)}</option>`).join('')}</select></td>
@@ -3162,7 +3162,7 @@ async function saveTaskCellEdit(el) {
   if(dtype === 'number') {
     val = parseFloat(raw);
     if(isNaN(val)) { el.textContent = orig; return; }
-    if(field === 'progress') val = Math.max(0, Math.round(val)); // 실적값: 100 제한 없음
+    if(field === 'progress') val = Math.max(0, val); // 실적: 실제 수치, 소수점 허용
   }
   el.classList.add('cell-saving');
   try {
@@ -3555,6 +3555,7 @@ function renderKpiGauge(kpi, taskList) {
   };
 
   // Task 실적 합계
+  // Task 실적 합계 (실제 수치 - 달성률 아님)
   const taskResultSum = taskList.reduce((s,t) => s + Number(t.progress||0), 0);
 
   // KPI 연간 목표: 입력된 분기 목표의 최대값 (누적 목표 기준)
@@ -3693,7 +3694,7 @@ function openKpiDetail(kpiId) {
           onfocus="this.dataset.orig=this.textContent"
           title="실적 값 입력"
           style="font-size:12px;font-weight:700;color:#1a1714;padding:2px 4px;cursor:text"
-        >${t.progress||0}</span>
+        >${t.progress!==null&&t.progress!==undefined ? (Number(t.progress)>=1000 ? (Number(t.progress)>=1000000?(Number(t.progress)/1000000).toFixed(1)+'M':(Number(t.progress)/1000).toFixed(0)+'K') : String(t.progress)) : '–'}</span>
         <span style="font-size:10px;color:#8a8278">${esc(kpi.unit||'')}</span>
       </div>
       <div style="text-align:right">
