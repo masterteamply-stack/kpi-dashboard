@@ -5836,9 +5836,123 @@ function initDkpiDefaultData() {
     const clk  = {"2026-01": {"target": 83604, "result": 97900}, "2026-02": {"target": 125405, "result": 105568}, "2026-03": {"target": 209009, "result": 141947}, "2026-04": {"target": 334414, "result": 177904}, "2026-05": {"target": 334414, "result": null}, "2026-06": {"target": 376216, "result": null}, "2026-07": {"target": 376216, "result": null}, "2026-08": {"target": 418018, "result": null}, "2026-09": {"target": 418018, "result": null}, "2026-10": {"target": 418018, "result": null}, "2026-11": {"target": 543423, "result": null}, "2026-12": {"target": 543423, "result": null}};
     localStorage.setItem('dkpi_monthly_B2D-10', JSON.stringify(eng));
     localStorage.setItem('dkpi_monthly_B2D-11', JSON.stringify(clk));
+    const regionSub = {"GLOBAL": {"total": 283266, "monthly": {"2026-01": 1895, "2026-02": 25, "2026-03": 975, "2026-04": 742}}, "MENA": {"total": 555101, "monthly": {"2026-01": 2022, "2026-02": 921, "2026-03": 1, "2026-04": 0}}, "EUROPE": {"total": 62954, "monthly": {"2026-01": 1059, "2026-02": 1312, "2026-03": 363, "2026-04": 151}}, "LATAM": {"total": 235408, "monthly": {"2026-01": 1012, "2026-02": 420, "2026-03": 749, "2026-04": 288}}, "ASIA": {"total": 34381, "monthly": {"2026-01": 0, "2026-02": 0, "2026-03": 64, "2026-04": 20}}, "THAILAND": {"total": 99716, "monthly": {"2026-01": 30, "2026-02": 8, "2026-03": 11, "2026-04": 0}}, "RUSSIA": {"total": 78661, "monthly": {"2026-01": 5037, "2026-02": 1520, "2026-03": 1563, "2026-04": 1534}}, "KZ": {"total": 36677, "monthly": {"2026-01": 3566, "2026-02": 2350, "2026-03": 985, "2026-04": 782}}, "INDONESIA": {"total": 1848, "monthly": {"2026-01": 395, "2026-02": 1244, "2026-03": 26, "2026-04": 183}}, "BRAZIL": {"total": 6152, "monthly": {"2026-01": 0, "2026-02": 4500, "2026-03": 974, "2026-04": 678}}, "MEXICO": {"total": 7053, "monthly": {"2026-01": 0, "2026-02": 0, "2026-03": 0, "2026-04": 0}}};
+    const netMonthly = {"2026-01": 14915, "2026-02": 11980, "2026-03": 2695, "2026-04": 1192};
+    localStorage.setItem('region_sub_detail', JSON.stringify(regionSub));
+    localStorage.setItem('region_sub_net', JSON.stringify(netMonthly));
+    localStorage.setItem('region_sub_grand_total', '1369693');
     localStorage.setItem('dkpi_initialized', '1');
     console.log('[DKPI] 기본 데이터 초기화 완료');
   } catch(e) { console.warn('DKPI init failed:', e); }
+}
+
+
+function renderRegionSubChart() {
+  const wrap = document.getElementById('regionSubWrap');
+  if(!wrap) return;
+
+  // 데이터 로드
+  const data = state._regionSubData || (() => {
+    try { return JSON.parse(localStorage.getItem('region_sub_detail')||'{}'); } catch(e){return {};} })();
+  const netRaw = (() => {
+    try { return JSON.parse(localStorage.getItem('region_sub_net')||'{}'); } catch(e){return {};} })();
+  const grandTotal = (() => {
+    try { return parseInt(localStorage.getItem('region_sub_grand_total')||'0'); } catch(e){return 0;} })();
+
+  if(!Object.keys(data).length) {
+    wrap.innerHTML = '<div style="text-align:center;font-size:11px;color:#8a8278;padding:16px">데이터 없음 · 📝 데이터 입력 → 🗺️ 지역별에서 추가</div>';
+    return;
+  }
+
+  // 합계 기준 정렬
+  const entries = Object.entries(data)
+    .map(([r,v]) => ({r, total: v.total||0, monthly: v.monthly||{}}))
+    .filter(x => x.total > 0)
+    .sort((a,b) => b.total - a.total);
+
+  const sumTotal = grandTotal || entries.reduce((s,x)=>s+x.total, 0);
+  const COLORS = ['#5c6b4a','#4a6b7c','#7a6010','#8a5a3a','#6b4a7c','#3a7c6b','#7c4a5a','#4a7c5c','#7c7c3a','#4a547c','#7c6b4a','#3a6b7c'];
+
+  const fmtN = v => v>=1000000?(v/1000000).toFixed(2)+'M':v>=1000?(v/1000).toFixed(1)+'K':String(v);
+
+  // ── 상단: 총 구독자 + 최근 월 신규 ──
+  const months = Object.keys(netRaw).sort();
+  const lastMo = months[months.length-1];
+  const lastNet = lastMo ? (netRaw[lastMo]||0) : 0;
+  const lastMoLabel = lastMo ? (parseInt(lastMo.slice(5))+'월') : '';
+
+  let html = '';
+  html += '<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:12px;flex-wrap:wrap">';
+  html += '<div>';
+  html += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278">총 구독자</div>';
+  html += '<div style="font-size:22px;font-weight:800;color:#1a1714">' + fmtN(sumTotal) + '</div>';
+  html += '</div>';
+  if(lastNet) {
+    html += '<div>';
+    html += '<div style="font-size:9px;color:#8a8278">' + lastMoLabel + ' 순증</div>';
+    html += '<div style="font-size:14px;font-weight:700;color:#5c6b4a">+' + fmtN(lastNet) + '</div>';
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // ── 지역별 타일 그리드 ──
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px;margin-bottom:14px">';
+  entries.forEach((x, i) => {
+    const pct  = sumTotal > 0 ? (x.total/sumTotal*100).toFixed(1) : '0';
+    const moVals = Object.keys(x.monthly).sort().slice(-4); // 최근 4달
+    const latestMo = moVals[moVals.length-1];
+    const latestV  = latestMo ? (x.monthly[latestMo]||0) : 0;
+    const color    = COLORS[i % COLORS.length];
+
+    html += '<div style="background:#f5f2ed;border-radius:7px;padding:8px 10px;border-left:3px solid '+color+'">';
+    html += '<div style="font-size:9px;font-weight:700;color:'+color+';text-transform:uppercase;letter-spacing:.06em">'+x.r+'</div>';
+    html += '<div style="font-size:15px;font-weight:800;color:#1a1714;line-height:1.2;margin:3px 0">'+fmtN(x.total)+'</div>';
+    html += '<div style="display:flex;align-items:center;gap:4px">';
+    html += '<div style="flex:1;background:#e8e4dc;height:3px;border-radius:2px"><div style="width:'+pct+'%;height:100%;background:'+color+';border-radius:2px;max-width:100%"></div></div>';
+    html += '<div style="font-size:9px;color:#8a8278;white-space:nowrap">'+pct+'%</div>';
+    html += '</div>';
+    if(latestV > 0) html += '<div style="font-size:9px;color:#5c6b4a;margin-top:3px">+'+fmtN(latestV)+' '+lastMoLabel+'</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  // ── 월별 순증 미니 차트 ──
+  html += '<div style="font-size:10px;font-weight:700;color:#8a8278;margin-bottom:6px">월별 순 증가 추이</div>';
+  html += '<canvas id="regionSubTrendChart" height="80"></canvas>';
+
+  wrap.innerHTML = html;
+
+  // 미니 차트 렌더
+  const ctx = document.getElementById('regionSubTrendChart');
+  if(!ctx || !months.length) return;
+
+  const labels  = months.map(m => parseInt(m.slice(5))+'월');
+  const values  = months.map(m => netRaw[m]||0);
+
+  if(window._regionSubChart) window._regionSubChart.destroy();
+  window._regionSubChart = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{
+        data: values,
+        backgroundColor: values.map((v,i)=>i===values.length-1?'rgba(92,107,74,.9)':'rgba(92,107,74,.4)'),
+        borderRadius: 3,
+        barPercentage: 0.6,
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>'+'+new Intl.NumberFormat('ko-KR').format(c.parsed.y)}}
+      },
+      scales:{
+        x:{ticks:{color:'#8a8278',font:{size:10}},grid:{display:false}},
+        y:{display:false,beginAtZero:true}
+      }
+    }
+  });
 }
 
 // ── 14. Init ───────────────────────────────────────────────
