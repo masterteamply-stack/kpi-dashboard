@@ -1276,7 +1276,7 @@
           <button class="panel-collapse-btn" onclick="togglePanel('dkpiPanel',this)">−</button>
         </div>
       </div>
-      <div id="dkpiContent" class="panel-content"><div id="dkpiSheet" style="display:none;margin-bottom:16px;border:1px solid #e8e4dc;border-radius:10px;overflow:hidden"><div style="background:#f5f2ed;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="font-size:11px;font-weight:700;color:#3d3830">월별 데이터 입력</span><div style="display:flex;gap:4px"><button id="dkpiSheet10Btn" class="toggle-btn active" style="font-size:11px" onclick="switchDkpiSheet('B2D-10')">📊 Engagement</button><button id="dkpiSheet11Btn" class="toggle-btn" style="font-size:11px" onclick="switchDkpiSheet('B2D-11')">👆 Click</button><button id="dkpiSheetCDBtn" class="toggle-btn" style="font-size:11px" onclick="switchDkpiSheet('channel_discriber')">📡 구독자</button><button id="dkpiSheetRegBtn" class="toggle-btn" style="font-size:11px" onclick="switchDkpiSheet('region_sub')">🗺️ 지역별</button></div><button onclick="saveDkpiSheet()" class="btn btn-primary" style="font-size:11px;padding:4px 12px;margin-left:auto">저장 → 차트 반영</button></div><div style="overflow-x:auto"><table id="dkpiSheetTable" style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#eceae3"><th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#8a8278">월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">1월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">2월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">3월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">4월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">5월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">6월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">7월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">8월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">9월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">10월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">11월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">12월</th></tr></thead><tbody id="dkpiSheetBody"></tbody></table></div></div><div class="digital-kpi-grid">
+      <div id="dkpiContent" class="panel-content"><div id="dkpiSheet" style="display:none;margin-bottom:16px;border:1px solid #e8e4dc;border-radius:10px;overflow:hidden"><div style="background:#f5f2ed;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="font-size:11px;font-weight:700;color:#3d3830">월별 데이터 입력</span><div style="display:flex;gap:4px"><button id="dkpiSheet10Btn" class="toggle-btn active" style="font-size:11px" onclick="switchDkpiSheet('B2D-10')">📊 Engagement</button><button id="dkpiSheet11Btn" class="toggle-btn" style="font-size:11px" onclick="switchDkpiSheet('B2D-11')">👆 Click</button><button id="dkpiSheetCDBtn" class="toggle-btn" style="font-size:11px" onclick="switchDkpiSheet('channel_discriber')">📡 구독자</button><button id="dkpiSheetRegBtn" class="toggle-btn" style="font-size:11px" onclick="switchDkpiSheet('region_sub')">🗺️ 지역별</button><button id="dkpiSheetRevBtn" class="toggle-btn" style="font-size:11px" onclick="switchDkpiSheet('revenue')">💰 매출</button></div><button onclick="saveDkpiSheet()" class="btn btn-primary" style="font-size:11px;padding:4px 12px;margin-left:auto">저장 → 차트 반영</button></div><div style="overflow-x:auto"><table id="dkpiSheetTable" style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#eceae3"><th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#8a8278">월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">1월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">2월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">3월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">4월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">5월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">6월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">7월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">8월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">9월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">10월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">11월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">12월</th></tr></thead><tbody id="dkpiSheetBody"></tbody></table></div></div><div class="digital-kpi-grid">
         <div class="digital-kpi-card">
           <div class="digital-kpi-name">📊 Engagement (노출/도달)</div>
           <canvas id="engagementChart" height="130"></canvas>
@@ -1849,7 +1849,10 @@ function computeSummary(tasks, kpis) {
   const delayed  = tasks.filter(t=>t.status!=="done"&&t.due_date&&new Date(t.due_date)<today).length;
   const budget   = tasks.reduce((s,t)=>s+Number(t.allocated_budget||0),0);
   const spend    = tasks.reduce((s,t)=>s+Number(t.spend||0),0);
-  const revenue  = tasks.reduce((s,t)=>s+Number(t.revenue||0),0);
+  // revenue = localStorage 권역별 매출 우선, 없으면 task revenue 합산
+  const _revData = (() => { try { return JSON.parse(localStorage.getItem('revenue_by_region')||'{}'); } catch(e){return {};} })();
+  const _revTotal = Object.values(_revData).reduce((s,rd)=>s+Object.values(rd).reduce((s2,v)=>s2+Number(v||0),0),0);
+  const revenue  = _revTotal > 0 ? _revTotal : tasks.reduce((s,t)=>s+Number(t.revenue||0),0);
   const leads    = tasks.reduce((s,t)=>s+Number(t.leads||0),0);
   const avgProg  = total ? tasks.reduce((s,t)=>s+Number(t.progress||0),0)/total : 0;
   const compRate = total ? (done/total)*100 : 0;
@@ -2547,30 +2550,33 @@ async function refreshDashboard() {
   setStatus("데이터 불러오는 중…");
   try {
     await Promise.all([fetchMetaWithWebhook(), hydrateFilters()]);
-    state.tasks = await fetchTasks();
+
+    // KPI + Tasks 동시 fetch (state._lastKpis 먼저 채우기 위해 앞에 배치)
+    const [tasksData, kpiData] = await Promise.all([
+      fetchTasks(),
+      fetchKpisWithTasks().catch(e => { console.warn('KPI fetch error:', e); return { kpis:[], tasks:[] }; })
+    ]);
+    state.tasks = tasksData;
+
+    // KPI accordion 렌더 (state._lastKpis 세팅 포함)
+    renderKPIAccordion(kpiData.kpis, kpiData.tasks);
+
+    // computeSummary는 _lastKpis 세팅 후
     const s = computeSummary(state.tasks, state._lastKpis||[]);
     renderKPICards(s);
     renderSummary(s);
-    // renderChart removed - replaced by themeInteractiveChart
     renderOwnerTable(state.tasks, state._lastKpis||[]);
-    // 전략 영역 + 활동 유형 차트 (KPI + task 데이터 필요 - renderKPIAccordion 이후 호출)
-    setTimeout(()=>{
-      const kpis = state._lastKpis||[];
-      const tasks = state._lastKpiTasks||[];
-      renderThemeInteractiveChart(kpis, tasks);
-      renderRegionOrderChart(tasks);
-      renderActivityTypeChartWithBudget(kpis, tasks);
-      renderActivityTrendChart(tasks);
-      renderDigitalKpiCharts(kpis, tasks);
-    }, 100);
-    // KPI accordion
-    try {
-      const { kpis, tasks } = await fetchKpisWithTasks();
-      renderKPIAccordion(kpis, tasks);
-    } catch(e) {
-      console.warn('KPI accordion load error:', e);
-      renderKPIAccordion([], state.tasks);
-    }
+
+    // 차트 렌더
+    const kpis  = state._lastKpis||[];
+    const tasks2 = state._lastKpiTasks||[];
+    renderThemeInteractiveChart(kpis, tasks2);
+    renderRegionOrderChart(tasks2);
+    renderActivityTypeChartWithBudget(kpis, tasks2);
+    renderActivityTrendChart(tasks2);
+    renderDigitalKpiCharts(kpis, tasks2);
+    renderRegionSubChart();
+
     fetchWebLeadData();      // 비동기 - 완료 시 자동 갱신
     fetchChoiceKitOrders(); // 비동기 - 완료 시 자동 갱신
     setStatus(`마지막 업데이트: ${new Date().toLocaleTimeString("ko-KR")} · 총 ${state.tasks.length}건`);
@@ -4188,7 +4194,7 @@ function switchDkpiSheet(kpiKey) {
     document.getElementById(id)?.classList.remove('active');
   });
   const map = {'B2D-10':'dkpiSheet10Btn','B2D-11':'dkpiSheet11Btn',
-    'channel_discriber':'dkpiSheetCDBtn','region_sub':'dkpiSheetRegBtn'};
+    'channel_discriber':'dkpiSheetCDBtn','region_sub':'dkpiSheetRegBtn','revenue':'dkpiSheetRevBtn'};
   document.getElementById(map[kpiKey])?.classList.add('active');
   renderDkpiSheetBody(kpiKey);
 }
@@ -4233,6 +4239,39 @@ function renderDkpiSheetBody(kpiKey) {
         + cells + '</tr>';
     }).join('');
     tbody.innerHTML = hdr + dataRows;
+    return;
+  }
+
+  // ── 권역별 매출 인풋 ──
+  if(kpiKey === 'revenue') {
+    const saved = (() => { try { return JSON.parse(localStorage.getItem('revenue_by_region')||'{}'); } catch(e){return {};} })();
+    const regions = ['GLOBAL','MENA','EUROPE','NA','LATAM','ASIA','TH','RUS','MX','CIS','IN','BR'];
+    const months  = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+    const moLabels = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+    const hdr = '<tr style="background:#e8f4e8">'  
+      + '<th style="padding:5px 10px;font-size:10px;text-align:left">권역</th>'
+      + '<th style="padding:5px 8px;font-size:10px;text-align:right">연간합계</th>'
+      + moLabels.map(m=>'<th style="padding:5px 4px;font-size:10px;text-align:right">'+m+'</th>').join('')
+      + '</tr>';
+    const rows = regions.map(r => {
+      const rdata = saved[r]||{};
+      const annualSum = months.reduce((s,mm)=>s+(rdata[`2026-${mm}`]||0),0);
+      const cells = months.map(mm => {
+        const key='2026-'+mm; const v=rdata[key]!=null?rdata[key]:'';
+        return '<td style="padding:2px 3px;text-align:right"><input type="number" min="0" data-region="'+r+'" data-month="'+key+'" class="revenueInput" value="'+(v||'')+'" style="width:72px;text-align:right;border:1px solid #b8d4b8;border-radius:2px;padding:2px 3px;font-size:10px"/></td>';
+      }).join('');
+      return '<tr style="border-bottom:1px solid #eef4ee">'
+        +'<td style="padding:5px 10px;font-size:11px;font-weight:700;white-space:nowrap">'+r+'</td>'
+        +'<td style="padding:3px 8px;text-align:right;font-size:11px;font-weight:700;color:#3a6b3a">'+(annualSum>0?fmtKRW(annualSum):'–')+'</td>'
+        + cells +'</tr>';
+    }).join('');
+    // 합계 행
+    const totalRow = '<tr style="background:#e8f4e8;border-top:2px solid #a8d4a8">'
+      +'<td style="padding:5px 10px;font-size:11px;font-weight:700">합계</td>'
+      +'<td style="padding:3px 8px;text-align:right;font-size:11px;font-weight:700;color:#3a6b3a">'+fmtKRW(regions.reduce((s,r)=>s+months.reduce((s2,mm)=>s2+((saved[r]||{})[`2026-${mm}`]||0),0),0))+'</td>'
+      + months.map(mm=>'<td style="padding:3px 4px;text-align:right;font-size:10px;font-weight:700;color:#3a6b3a">'+(regions.reduce((s,r)=>s+((saved[r]||{})[`2026-${mm}`]||0),0)>0?fmtKRW(regions.reduce((s,r)=>s+((saved[r]||{})[`2026-${mm}`]||0),0)):'')+'</td>').join('')
+      +'</tr>';
+    tbody.innerHTML = hdr + rows + totalRow;
     return;
   }
 
