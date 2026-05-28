@@ -4156,8 +4156,12 @@ function toggleDkpiSheet() {
 
 function switchDkpiSheet(kpiKey) {
   _dkpiSheetKpi = kpiKey;
-  document.getElementById('dkpiSheet10Btn')?.classList.toggle('active', kpiKey==='B2D-10');
-  document.getElementById('dkpiSheet11Btn')?.classList.toggle('active', kpiKey==='B2D-11');
+  ['dkpiSheet10Btn','dkpiSheet11Btn','dkpiSheetCDBtn','dkpiSheetRegBtn'].forEach(id => {
+    document.getElementById(id)?.classList.remove('active');
+  });
+  const map = {'B2D-10':'dkpiSheet10Btn','B2D-11':'dkpiSheet11Btn',
+    'channel_discriber':'dkpiSheetCDBtn','region_sub':'dkpiSheetRegBtn'};
+  document.getElementById(map[kpiKey])?.classList.add('active');
   renderDkpiSheetBody(kpiKey);
 }
 
