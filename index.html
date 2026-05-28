@@ -2009,8 +2009,22 @@ function renderSummary(s) {
   const clkVal = latestFromMonthly('B2D-11') ?? latestR(kpi11);
 
   // Channel Discriber
-  const discVal = (state.channelDiscriber && state.channelDiscriber.manual != null)
-    ? state.channelDiscriber.manual : (state.channelDiscriber && state.channelDiscriber.total != null ? state.channelDiscriber.total : null);
+  // Channel Discriber = 지역별 구독자 총합 자동 계산
+  const discVal = (() => {
+    // 1순위: region_sub_grand_total (localStorage)
+    try {
+      const gt = localStorage.getItem('region_sub_grand_total');
+      if(gt) return parseInt(gt);
+      // 2순위: region_sub_detail 합산
+      const detail = JSON.parse(localStorage.getItem('region_sub_detail')||'{}');
+      const sum = Object.values(detail).reduce((s,v)=>s+(v.total||0),0);
+      if(sum > 0) return sum;
+    } catch(e) {}
+    // 3순위: 수동 입력값
+    return (state.channelDiscriber && state.channelDiscriber.manual != null)
+      ? state.channelDiscriber.manual
+      : (state.channelDiscriber?.total ?? null);
+  })();
 
   // 관련 오더
   const orderVal = state.choiceKitOrder.total !== null
