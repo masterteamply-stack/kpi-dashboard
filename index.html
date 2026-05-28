@@ -4184,7 +4184,7 @@ function renderDkpiSheetBody(kpiKey) {
   if(kpiKey === 'region_sub') {
     const saved = (() => { try { return JSON.parse(localStorage.getItem('region_sub_detail')||'{}'); } catch(e){return {};} })();
     const regions = Object.keys(saved).length ? Object.keys(saved)
-      : ['GLOBAL','MENA','EUROPE','LATAM','ASIA','THAILAND','RUSSIA','KZ','INDONESIA','BRAZIL','MEXICO'];
+      : ['GLOBAL','MENA','EUROPE','NA','LATAM','ASIA','TH','RUS','MX','CIS','IN','BR'];
     const hdr = '<tr style="background:#e8e4dc">'
       + '<th style="padding:5px 10px;font-size:10px;text-align:left">지역</th>'
       + '<th style="padding:5px 8px;font-size:10px;text-align:right">합계</th>'
@@ -5864,18 +5864,18 @@ window.debugBudgetPlan = function() {
 // ── 디지털 KPI 기본 데이터 초기화 ──
 function initDkpiDefaultData() {
   // 이미 데이터가 있으면 건너뜀
-  if(localStorage.getItem('dkpi_initialized')) return;
+  if(localStorage.getItem('dkpi_initialized')==='v2') return;
   try {
     const eng  = {"2026-01": {"target": 4277306, "result": 4381186}, "2026-02": {"target": 9980381, "result": 5685770}, "2026-03": {"target": 9980381, "result": 6128704}, "2026-04": {"target": 9980381, "result": 2719065}, "2026-05": {"target": 11406149, "result": null}, "2026-06": {"target": 11406149, "result": null}, "2026-07": {"target": 11406149, "result": null}, "2026-08": {"target": 11406149, "result": null}, "2026-09": {"target": 12119034, "result": null}, "2026-10": {"target": 12119034, "result": null}, "2026-11": {"target": 19960761, "result": null}, "2026-12": {"target": 18534993, "result": null}};
     const clk  = {"2026-01": {"target": 83604, "result": 97900}, "2026-02": {"target": 125405, "result": 105568}, "2026-03": {"target": 209009, "result": 141947}, "2026-04": {"target": 334414, "result": 177904}, "2026-05": {"target": 334414, "result": null}, "2026-06": {"target": 376216, "result": null}, "2026-07": {"target": 376216, "result": null}, "2026-08": {"target": 418018, "result": null}, "2026-09": {"target": 418018, "result": null}, "2026-10": {"target": 418018, "result": null}, "2026-11": {"target": 543423, "result": null}, "2026-12": {"target": 543423, "result": null}};
     localStorage.setItem('dkpi_monthly_B2D-10', JSON.stringify(eng));
     localStorage.setItem('dkpi_monthly_B2D-11', JSON.stringify(clk));
-    const regionSub = {"GLOBAL": {"total": 283266, "monthly": {"2026-01": 1895, "2026-02": 25, "2026-03": 975, "2026-04": 742}}, "MENA": {"total": 555101, "monthly": {"2026-01": 2022, "2026-02": 921, "2026-03": 1, "2026-04": 0}}, "EUROPE": {"total": 62954, "monthly": {"2026-01": 1059, "2026-02": 1312, "2026-03": 363, "2026-04": 151}}, "LATAM": {"total": 235408, "monthly": {"2026-01": 1012, "2026-02": 420, "2026-03": 749, "2026-04": 288}}, "ASIA": {"total": 34381, "monthly": {"2026-01": 0, "2026-02": 0, "2026-03": 64, "2026-04": 20}}, "THAILAND": {"total": 99716, "monthly": {"2026-01": 30, "2026-02": 8, "2026-03": 11, "2026-04": 0}}, "RUSSIA": {"total": 78661, "monthly": {"2026-01": 5037, "2026-02": 1520, "2026-03": 1563, "2026-04": 1534}}, "KZ": {"total": 36677, "monthly": {"2026-01": 3566, "2026-02": 2350, "2026-03": 985, "2026-04": 782}}, "INDONESIA": {"total": 1848, "monthly": {"2026-01": 395, "2026-02": 1244, "2026-03": 26, "2026-04": 183}}, "BRAZIL": {"total": 6152, "monthly": {"2026-01": 0, "2026-02": 4500, "2026-03": 974, "2026-04": 678}}, "MEXICO": {"total": 7053, "monthly": {"2026-01": 0, "2026-02": 0, "2026-03": 0, "2026-04": 0}}};
+    const regionSub = {"GLOBAL": {"total": 283266, "monthly": {"2026-01": 1895, "2026-02": 25, "2026-03": 975, "2026-04": 742}}, "MENA": {"total": 555101, "monthly": {"2026-01": 2022, "2026-02": 921, "2026-03": 1, "2026-04": 0}}, "EUROPE": {"total": 62954, "monthly": {"2026-01": 1059, "2026-02": 1312, "2026-03": 363, "2026-04": 151}}, "NA": {"total": 933, "monthly": {"2026-01": 0, "2026-02": 0, "2026-03": 0, "2026-04": 175}}, "LATAM": {"total": 235408, "monthly": {"2026-01": 1012, "2026-02": 420, "2026-03": 749, "2026-04": 288}}, "ASIA": {"total": 34381, "monthly": {"2026-01": 0, "2026-02": 0, "2026-03": 64, "2026-04": 20}}, "TH": {"total": 99716, "monthly": {"2026-01": 30, "2026-02": 8, "2026-03": 11, "2026-04": 0}}, "RUS": {"total": 78661, "monthly": {"2026-01": 5037, "2026-02": 1520, "2026-03": 1563, "2026-04": 1534}}, "MX": {"total": 7053, "monthly": {"2026-01": 0, "2026-02": 0, "2026-03": 0, "2026-04": 0}}, "CIS": {"total": 36677, "monthly": {"2026-01": 3566, "2026-02": 2350, "2026-03": 985, "2026-04": 782}}, "IN": {"total": 1848, "monthly": {"2026-01": 395, "2026-02": 1244, "2026-03": 26, "2026-04": 183}}, "BR": {"total": 6152, "monthly": {"2026-01": 0, "2026-02": 4500, "2026-03": 974, "2026-04": 678}}};
     const netMonthly = {"2026-01": 14915, "2026-02": 11980, "2026-03": 2695, "2026-04": 1192};
     localStorage.setItem('region_sub_detail', JSON.stringify(regionSub));
     localStorage.setItem('region_sub_net', JSON.stringify(netMonthly));
     localStorage.setItem('region_sub_grand_total', '1369693');
-    localStorage.setItem('dkpi_initialized', '1');
+    localStorage.setItem('dkpi_initialized', 'v2');
     console.log('[DKPI] 기본 데이터 초기화 완료');
   } catch(e) { console.warn('DKPI init failed:', e); }
 }
