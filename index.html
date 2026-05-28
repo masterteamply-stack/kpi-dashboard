@@ -3422,7 +3422,7 @@ function saveDkpiSheet() {
   } else if(kpiKey === 'region_sub') {
     const saved = {};
     document.querySelectorAll('#dkpiSheetBody .regionSubTotal').forEach(inp => {
-      const r = inp.dataset.region; if(!r) return;
+      const r=inp.dataset.region; if(!r) return;
       if(!saved[r]) saved[r]={total:0,monthly:{}};
       saved[r].total = inp.value ? Number(inp.value) : 0;
     });
@@ -3450,25 +3450,21 @@ function saveDkpiSheet() {
     renderKPICards(cs); renderSummary(cs);
 
   } else {
-    // B2D-10, B2D-11
     const data = getDkpiMonthly(kpiKey);
-    const inputs = document.querySelectorAll('#dkpiSheetBody input');
-    inputs.forEach(inp => {
-      const month = inp.dataset.month;
-      const type  = inp.dataset.type;
-      const val   = inp.value.trim();
-      if(!data[month]) data[month] = {};
-      data[month][type] = val === '' ? null : Number(val);
+    document.querySelectorAll('#dkpiSheetBody input').forEach(inp => {
+      const month=inp.dataset.month, type=inp.dataset.type, val=inp.value.trim();
+      if(!month||!type) return;
+      if(!data[month]) data[month]={};
+      data[month][type] = val==='' ? null : Number(val);
     });
     saveDkpiMonthlyData(kpiKey, data);
-    const kpis = state._lastKpis || [];
-    renderDigitalKpiCharts(kpis, state.tasks || []);
+    renderDigitalKpiCharts(state._lastKpis||[], state.tasks||[]);
     const cs = computeSummary(state.tasks||[], state._lastKpis||[]);
     renderSummary(cs);
   }
 
   const btn = document.querySelector('#dkpiSheet .btn-primary');
-  if(btn) { btn.textContent = '✅ 저장됨'; setTimeout(()=>{ btn.textContent='저장 → 차트 반영'; }, 1500); }
+  if(btn) { btn.textContent='✅ 저장됨'; setTimeout(()=>{ btn.textContent='저장 → 차트 반영'; }, 1500); }
 }
 
 function renderDigitalKpiCharts(kpis, tasks) {
@@ -5285,6 +5281,22 @@ function renderRegionSubChart() {
       }
     }
   });
+}
+
+
+function setupRealtime() {
+  try {
+    state.sb.channel('public:tasks')
+      .on('postgres_changes', { event:'*', schema:'public', table:'tasks' }, () => {
+        refreshDashboard();
+      })
+      .on('postgres_changes', { event:'*', schema:'public', table:'kpis' }, () => {
+        refreshDashboard();
+      })
+      .subscribe();
+  } catch(e) {
+    console.warn('Realtime setup failed:', e);
+  }
 }
 
 // ── 14. Init ───────────────────────────────────────────────
