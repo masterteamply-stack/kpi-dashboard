@@ -1880,7 +1880,11 @@ function computeSummary(tasks, kpis) {
   const todo     = tasks.filter(t=>t.status==="todo").length;
   const delayed  = tasks.filter(t=>t.status!=="done"&&t.due_date&&new Date(t.due_date)<today).length;
   const budget   = tasks.reduce((s,t)=>s+Number(t.allocated_budget||0),0);
-  const spend    = tasks.reduce((s,t)=>s+Number(t.spend||0),0);
+  // tasks.spend = KRW 원화 → 금일 환율(1USD=1,502KRW)로 USD 환산
+  const _KRW_USD = 1502; // 2026-05-29 환율
+  const _spendKrwRaw = tasks.reduce((s,t)=>s+Number(t.spend||0),0);
+  const _mktSpendManual = (() => { try { return parseFloat(localStorage.getItem('marketing_spend_usd')||'0')||0; } catch(e){return 0;} })();
+  const spend = _mktSpendManual > 0 ? _mktSpendManual : (_spendKrwRaw > 0 ? _spendKrwRaw / _KRW_USD : 0);
   // revenue = localStorage 권역별 매출 월합계 우선
   const _revMonthly = (() => { try { return JSON.parse(localStorage.getItem('revenue_monthly_total')||'{}'); } catch(e){return {};} })();
   const _revTotal   = Object.values(_revMonthly).reduce((s,v)=>s+Number(v||0),0);
