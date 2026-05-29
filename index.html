@@ -1252,11 +1252,11 @@
   <section class="grid" style="grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:18px">
     <div class="panel">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <h3 style="margin-bottom:0">지역별 오더 &amp; 마케팅비</h3>
+        <h3 style="margin-bottom:0">지역별 마케팅 ROI 분석</h3>
         <button class="panel-collapse-btn" onclick="togglePanel('regionPanel',this)">−</button>
       </div>
       <div id="regionContent" class="panel-content">
-        <canvas id="regionOrderChart" height="220"></canvas>
+        <div id="regionRoiTable"></div>
       </div>
     </div>
     <div class="panel">
@@ -1893,7 +1893,8 @@ function computeSummary(tasks, kpis) {
   const leads    = tasks.reduce((s,t)=>s+Number(t.leads||0),0);
   const avgProg  = total ? tasks.reduce((s,t)=>s+Number(t.progress||0),0)/total : 0;
   const compRate = total ? (done/total)*100 : 0;
-  const roi = spend>0 ? (revenue/spend)*100 : 0;
+  // ROI = (B2B매출 - 마케팅집행비) / 마케팅집행비 × 100
+  const roi = spend>0 ? ((revenue - spend) / spend) * 100 : 0;
   // KPI 수 집계
   const kpiList  = kpis || state._lastKpis || [];
   const kpiTotal = kpiList.length;
@@ -4187,62 +4188,91 @@ function restorePanelStates() {
 
 // ── Regional Orders & Marketing Cost Chart ──
 function renderRegionOrderChart(tasks) {
-  const ctx = document.getElementById('regionOrderChart');
-  if(!ctx) return;
+  // 지역별 마케팅 ROI 분석 테이블
+  const el = document.getElementById('regionRoiTable');
+  if(!el) return;
 
-  const MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
-  const regionMap = {}; // eslint-disable-line
+  // B2B 매출 데이터 (localStorage)
+  const revData  = (() => { try { return JSON.parse(localStorage.getItem('revenue_by_region')||'{}'); } catch(e){return {};} })();
+  const revMonthly = (() => { try { return JSON.parse(localStorage.getItem('revenue_monthly_total')||'{}'); } catch(e){return {};} })();
 
+  // 지역별 마케팅 집행비 (tasks에서 합산)
+  const spendByRegion = {};
   for(const t of tasks) {
-    const r  = (t.region||'KR').toUpperCase();
-    const mo = t.started_at ? new Date(t.started_at).getMonth() : -1;
-    if(mo < 0) continue;
-    if(!regionMap[r]) regionMap[r] = { orders: new Array(12).fill(0), spend: new Array(12).fill(0) };
-    regionMap[r].orders[mo] += Number(t.revenue||0);
-    regionMap[r].spend[mo]  += Number(t.spend||0);
+    const r = (t.region||'기타').toUpperCase();
+    spendByRegion[r] = (spendByRegion[r]||0) + Number(t.spend||t.allocated_budget||0);
   }
 
-  const regions = Object.keys(regionMap).sort();
-  if(!regions.length) { ctx.style.display='none'; return; }
-  ctx.style.display='';
+  // 지역별 매출 합산
+  const revByRegion = {};
+  for(const [region, months] of Object.entries(revData)) {
+    revByRegion[region] = Object.values(months).reduce((s,v)=>s+Number(v||0),0);
+  }
 
-  const RCOLS = {KR:'rgba(92,107,74,.75)',JP:'rgba(74,107,124,.75)',
-    CN:'rgba(158,74,58,.75)',US:'rgba(184,150,46,.75)',
-    EU:'rgba(124,86,140,.75)',MENA:'rgba(80,120,160,.75)'};
-  const getC = r => RCOLS[r]||'rgba(100,100,100,.7)';
+  // 전체 합계
+  const totalRev   = Object.values(revByRegion).reduce((s,v)=>s+v,0);
+  const totalSpend = Object.values(spendByRegion).reduce((s,v)=>s+v,0);
+  const totalRoi   = totalSpend>0 ? ((totalRev-totalSpend)/totalSpend*100) : null;
 
-  const totalSpend = new Array(12).fill(0);
-  regions.forEach(r => regionMap[r].spend.forEach((v,i)=>totalSpend[i]+=v));
+  const fmtUSD = v => v>=1000000 ? '$'+(v/1000000).toFixed(2)+'M' : v>=1000 ? '$'+(v/1000).toFixed(1)+'K' : '$'+Math.round(v).toLocaleString();
+  const fmtPct2 = v => v===null ? '–' : (v>=0?'+':'')+v.toFixed(1)+'%';
+  const roiColor = v => v===null ? '#8a8278' : v>=100 ? '#1a6b1a' : v>=0 ? '#3a7c3a' : '#c0392b';
 
-  const datasets = regions.map(r=>({
-    label: r+' 오더', data: regionMap[r].orders,
-    backgroundColor: getC(r), borderRadius:3, stack:'orders'
-  }));
-  datasets.push({
-    type:'line', label:'마케팅 비용',
-    data: totalSpend, borderColor:'#9e4a3a', borderWidth:2,
-    pointRadius:3, pointBackgroundColor:'#9e4a3a',
-    fill:false, tension:.3, borderDash:[4,3]
+  // 모든 지역 목록
+  const regions = [...new Set([...Object.keys(revByRegion), ...Object.keys(spendByRegion)])].sort();
+
+  let html = '<div style="overflow-x:auto">';
+  html += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+  // 헤더
+  html += '<thead><tr style="background:#e8e4dc">';
+  ['지역','매출 (USD)','마케팅 집행','ROI','매출 비중'].forEach(h => {
+    html += `<th style="padding:8px 12px;text-align:${h==='지역'?'left':'right'};font-size:10px;font-weight:700;color:#4a4038;white-space:nowrap">${h}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  // 지역별 행
+  const rowData = regions.map(r => {
+    const rev   = revByRegion[r]||0;
+    const spend = spendByRegion[r]||0;
+    const roi   = spend>0 ? (rev-spend)/spend*100 : (rev>0 ? null : null);
+    const pct   = totalRev>0 ? rev/totalRev*100 : 0;
+    return {r, rev, spend, roi, pct};
+  }).filter(d => d.rev>0 || d.spend>0).sort((a,b)=>b.rev-a.rev);
+
+  rowData.forEach((d,i) => {
+    const bg = i%2===0 ? '#fdfcf9' : '#f8f5f0';
+    html += `<tr style="background:${bg};border-bottom:1px solid #f0ede6">`;
+    html += `<td style="padding:7px 12px;font-weight:700;color:#1a1714">${d.r}</td>`;
+    html += `<td style="padding:7px 12px;text-align:right;font-weight:700;color:#1a6b3a">${d.rev>0?fmtUSD(d.rev):'–'}</td>`;
+    html += `<td style="padding:7px 12px;text-align:right;color:#6b4a3a">${d.spend>0?fmtUSD(d.spend):'–'}</td>`;
+    html += `<td style="padding:7px 12px;text-align:right;font-weight:700;color:${roiColor(d.roi)}">${fmtPct2(d.roi)}</td>`;
+    // 비중 바
+    const barW = Math.round(d.pct);
+    html += `<td style="padding:7px 12px;text-align:right">`;
+    html += `<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">`;
+    html += `<div style="width:60px;background:#e8e4dc;height:5px;border-radius:3px;flex-shrink:0">`;
+    html += `<div style="width:${Math.min(100,barW)}%;height:100%;background:#5c6b4a;border-radius:3px"></div></div>`;
+    html += `<span style="min-width:30px;text-align:right;color:#6b6259">${d.pct.toFixed(1)}%</span>`;
+    html += `</div></td></tr>`;
   });
 
-  if(window._rOChart) window._rOChart.destroy();
-  window._rOChart = new Chart(ctx, {
-    type:'bar', data:{labels:MONTHS, datasets},
-    options:{
-      responsive:true,
-      plugins:{
-        legend:{labels:{color:'#6b6259',font:{size:10},boxWidth:10}},
-        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtKRW(c.parsed.y)}`}}
-      },
-      scales:{
-        x:{stacked:true, ticks:{color:'#8a8278',font:{size:10}}, grid:{color:'rgba(60,50,40,.05)'}},
-        y:{stacked:true, beginAtZero:true,
-          ticks:{color:'#8a8278',font:{size:10},
-            callback:v=>v>=1000000?`${(v/1000000).toFixed(1)}M`:v>=1000?`${(v/1000).toFixed(0)}K`:v
-          }, grid:{color:'rgba(60,50,40,.06)'}}
-      }
-    }
-  });
+  // 합계 행
+  html += `<tr style="background:#e8e4dc;border-top:2px solid #c8c4bc;font-weight:700">`;
+  html += `<td style="padding:8px 12px;font-weight:700;color:#1a1714">합계</td>`;
+  html += `<td style="padding:8px 12px;text-align:right;color:#1a6b3a;font-weight:800">${fmtUSD(totalRev)}</td>`;
+  html += `<td style="padding:8px 12px;text-align:right;color:#6b4a3a">${totalSpend>0?fmtUSD(totalSpend):'–'}</td>`;
+  html += `<td style="padding:8px 12px;text-align:right;font-weight:800;color:${roiColor(totalRoi)}">${fmtPct2(totalRoi)}</td>`;
+  html += `<td style="padding:8px 12px;text-align:right;color:#8a8278">100%</td>`;
+  html += '</tr></tbody></table></div>';
+
+  // 마지막 업데이트 정보
+  const lastMonth = Object.keys(revMonthly).sort().slice(-1)[0];
+  if(lastMonth) {
+    const mo = parseInt(lastMonth.slice(5));
+    html += `<div style="text-align:right;font-size:9px;color:#b0a898;margin-top:6px">${mo}월 기준 누적 · 📝 데이터 입력에서 업데이트</div>`;
+  }
+
+  el.innerHTML = html;
 }
 
 
