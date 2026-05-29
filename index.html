@@ -1276,6 +1276,40 @@
     </div>
   </section>
 
+  <section style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
+    <div class="row-grid-2" style="margin-bottom:0">
+    <div class="panel">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <h3 style="margin-bottom:0">활동 유형별 예산 집행</h3>
+            <button class="panel-collapse-btn" onclick="togglePanel('actPanel',this)">−</button>
+          </div>
+          <div id="actContent" class="panel-content">
+            <canvas id="activityChart" height="200"></canvas>
+          </div>
+        </div>
+        <div class="panel">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <h3 style="margin-bottom:0">마케팅 활동 추이</h3>
+            <div class="trend-toggle">
+              <button class="trend-btn active" id="trendBtnM" onclick="switchTrendView('month')">월별</button>
+              <button class="trend-btn" id="trendBtnQ" onclick="switchTrendView('quarter')">분기별</button>
+            </div>
+          </div>
+          <canvas id="activityTrendChart" height="200"></canvas>
+          <!-- 관련 오더 미니 추이 -->
+          <div id="orderMiniWrap" style="margin-top:10px;padding:8px 12px;background:#f5f2ed;border-radius:6px;display:flex;align-items:center;gap:12px">
+            <div style="flex-shrink:0">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8278">총 관련 오더</div>
+              <div id="orderMiniTotal" style="font-size:16px;font-weight:800;color:#1a1714;margin-top:2px">–</div>
+              <div id="orderMiniSub" style="font-size:10px;color:#8a8278;margin-top:1px">로딩 중…</div>
+            </div>
+            <div style="flex:1;min-width:0">
+              <canvas id="orderMiniChart" height="60" style="width:100%;display:block"></canvas>
+            </div>
+          </div>
+        </div>
+  </section>
+
   <section class="row-full">
         
     </div><div class="panel">
@@ -1313,40 +1347,6 @@
         </div>
       </div>
     </div>
-  </section>
-
-  <section style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
-    <div class="row-grid-2" style="margin-bottom:0">
-    <div class="panel">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-            <h3 style="margin-bottom:0">활동 유형별 예산 집행</h3>
-            <button class="panel-collapse-btn" onclick="togglePanel('actPanel',this)">−</button>
-          </div>
-          <div id="actContent" class="panel-content">
-            <canvas id="activityChart" height="200"></canvas>
-          </div>
-        </div>
-        <div class="panel">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-            <h3 style="margin-bottom:0">마케팅 활동 추이</h3>
-            <div class="trend-toggle">
-              <button class="trend-btn active" id="trendBtnM" onclick="switchTrendView('month')">월별</button>
-              <button class="trend-btn" id="trendBtnQ" onclick="switchTrendView('quarter')">분기별</button>
-            </div>
-          </div>
-          <canvas id="activityTrendChart" height="200"></canvas>
-          <!-- 관련 오더 미니 추이 -->
-          <div id="orderMiniWrap" style="margin-top:10px;padding:8px 12px;background:#f5f2ed;border-radius:6px;display:flex;align-items:center;gap:12px">
-            <div style="flex-shrink:0">
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8278">총 관련 오더</div>
-              <div id="orderMiniTotal" style="font-size:16px;font-weight:800;color:#1a1714;margin-top:2px">–</div>
-              <div id="orderMiniSub" style="font-size:10px;color:#8a8278;margin-top:1px">로딩 중…</div>
-            </div>
-            <div style="flex:1;min-width:0">
-              <canvas id="orderMiniChart" height="60" style="width:100%;display:block"></canvas>
-            </div>
-          </div>
-        </div>
   </section>
 
   <!-- Owner table -->
@@ -4230,7 +4230,7 @@ function renderRegionOrderChart(tasks) {
   // 마케팅 집행비 (tasks)
   const spendByRegion = {};
   for(const t of tasks) {
-    const r = (t.region||'기타').toUpperCase();
+    const r = (t.region||'GLOBAL').toUpperCase(); // HQ 마컴팀 기본 = GLOBAL
     const v = Number(t.spend||t.allocated_budget||0);
     if(v>0) spendByRegion[r] = (spendByRegion[r]||0) + v;
   }
@@ -5590,7 +5590,7 @@ function renderRegionBudgetDonut(tasks, kpis) {
   // 지역별 마케팅 집행비 합산 (tasks)
   const spendByRegion = {};
   for(const t of tasks) {
-    const r = (t.region||'기타').toUpperCase();
+    const r = (t.region||'GLOBAL').toUpperCase(); // HQ 마컴팀 기본 = GLOBAL
     const v = Number(t.spend||t.allocated_budget||0);
     if(v > 0) spendByRegion[r] = (spendByRegion[r]||0) + v;
   }
