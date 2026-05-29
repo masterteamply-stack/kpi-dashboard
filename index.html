@@ -1889,6 +1889,20 @@ async function fetchKpisWithTasks() {
 
 
 // ── 6. Summary computation ─────────────────────────────────
+// quarter 값에서 q1~q4 키 추출 (다양한 포맷 지원)
+// '2026-Q1', 'Q2', '2분기', 'q3', '3', 'Q4분기' → 'q1'~'q4'
+function parseQuarterKey(raw) {
+  if(!raw) return null;
+  const s = String(raw).toLowerCase().replace(/[^0-9q]/g,'');
+  // 'q1'~'q4' 직접
+  const m1 = s.match(/q([1-4])/);
+  if(m1) return 'q'+m1[1];
+  // '1'~'4' 숫자만
+  const m2 = s.match(/([1-4])/);
+  if(m2) return 'q'+m2[1];
+  return null;
+}
+
 function computeSummary(tasks, kpis) {
   const today = todayD();
   const total    = tasks.length;
@@ -2792,8 +2806,7 @@ function renderKpiGauge(kpi, taskList) {
 
   const byQ = { q1:0, q2:0, q3:0, q4:0 };
   for(const t of taskList) {
-    const raw = (t.quarter||'').toLowerCase();
-    const q   = ['q1','q2','q3','q4'].find(qq => raw.includes(qq)) || curQ;
+    const q = parseQuarterKey(t.quarter) || curQ;
     byQ[q] += Number(t.progress||0);
   }
 
@@ -3975,9 +3988,8 @@ function renderDrawerEditForm(task) {
   if(!el || !task) return;
 
   const kpi    = (state._lastKpis||[]).find(k => k.id === task.kpi_id);
-  const taskQ  = (task.quarter||'').toLowerCase().replace(/[^q1-4]/g,'').trim();
-  const qKey   = ['q1','q2','q3','q4'].includes(taskQ) ? taskQ
-               : (() => { const mo=new Date().getMonth(); return mo<3?'q1':mo<6?'q2':mo<9?'q3':'q4'; })();
+  const qKey   = parseQuarterKey(task.quarter)
+               || (() => { const mo=new Date().getMonth(); return mo<3?'q1':mo<6?'q2':mo<9?'q3':'q4'; })();
   const qTarget = kpi ? (kpi[qKey+'_target']!=null ? Number(kpi[qKey+'_target']) : '') : '';
   const qLabel  = qKey.toUpperCase();
   const unit    = kpi?.unit || '';
