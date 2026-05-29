@@ -742,8 +742,8 @@
     .theme-bar-spend{font-size:11px;color:#6b6259;text-align:right}
 
     /* ── Digital KPI ── */
-    .digital-kpi-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:start}
-    .digital-kpi-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-lg);padding:20px;box-sizing:border-box}
+    .digital-kpi-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:stretch}
+    .digital-kpi-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-lg);padding:20px;box-sizing:border-box;display:flex;flex-direction:column}
     .digital-kpi-card h4{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b6259;margin-bottom:4px}
     .digital-kpi-name{font-size:16px;font-weight:700;color:#1a1714;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
     @media(max-width:1100px){.digital-kpi-grid{grid-template-columns:1fr 1fr}}
@@ -1310,8 +1310,7 @@
         </div>
   </section>
 
-  <section class="row-full">
-    <div class="panel">
+  <section class="row-full" style="margin-top:0"> <div class="panel">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
         <h3 style="margin-bottom:0">디지털 KPI 추이</h3>
         <div style="display:flex;align-items:center;gap:8px">
@@ -5295,7 +5294,7 @@ function renderRegionSubChart() {
     wrap.innerHTML =
       '<div style="display:flex;gap:10px;align-items:flex-start">'
       + '<div style="position:relative;flex-shrink:0;width:130px;height:130px">'
-      + '<canvas id="regionDonutChart" width="130" height="130"></canvas>'
+      + '<canvas id="regionDonutChart" width="124" height="124"></canvas>'
       + '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">'
       + '<div style="font-size:11px;font-weight:800;color:#1a1714;line-height:1.1">' + fmtN(sumTotal) + '</div>'
       + '<div style="font-size:9px;color:#8a8278">총 구독자</div>'
@@ -5407,7 +5406,7 @@ function renderRegionSubChart() {
       pointRadius:4,fill:false,tension:.4,order:0,borderDash:[]});
   }
 
-  wrap.innerHTML = '<canvas id="regionBarChart" height="160"></canvas>';
+  wrap.innerHTML = '<canvas id="regionBarChart" height="124"></canvas>';
   const ctx2 = document.getElementById('regionBarChart');
   if(!ctx2) return;
   if(window._regionBarChart) window._regionBarChart.destroy();
