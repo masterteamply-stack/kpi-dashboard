@@ -2391,7 +2391,7 @@ function renderKPIAccordion(kpis, tasks) {
               onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
               onfocus="this.dataset.orig=this.textContent"
               title="실적 수치 입력 (달성률 아님)"
-            >${(v=>v>=1000000?(v/1000000).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'K':String(v))(Number(t.progress)||0)}</span>
+            >${(v=>v>0?(v>=1000000?(v/1000000).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'K':String(v)):'0')(Number(t.progress)||0)}</span>
             </div>
         </td>
         <td onclick="event.stopPropagation()"><select class="cell-select" data-task-id="${t.id}" data-field="task_type" onchange="saveTaskSelectEdit(this)" style="font-size:10px;padding:2px 4px;max-width:90px;background:#fdfcf9;border:1px solid #e0dbd2;border-radius:3px;color:#3d5228;font-weight:600;cursor:pointer;outline:none"><option value="">-</option>${getMktgTypes().map(tp=>`<option value="${esc(tp)}"${tp===t.task_type?' selected':''} style="color:#1a1714">${esc(tp)}</option>`).join('')}</select></td>
@@ -2787,56 +2787,78 @@ function renderKpiGauge(kpi, taskList) {
     if(v>=1000) return (v/1000).toFixed(0)+'K';
     return String(Math.round(v));
   };
-
   const unit = kpi.unit||'';
 
-  // 1순위: DB에 직접 입력된 q_result / q_target (가장 최신 분기)
-  let qKey=null, qResult=null, qTarget=null;
-  for(const q of ['q2','q1','q3','q4']) {
-    const r = parseN(kpi[q+'_result']);
-    const t = parseN(kpi[q+'_target']);
-    if(r!==null && t!==null) { qKey=q; qResult=r; qTarget=t; break; }
+  // 현재 분기 결정
+  const curQ = (() => { const mo=new Date().getMonth(); return mo<3?'q1':mo<6?'q2':mo<9?'q3':'q4'; })();
+
+  // Task 기반 진척도: 분기별 task.progress(실측값) 합 / 해당 분기 q_target
+  // 분기별 집계
+  const byQ = { q1:0, q2:0, q3:0, q4:0 };
+  const cntQ = { q1:0, q2:0, q3:0, q4:0 };
+  for(const t of taskList) {
+    const tq = (t.quarter||'').toLowerCase().replace(/[^q1-4]/g,'').trim();
+    const q  = ['q1','q2','q3','q4'].find(q=>tq.includes(q)) || curQ;
+    byQ[q] = (byQ[q]||0) + Number(t.progress||0);
+    cntQ[q] = (cntQ[q]||0) + 1;
   }
 
-  if(qResult!==null && qTarget!==null && qTarget>0) {
-    const pct = Math.round(qResult/qTarget*100);
-    const cc  = pct>=80?'':pct>=50?'warn':'danger';
-    return ''
-      +'<div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px">'
-      +  `<span class="kpi-gauge-pct">${pct}%</span>`
-      +  `<span style="font-size:9px;color:#8a8278;font-weight:600">${qKey?.toUpperCase()} 달성</span>`
-      +'</div>'
-      +`<div class="kpi-gauge-outer"><div class="kpi-gauge-bar ${cc}" style="width:${Math.min(100,pct)}%"></div></div>`
-      +'<div style="font-size:10px;color:#6b6259;margin-top:3px">'
-      +  `<span style="color:#5c6b4a;font-weight:700">${fmtV(qResult)}</span>`
-      +  `<span style="color:#8a8278"> / ${fmtV(qTarget)}</span>`
-      +  (unit?`<span style="color:#8a8278;margin-left:2px">${unit}</span>`:'')
-      +'</div>';
+  // 가장 최신 데이터가 있는 분기 선택 (진척도 표시용)
+  let displayQ = curQ;
+  for(const q of [curQ,'q2','q1','q3','q4']) {
+    if(byQ[q] > 0 || parseN(kpi[q+'_result']) !== null) { displayQ=q; break; }
   }
 
-  // 2순위: Task 실적 합계 / KPI 연간목표
-  const taskSum = taskList.reduce((s,t)=>s+Number(t.progress||0),0);
-  const annualT = parseN(kpi.q4_target) || Math.max(...['q1','q2','q3'].map(q=>parseN(kpi[q+'_target'])||0));
+  // 1순위: DB q_result 직접 입력값
+  const dbResult = parseN(kpi[displayQ+'_result']);
+  const qTarget  = parseN(kpi[displayQ+'_target']);
 
-  if(annualT>0 && taskList.length>0) {
-    const pct = Math.round(taskSum/annualT*100);
-    const cc  = pct>=80?'':pct>=50?'warn':'danger';
-    return ''
-      +'<div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px">'
-      +  `<span class="kpi-gauge-pct">${pct}%</span>`
-      +  '<span style="font-size:9px;color:#8a8278;font-weight:600">Task 합산</span>'
-      +'</div>'
-      +`<div class="kpi-gauge-outer"><div class="kpi-gauge-bar ${cc}" style="width:${Math.min(100,pct)}%"></div></div>`
-      +'<div style="font-size:10px;color:#6b6259;margin-top:3px">'
-      +  `<span style="color:#5c6b4a;font-weight:700">${fmtV(taskSum)}</span>`
-      +  `<span style="color:#8a8278"> / ${fmtV(annualT)}</span>`
-      +  (unit?`<span style="color:#8a8278;margin-left:2px">${unit}</span>`:'')
-      +'</div>';
+  let actualVal, targetVal, achvPct, sourceLabel;
+
+  if(dbResult !== null && qTarget !== null && qTarget > 0) {
+    // DB 결과값 우선
+    actualVal   = dbResult;
+    targetVal   = qTarget;
+    achvPct     = Math.round(dbResult / qTarget * 100);
+    sourceLabel = displayQ.toUpperCase();
+  } else if(byQ[displayQ] > 0 && qTarget !== null && qTarget > 0) {
+    // Task progress 합산
+    actualVal   = byQ[displayQ];
+    targetVal   = qTarget;
+    achvPct     = Math.round(byQ[displayQ] / qTarget * 100);
+    sourceLabel = displayQ.toUpperCase()+'·Task합';
+  } else if(taskList.length > 0) {
+    // 전체 분기 합산 / q4_target
+    const totalProg = Object.values(byQ).reduce((s,v)=>s+v,0);
+    const annualT   = parseN(kpi.q4_target) || Math.max(...['q1','q2','q3'].map(q=>parseN(kpi[q+'_target'])||0));
+    if(annualT > 0 && totalProg > 0) {
+      actualVal   = totalProg;
+      targetVal   = annualT;
+      achvPct     = Math.round(totalProg / annualT * 100);
+      sourceLabel = '연간·Task합';
+    }
   }
 
-  return '<div class="kpi-gauge-pct">–</div>'
-    +'<div class="kpi-gauge-outer"><div class="kpi-gauge-bar" style="width:0%"></div></div>'
-    +'<div class="kpi-gauge-label" style="font-size:10px;color:#8a8278">데이터 없음</div>';
+  if(achvPct == null) {
+    return '<div class="kpi-gauge-pct">–</div>'
+      +'<div class="kpi-gauge-outer"><div class="kpi-gauge-bar" style="width:0%"></div></div>'
+      +'<div style="font-size:9px;color:#b0a898;margin-top:2px">실적 미입력</div>';
+  }
+
+  const cc  = achvPct>=80?'':achvPct>=50?'warn':'danger';
+  const barW = Math.min(100, achvPct);
+
+  return ''
+    +'<div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px">'
+    +  `<span class="kpi-gauge-pct">${achvPct}%</span>`
+    +  `<span style="font-size:9px;color:#8a8278;font-weight:600">${sourceLabel}</span>`
+    +'</div>'
+    +`<div class="kpi-gauge-outer"><div class="kpi-gauge-bar ${cc}" style="width:${barW}%"></div></div>`
+    +'<div style="font-size:10px;color:#6b6259;margin-top:3px">'
+    +  `<span style="color:#5c6b4a;font-weight:700">${fmtV(actualVal)}</span>`
+    +  `<span style="color:#8a8278"> / ${fmtV(targetVal)}</span>`
+    +  (unit?`<span style="color:#8a8278;margin-left:2px">${unit}</span>`:'')
+    +'</div>';
 }
 
 // ── KPI 상세 모달 ──
@@ -3970,8 +3992,12 @@ function renderDrawerEditForm(task) {
   if(!el || !task) return;
 
   const kpi      = (state._lastKpis||[]).find(k => k.id === task.kpi_id);
-  const curQ     = (() => { const m=new Date().getMonth(); return m<3?'q1':m<6?'q2':m<9?'q3':'q4'; })();
-  const qTarget  = kpi ? Number(kpi[curQ+'_target']||0) : 0;
+  // task.quarter 기준 (Q1/Q2/Q3/Q4 또는 q1~q4)
+  const taskQ    = (task.quarter||'').toLowerCase().replace('분기','').trim(); // 'q1'~'q4'
+  const qKey     = (['q1','q2','q3','q4'].includes(taskQ)) ? taskQ
+                 : (() => { const m=new Date().getMonth(); return m<3?'q1':m<6?'q2':m<9?'q3':'q4'; })();
+  const qTarget  = kpi ? (Number(kpi[qKey+'_target'])||0) : 0;
+  const qLabel   = qKey.toUpperCase();
   const unit     = kpi?.unit || '';
   const owners   = (state.owners||[]).map(o=>o.name).filter(Boolean);
 
@@ -4018,14 +4044,16 @@ function renderDrawerEditForm(task) {
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div>
-          <label class="field-label">목표${unit?' ('+unit+')':''}</label>
+          <label class="field-label">${qLabel} 목표${unit?' ('+unit+')':''}</label>
           <input type="number" id="de_target" value="${qTarget||''}" readonly
             style="width:100%;border:1px solid #e8e4dc;border-radius:4px;padding:6px 8px;font-size:12px;background:#f8f5f0;font-family:var(--font-body)"/>
         </div>
         <div>
-          <label class="field-label">실적${unit?' ('+unit+')':''}</label>
-          <input type="number" id="de_progress" value="${task.progress!=null?task.progress:''}" min="0"
+          <label class="field-label">실적 수치${unit?' ('+unit+')':''}</label>
+          <input type="number" id="de_progress" value="${task.progress!=null?task.progress:0}" min="0" step="any"
+            placeholder="실제 측정된 지표값 입력"
             style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)"/>
+          <div style="font-size:9px;color:#8a8278;margin-top:3px">Task 완료 시 실제 획득한 측정값 (기본값 0)</div>
         </div>
       </div>
       <div>
