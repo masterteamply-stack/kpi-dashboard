@@ -1819,7 +1819,9 @@ async function fetchTasks() {
   if(state.filters.quarter!=="all") q=q.eq("quarter",state.filters.quarter);
   if(state.filters.region !=="all") q=q.eq("region", state.filters.region);
   if(state.filters.owner !== "all") {
-    q=q.eq("owner_id", state.filters.owner);
+    // 이름으로 담당자 id 매핑 후 필터
+    const ownerObj = (state.owners||[]).find(o => o.name === state.filters.owner);
+    if(ownerObj) q=q.eq("owner_id", ownerObj.id);
   }
   const { data, error } = await q;
   if(error) throw error;
