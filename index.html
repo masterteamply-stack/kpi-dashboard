@@ -2102,13 +2102,29 @@ function renderSummary(s) {
 
   // 관련 오더 + Marketing Lead
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-  // 매출 총액 카드 (관련오더 대신)
-  const _revTotalDisp = s.revenue > 0 ? '$'+new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:1}).format(s.revenue) : (orderVal !== '–' ? orderVal : '–');
-  const _thisMonthDisp = s.thisMonthRev > 0 ? '이달 $'+new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:1}).format(s.thisMonthRev) : '';
+  // 관련 오더 + 매출 참고
+  const _revTotalDisp   = s.revenue > 0 ? '$'+new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:1}).format(s.revenue) : '';
+  const _thisMonthDisp  = s.thisMonthRev > 0 ? '이달 $'+new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:1}).format(s.thisMonthRev) : '';
+  // 관련 오더 카드
   h += '<div style="background:#f5f2ed;border-radius:6px;padding:7px 10px">';
-  h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:2px">매출 총액</div>';
-  h += '<div style="font-size:17px;font-weight:800;color:#1a1714;line-height:1">' + _revTotalDisp + '</div>';
-  h += (_thisMonthDisp ? '<div style="font-size:10px;color:#5c6b4a;margin-top:2px">' + _thisMonthDisp + '</div>' : '');
+  h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:2px">관련 오더</div>';
+  h += '<div style="font-size:17px;font-weight:800;color:#1a1714;line-height:1">' + orderVal + '</div>';
+  h += '<div style="font-size:10px;color:#8a8278;margin-top:1px">' + (state.choiceKitOrder.count ? fmtNum(state.choiceKitOrder.count)+'건' : '로딩중') + '</div>';
+  // 매출 참고 (구분선 아래)
+  if(_revTotalDisp) {
+    h += '<div style="margin-top:6px;padding-top:6px;border-top:1px solid #e8e4dc">';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between">';
+    h += '<div>';
+    h += '<div style="font-size:9px;color:#8a8278;font-weight:600">매출 (B2B)</div>';
+    h += '<div style="font-size:13px;font-weight:800;color:#3a6b3a">' + _revTotalDisp + '</div>';
+    h += (_thisMonthDisp ? '<div style="font-size:9px;color:#5c6b4a">' + _thisMonthDisp + '</div>' : '');
+    h += '</div>';
+    h += '<button onclick="openRevenueInput()" title="매출 데이터 입력" '
+       + 'style="background:none;border:1px solid #b8ccaa;border-radius:4px;'
+       + 'padding:3px 7px;font-size:11px;cursor:pointer;color:#5c6b4a;font-family:var(--font-body)">';
+    h += '✏️</button>';
+    h += '</div></div>';
+  }
   h += '</div>';
   // Marketing Lead 카드: 총 누적 + 이달 WebLead/O2O
   const thisChMo   = ml.channelMonthly[thisKey] ? (ml.channelMonthly[thisKey].total||0) : 0;
@@ -5489,6 +5505,25 @@ async function _saveKpiOwners(kpiId, val, kpi) {
   } catch(e) {
     console.error('owner save error:', e);
   }
+}
+
+
+function openRevenueInput() {
+  // 📝 데이터 입력 시트 열기 + 💰 매출 탭 선택
+  const sheet = document.getElementById('dkpiSheet');
+  if(!sheet) return;
+  // 시트가 숨겨져 있으면 토글
+  if(sheet.style.display === 'none' || !sheet.style.display) {
+    const btn = document.getElementById('dkpiSheetBtn');
+    if(btn) btn.click();
+    else sheet.style.display = 'block';
+  }
+  // 매출 탭 클릭
+  setTimeout(() => {
+    switchDkpiSheet('revenue');
+    // 스크롤하여 시트 보이게
+    sheet.scrollIntoView({ behavior:'smooth', block:'start' });
+  }, 100);
 }
 
 // ── 14. Init ───────────────────────────────────────────────
