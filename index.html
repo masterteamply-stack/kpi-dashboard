@@ -1903,7 +1903,7 @@ function computeSummary(tasks, kpis) {
   const kpiList  = kpis || state._lastKpis || [];
   const kpiTotal = kpiList.length;
   const kpiDone  = kpiList.filter(k=>k.progress_status==='완료').length;
-  return { total,done,inProg,blocked,todo,delayed,budget,spend,revenue,leads,avgProg,compRate,roi,kpiTotal,kpiDone };
+  return { total,done,inProg,blocked,todo,delayed,budget,spend,spendKrw:_spendKrwRaw,revenue,leads,avgProg,compRate,roi,kpiTotal,kpiDone,thisMonthRev:_thisMonthRev };
 }
 
 function buildOwnerSummary(tasks, kpis) {
@@ -1972,8 +1972,8 @@ function renderKPICards(s) {
       sub:`KPI 완료 ${fmtNum(s.kpiDone||0)}개 · 진행중 ${fmtNum(s.inProg)}건`,   icon:"✅" },
     { label:"평균 진척도", value:fmtPct(s.avgProg),   sub:`차단 ${fmtNum(s.blocked)}건`,    icon:"📈" },
     { label:"지연 업무",   value:fmtNum(s.delayed),   sub:`대기 ${fmtNum(s.todo)}건`,       icon:"⚠️" },
-    { label:"총 집행",     value:fmtKRW(s.spend),     sub:`배정 ${fmtKRW(s.budget)}`,       icon:"💰" },
-    { label:"마케팅 ROI", value: s.spend>0 ? fmtPct(s.roi) : (s.revenue>0 ? "+INF" : "N/A"), sub: "매출 $" + (s.revenue/1000000).toFixed(2) + "M"     + (s.spend>0 ? " / 집행 $" + (s.spend/1000).toFixed(0) + "K (KRW÷1,502)" : ""), icon:"📈" }
+    { label:"총 집행",     value:fmtKRW(s.spendKrw||s.spend*1502),     sub:`배정 ${fmtKRW(s.budget)}`,       icon:"💰" },
+    { label:"마케팅 ROI", value: s.spend>0 ? fmtPct(s.roi) : (s.revenue>0 ? "+INF" : "N/A"), sub: "매출 $" + (s.revenue/1000000).toFixed(2) + "M"     + (s.spendKrw>0 ? " / 집행 " + fmtKRW(s.spendKrw) : (s.spend>0 ? " / 집행 $" + (s.spend/1000).toFixed(0) + "K" : "")), icon:"📈" }
   ];
   el.kpiGrid.innerHTML = items.map(i=>`
     <article class="panel kpi-card">
