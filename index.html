@@ -4561,6 +4561,7 @@ function switchTrendView(mode) {
   renderActivityTrendChart(state._lastKpiTasks||[]);
 }
 
+
 function renderActivityTrendChart(tasks) {
   const ctx = document.getElementById('activityTrendChart');
   if(!ctx) return;
@@ -4620,10 +4621,88 @@ function renderActivityTrendChart(tasks) {
   });
 
   if(window._trendChart) window._trendChart.destroy();
+
+  // ── afterDatasetsDraw 플러그인: 바 위에 건수 + 비용 라벨 ──
+  const trendLabelPlugin = {
+    id: 'trendLabels',
+    afterDatasetsDraw(chart) {
+      const { ctx, data } = chart;
+      ctx.save();
+
+      // 각 월(x)별 스택 합계 계산 (건수)
+      const monthCount = data.labels.map((_,xi) => {
+        let sum = 0;
+        chart.data.datasets.forEach((ds, di) => {
+          if(ds.yAxisID !== 'y2' && typeof ds.data[xi] === 'number') sum += ds.data[xi];
+        });
+        return sum;
+      });
+
+      // 각 월별 스택 최상단 bar의 위치 추적
+      const drawnMonths = new Set();
+
+      chart.data.datasets.forEach((ds, di) => {
+        if(ds.yAxisID === 'y2') return; // 비용 라인은 건너뜀
+        const meta = chart.getDatasetMeta(di);
+        meta.data.forEach((bar, xi) => {
+          if(!bar || bar.hidden) return;
+          const val = ds.data[xi];
+          if(!val || val <= 0) return;
+
+          // 건수 라벨: 각 바 세그먼트 중앙에 (값이 충분할 때만)
+          if(val >= 1) {
+            ctx.font = '600 9px sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(val+'건', bar.x, bar.y + (bar.height||0)/2);
+          }
+
+          // 스택 최상단에 총 건수 + 마케팅비용 표시
+          if(!drawnMonths.has(xi)) {
+            // 이 월의 마지막(최상단) bar인지 확인
+            let isTop = true;
+            for(let d2=di+1; d2<chart.data.datasets.length; d2++) {
+              const ds2 = chart.data.datasets[d2];
+              if(ds2.yAxisID==='y2') continue;
+              if((ds2.data[xi]||0) > 0) { isTop=false; break; }
+            }
+            if(isTop) {
+              const totalCnt = monthCount[xi];
+              const spendDs  = chart.data.datasets.find(d=>d.yAxisID==='y2');
+              const spendVal = spendDs ? (spendDs.data[xi]||0) : 0;
+              const spendStr = spendVal>=100000000?(spendVal/100000000).toFixed(1)+'억':
+                               spendVal>=10000?(spendVal/10000).toFixed(0)+'만':'';
+
+              // 총 건수 라벨
+              ctx.font = 'bold 10px sans-serif';
+              ctx.fillStyle = '#1a1714';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'bottom';
+              ctx.fillText(totalCnt+'건', bar.x, bar.y - (spendStr?14:3));
+
+              // 마케팅 비용 라벨
+              if(spendStr) {
+                ctx.font = '600 9px sans-serif';
+                ctx.fillStyle = '#9e4a3a';
+                ctx.fillText('₩'+spendStr, bar.x, bar.y - 2);
+              }
+              drawnMonths.add(xi);
+            }
+          }
+        });
+      });
+
+      ctx.restore();
+    }
+  };
+
   window._trendChart = new Chart(ctx, {
     data: { labels, datasets },
+    plugins: [trendLabelPlugin],
     options: {
       responsive: true,
+      layout: { padding: { top: 28 } },
       plugins: {
         legend: { labels: { color:'#6b6259', font:{size:10}, boxWidth:10 } },
         tooltip: { callbacks: {
