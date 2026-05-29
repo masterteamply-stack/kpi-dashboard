@@ -1256,44 +1256,55 @@
         <button class="panel-collapse-btn" onclick="togglePanel('regionPanel',this)">−</button>
       </div>
       <div id="regionContent" class="panel-content">
-        <div id="regionRoiTable"></div>
-      </div>
-    </div>
-    <div class="panel">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <h3 style="margin-bottom:0">활동 유형별 예산 집행</h3>
-        <button class="panel-collapse-btn" onclick="togglePanel('actPanel',this)">−</button>
-      </div>
-      <div id="actContent" class="panel-content">
-        <canvas id="activityChart" height="220"></canvas>
-      </div>
-    </div>
-    <div class="panel">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <h3 style="margin-bottom:0">마케팅 활동 추이</h3>
-        <div class="trend-toggle">
-          <button class="trend-btn active" id="trendBtnM" onclick="switchTrendView('month')">월별</button>
-          <button class="trend-btn" id="trendBtnQ" onclick="switchTrendView('quarter')">분기별</button>
-        </div>
-      </div>
-      <canvas id="activityTrendChart" height="200"></canvas>
-      <!-- 관련 오더 미니 추이 -->
-      <div id="orderMiniWrap" style="margin-top:10px;padding:8px 12px;background:#f5f2ed;border-radius:6px;display:flex;align-items:center;gap:12px">
-        <div style="flex-shrink:0">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8278">총 관련 오더</div>
-          <div id="orderMiniTotal" style="font-size:16px;font-weight:800;color:#1a1714;margin-top:2px">–</div>
-          <div id="orderMiniSub" style="font-size:10px;color:#8a8278;margin-top:1px">로딩 중…</div>
-        </div>
-        <div style="flex:1;min-width:0">
-          <canvas id="orderMiniChart" height="60" style="width:100%;display:block"></canvas>
+        <div style="display:grid;grid-template-columns:1fr 320px;gap:24px;align-items:start">
+          <div id="regionRoiTable"></div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:#4a4038;margin-bottom:10px">지역별 예산 집행</div>
+            <div style="position:relative;height:220px">
+              <canvas id="regionBudgetDonut"></canvas>
+              <div id="regionBudgetLegend" style="margin-top:10px"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </section>
-
-  <!-- Digital KPI -->
-  <section style="margin-bottom:18px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
     <div class="panel">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <h3 style="margin-bottom:0">활동 유형별 예산 집행</h3>
+            <button class="panel-collapse-btn" onclick="togglePanel('actPanel',this)">−</button>
+          </div>
+          <div id="actContent" class="panel-content">
+            <canvas id="activityChart" height="220"></canvas>
+          </div>
+        </div>
+        <div class="panel">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <h3 style="margin-bottom:0">마케팅 활동 추이</h3>
+            <div class="trend-toggle">
+              <button class="trend-btn active" id="trendBtnM" onclick="switchTrendView('month')">월별</button>
+              <button class="trend-btn" id="trendBtnQ" onclick="switchTrendView('quarter')">분기별</button>
+            </div>
+          </div>
+          <canvas id="activityTrendChart" height="200"></canvas>
+          <!-- 관련 오더 미니 추이 -->
+          <div id="orderMiniWrap" style="margin-top:10px;padding:8px 12px;background:#f5f2ed;border-radius:6px;display:flex;align-items:center;gap:12px">
+            <div style="flex-shrink:0">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8278">총 관련 오더</div>
+              <div id="orderMiniTotal" style="font-size:16px;font-weight:800;color:#1a1714;margin-top:2px">–</div>
+              <div id="orderMiniSub" style="font-size:10px;color:#8a8278;margin-top:1px">로딩 중…</div>
+            </div>
+            <div style="flex:1;min-width:0">
+              <canvas id="orderMiniChart" height="60" style="width:100%;display:block"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+    
+      <!-- Digital KPI -->
+      <section style="margin-bottom:18px">
+        
+    </div><div class="panel">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
         <h3 style="margin-bottom:0">디지털 KPI 추이</h3>
         <div style="display:flex;align-items:center;gap:8px">
@@ -2644,6 +2655,7 @@ async function refreshDashboard() {
     const tasks2 = state._lastKpiTasks||[];
     renderThemeInteractiveChart(kpis, tasks2);
     renderRegionOrderChart(tasks2);
+    renderRegionBudgetDonut(tasks2, kpis);
     renderActivityTypeChartWithBudget(kpis, tasks2);
     renderActivityTrendChart(tasks2);
     renderDigitalKpiCharts(kpis, tasks2);
@@ -5558,6 +5570,70 @@ function openRevenueInput() {
     // 스크롤하여 시트 보이게
     sheet.scrollIntoView({ behavior:'smooth', block:'start' });
   }, 100);
+}
+
+
+function renderRegionBudgetDonut(tasks, kpis) {
+  const ctx = document.getElementById('regionBudgetDonut');
+  const legendEl = document.getElementById('regionBudgetLegend');
+  if(!ctx || !legendEl) return;
+
+  // 지역별 마케팅 집행비 합산 (tasks)
+  const spendByRegion = {};
+  for(const t of tasks) {
+    const r = (t.region||'기타').toUpperCase();
+    const v = Number(t.spend||t.allocated_budget||0);
+    if(v > 0) spendByRegion[r] = (spendByRegion[r]||0) + v;
+  }
+  // KPI budget_plan에서도 합산
+  for(const k of (kpis||[])) {
+    const bp = (() => { try { return Array.isArray(k.budget_plan) ? k.budget_plan : JSON.parse(k.budget_plan||'[]'); } catch(e){return [];} })();
+    for(const e of bp) {
+      const r = (e.region||'기타').toUpperCase();
+      const v = Number(e.amount||0);
+      if(v > 0) spendByRegion[r] = (spendByRegion[r]||0) + v;
+    }
+  }
+
+  const entries = Object.entries(spendByRegion).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  if(!entries.length) { legendEl.innerHTML = '<div style="font-size:11px;color:#8a8278;text-align:center;padding:16px">집행 데이터 없음</div>'; return; }
+
+  const total = entries.reduce((s,[,v])=>s+v,0);
+  const COLORS = ['#5c6b4a','#4a6b7c','#c17f3a','#8a5a3a','#6b4a7c','#3a7c6b','#7c4a5a','#4a7c5c','#7c7c3a','#4a547c'];
+  const fmtV = v => v>=100000000?(v/100000000).toFixed(1)+'억':v>=10000?(v/10000).toFixed(0)+'만':'₩'+v.toLocaleString();
+
+  if(window._regionBudgetChart) window._regionBudgetChart.destroy();
+  window._regionBudgetChart = new Chart(ctx, {
+    type:'doughnut',
+    data:{
+      labels: entries.map(([r])=>r),
+      datasets:[{
+        data: entries.map(([,v])=>v),
+        backgroundColor: entries.map((_,i)=>COLORS[i%COLORS.length]),
+        borderWidth:2, borderColor:'#fdfcf9', hoverOffset:6
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:true,
+      cutout:'60%',
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>`${c.label}: ${fmtV(c.raw)} (${(c.raw/total*100).toFixed(1)}%)`}}
+      }
+    }
+  });
+
+  // 범례
+  legendEl.innerHTML = entries.slice(0,8).map(([r,v],i) => {
+    const pct = (v/total*100).toFixed(1);
+    return `<div style="display:flex;align-items:center;gap:5px;padding:2px 0;font-size:10px">`
+      +`<div style="width:8px;height:8px;border-radius:50%;background:${COLORS[i%COLORS.length]};flex-shrink:0"></div>`
+      +`<span style="color:#4a4038;font-weight:600;min-width:40px">${r}</span>`
+      +`<span style="color:#8a8278;flex:1;text-align:right">${fmtV(v)}</span>`
+      +`<span style="color:#5c6b4a;min-width:34px;text-align:right">${pct}%</span>`
+      +'</div>';
+  }).join('');
 }
 
 // ── 14. Init ───────────────────────────────────────────────
