@@ -313,6 +313,16 @@
       background:#d8e4cc;color:#3d5228;letter-spacing:.04em;font-weight:600;
     }
     .kpi-owner-chips{display:flex;gap:4px;flex-wrap:wrap}
+
+    .spend-cell{
+      border-bottom:1px dashed #c8c4bc;
+      padding:1px 2px;
+      border-radius:2px;
+      transition:background .15s;
+    }
+    .spend-cell:hover{ background:#f5f2ed; }
+    .spend-cell:focus{ background:#fff;border-bottom-color:#5c6b4a;outline:none; }
+
     .kpi-owner-chip{font-size:10px;padding:2px 7px;border-radius:10px;background:#e4e0d8;color:#1a1714;font-weight:600;white-space:nowrap;display:inline-block;}
     .owner-trigger{display:flex;flex-wrap:wrap;gap:3px;align-items:center;}
     .owner-edit-icon{font-size:9px;color:#b0a898;margin-left:1px;}
@@ -426,6 +436,16 @@
     }
     .kpi-statement{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}
     .kpi-owner-chips{display:flex;gap:4px;flex-wrap:wrap}
+
+    .spend-cell{
+      border-bottom:1px dashed #c8c4bc;
+      padding:1px 2px;
+      border-radius:2px;
+      transition:background .15s;
+    }
+    .spend-cell:hover{ background:#f5f2ed; }
+    .spend-cell:focus{ background:#fff;border-bottom-color:#5c6b4a;outline:none; }
+
     .kpi-owner-chip{
       font-size:11px;padding:2px 7px;border-radius:999px;
       background:rgba(255,255,255,.06);border:1px solid var(--line);color:#c0d0e8;
@@ -2410,6 +2430,18 @@ function renderKPIAccordion(kpis, tasks) {
         </td>
         <td onclick="event.stopPropagation()"><select class="cell-select" data-task-id="${t.id}" data-field="task_type" onchange="saveTaskSelectEdit(this)" style="font-size:10px;padding:2px 4px;max-width:90px;background:#fdfcf9;border:1px solid #e0dbd2;border-radius:3px;color:#3d5228;font-weight:600;cursor:pointer;outline:none"><option value="">-</option>${getMktgTypes().map(tp=>`<option value="${esc(tp)}"${tp===t.task_type?' selected':''} style="color:#1a1714">${esc(tp)}</option>`).join('')}</select></td>
         <td style="color:#6b6259;font-size:12px">${fmtKRW(t.allocated_budget)}</td>
+        <td style="min-width:90px">
+          <span class="cell-editable spend-cell"
+            contenteditable="true"
+            data-task-id="${t.id}"
+            data-field="spend"
+            onblur="saveSpendEdit(this)"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+            onfocus="this.dataset.orig=this.textContent;this.textContent=String(Number(this.textContent.replace(/[^0-9.]/g,''))||0)"
+            style="font-size:11px;color:#3d3830;font-weight:600;cursor:text;display:inline-block;min-width:60px"
+            title="집행 비용 클릭하여 수정 (원화)"
+          >${(t.spend||0) > 0 ? fmtKRW(t.spend||0) : '₩0'}</span>
+        </td>
         <td>
           <div class="row-actions">
             <button class="btn btn-ghost" style="font-size:10px;padding:3px 6px" onclick="openDetailDrawer('${esc(t.id)}')">수정</button>
@@ -4070,6 +4102,19 @@ function renderDrawerEditForm(task) {
         </div>
       </div>
 
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label class="field-label">집행 비용 (원화)</label>
+          <input type="number" id="de_spend" value="${task.spend!=null?task.spend:0}" min="0" step="1000"
+            style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)"/>
+          <div style="font-size:9px;color:#8a8278;margin-top:2px">KRW · 지역별 ROI 집행비에 반영</div>
+        </div>
+        <div>
+          <label class="field-label">배정 예산 (원화)</label>
+          <input type="number" id="de_budget" value="${task.allocated_budget!=null?task.allocated_budget:0}" min="0" step="1000"
+            style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)"/>
+        </div>
+      </div>
       <div>
         <label class="field-label">메모</label>
         <textarea id="de_notes" rows="3"
@@ -4101,6 +4146,8 @@ async function saveDrawerEdit(taskId) {
     due_date: document.getElementById('de_due')?.value || null,
     notes:    document.getElementById('de_notes')?.value.trim(),
     progress: parseFloat(document.getElementById('de_progress')?.value)||0,
+    spend:    parseFloat(document.getElementById('de_spend')?.value)||0,
+    allocated_budget: parseFloat(document.getElementById('de_budget')?.value)||0,
     updated_at: new Date().toISOString(),
   };
   const ownerName = document.getElementById('de_owner')?.value;
@@ -5980,6 +6027,54 @@ function renderRegionBudgetDonut(tasks, kpis) {
       +`<span style="color:#5c6b4a;min-width:34px;text-align:right">${pct}%</span>`
       +'</div>';
   }).join('');
+}
+
+
+async function saveSpendEdit(el) {
+  const taskId = el.dataset.taskId;
+  const raw    = el.textContent.trim().replace(/[^0-9.]/g,'');
+  const newVal = parseFloat(raw)||0;
+
+  // 원래 값과 같으면 표시만 포맷하고 리턴
+  const task = (state.tasks||[]).find(t=>t.id===taskId)
+             || (state._lastKpiTasks||[]).find(t=>t.id===taskId);
+  if(!task) { el.textContent = '₩0'; return; }
+
+  // 표시 포맷
+  el.textContent = newVal > 0 ? fmtKRW(newVal) : '₩0';
+
+  if(Number(task.spend||0) === newVal) return; // 변경 없음
+
+  try {
+    const { error } = await state.sb.from('tasks')
+      .update({ spend: newVal, updated_at: new Date().toISOString() })
+      .eq('id', taskId);
+    if(error) throw error;
+
+    // 메모리 업데이트
+    task.spend = newVal;
+    // _lastKpiTasks에도 반영
+    const t2 = (state._lastKpiTasks||[]).find(t=>t.id===taskId);
+    if(t2) t2.spend = newVal;
+
+    // 지역별 ROI 테이블 즉시 갱신
+    renderRegionOrderChart(state._lastKpiTasks||state.tasks||[]);
+    renderRegionBudgetDonut(state._lastKpiTasks||state.tasks||[], state._lastKpis||[]);
+
+    // KPI 카드 ROI 갱신
+    const cs = computeSummary(state.tasks||[], state._lastKpis||[]);
+    renderKPICards(cs);
+    renderSummary(cs);
+
+    // 저장 확인 애니메이션
+    el.style.color = '#3a7c3a';
+    setTimeout(() => { el.style.color = ''; }, 1200);
+
+  } catch(e) {
+    console.error('spend save error:', e);
+    el.style.color = 'var(--red)';
+    setTimeout(() => { el.style.color = ''; el.textContent = task.spend > 0 ? fmtKRW(task.spend) : '₩0'; }, 1500);
+  }
 }
 
 // ── 14. Init ───────────────────────────────────────────────
