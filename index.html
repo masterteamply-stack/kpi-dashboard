@@ -1159,6 +1159,32 @@
       .kpi-grid{grid-template-columns:1fr}
       .container{padding:20px 14px 48px}
     }
+
+    .owner-drill-wrap{ position:relative; }
+    .owner-drill-trigger{
+      display:flex;align-items:center;gap:3px;cursor:pointer;
+      min-height:22px;overflow:hidden;width:78px;
+    }
+    .owner-drill-trigger:hover .owner-drill-hint{ opacity:1; }
+    .owner-drill-hint{ font-size:9px;color:#5c6b4a;opacity:0;transition:opacity .15s;white-space:nowrap;flex-shrink:0; }
+    .owner-drill-popup{
+      position:absolute;left:0;top:calc(100% + 4px);
+      background:#fff;border:1px solid #d4cec5;border-radius:8px;
+      box-shadow:0 4px 16px rgba(0,0,0,.13);
+      padding:10px 12px;z-index:9999;min-width:190px;
+    }
+    .owner-drill-popup .odp-title{ font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:8px; }
+    .owner-drill-popup .odp-chips{ display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px; }
+    .owner-drill-popup .odp-chip{ display:inline-flex;align-items:center;gap:4px;background:#eceae3;border:1px solid #ccc8bf;border-radius:4px;padding:3px 8px;font-size:11px;font-weight:600;color:#1a1714; }
+    .owner-drill-popup .odp-chip-del{ font-size:12px;color:#8a8278;cursor:pointer;background:none;border:none;padding:0;margin:0;line-height:1; }
+    .owner-drill-popup .odp-chip-del:hover{ color:#c0392b; }
+    .owner-drill-popup .odp-add-row{ display:flex;gap:5px;align-items:center; }
+    .owner-drill-popup .odp-input{ flex:1;border:1px solid #d4cec5;border-radius:4px;padding:4px 8px;font-size:11px;font-family:var(--font-body);color:#1a1714;outline:none; }
+    .owner-drill-popup .odp-input:focus{ border-color:#5c6b4a; }
+    .owner-drill-popup .odp-add-btn{ background:#5c6b4a;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:var(--font-body); }
+    .owner-drill-popup .odp-suggest{ display:flex;flex-wrap:wrap;gap:4px;margin-top:6px; }
+    .owner-drill-popup .odp-suggest-chip{ background:#f0ede6;border:1px solid #e0dbd2;border-radius:3px;padding:2px 7px;font-size:10px;cursor:pointer;color:#5a5148; }
+    .owner-drill-popup .odp-suggest-chip:hover{ background:#e4e0d8; }
   </style>
 </head>
 <body>
