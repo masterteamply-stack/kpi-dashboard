@@ -2229,11 +2229,18 @@ function renderKPIAccordion(kpis, tasks) {
     const taskList = byKpi[kpi.id] || [];
     const taskCount = taskList.length;
     const owners = (kpi.owners||'').split(',').map(o=>o.trim()).filter(Boolean);
-    // 담당자: 첫번째 이름 + 나머지 수 표시 (공간 절약)
-    const ownerHTML = owners.length === 0 ? ''
-      : owners.length === 1
-        ? `<span class="kpi-owner-chip">${esc(owners[0])}</span>`
-        : `<span class="kpi-owner-chip">${esc(owners[0])}</span><span style="font-size:9px;color:#8a8278;margin-left:2px">+${owners.length-1}</span>`;
+    // 담당자 드릴 트리거 (클릭 시 팝업으로 전체 편집)
+    const ownerChips = owners.map(o=>`<span class="kpi-owner-chip" style="font-size:10px;padding:2px 5px;border-radius:2px;background:#e4e0d8;border:1px solid #ccc8bf;color:#1a1714;font-weight:600;white-space:nowrap;flex-shrink:0">${esc(o)}</span>`).join('');
+    const ownerMoreBadge = owners.length > 1 ? `<span style="font-size:9px;color:#5c6b4a;flex-shrink:0">+${owners.length-1}</span>` : '';
+    const ownerHTML = `<div class="owner-drill-wrap" data-kpi-id="${esc(kpi.id)}"`
+      + ` onclick="event.stopPropagation();openOwnerDrill(this,'${esc(kpi.id)}')">`
+      + `<div class="owner-drill-trigger">`
+      + (owners.length > 0
+          ? `<span class="kpi-owner-chip" style="font-size:10px;padding:2px 5px;border-radius:2px;background:#e4e0d8;border:1px solid #ccc8bf;color:#1a1714;font-weight:600;white-space:nowrap">${esc(owners[0])}</span>`
+          + (owners.length > 1 ? `<span style="font-size:9px;color:#5c6b4a;margin-left:2px">+${owners.length-1}</span>` : '')
+          : `<span style="font-size:10px;color:#b0a898">+ 추가</span>`)
+      + `<span class="owner-drill-hint">✏️</span>`
+      + `</div></div>`;
     const sc = statusPillClass(kpi.progress_status||'');
     const theme = (kpi.strategic_theme||'').replace('시장 수요 창출 > ','').replace('시장 기회 확대 > ','').replace('마케팅 효능감 > ','');
 
@@ -2343,15 +2350,8 @@ function renderKPIAccordion(kpis, tasks) {
           ${theme ? `<span class="kpi-theme-badge">${esc(theme)}</span>` : ''}
           </div>
       </div>
-      <div onclick="event.stopPropagation()">
-        <span class="kpi-editable kpi-owner-chips" contenteditable="true"
-          data-kpi-id="${esc(kpi.id)}" data-field="owners"
-          style="display:flex;align-items:center;gap:3px;overflow:hidden;width:76px"
-          onblur="saveKpiField(this)"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
-          onfocus="this.dataset.orig=this.innerHTML;event.stopPropagation()"
-          title="담당자 수정 (쉼표로 구분)"
-        >${ownerHTML}</span>
+      <div onclick="event.stopPropagation()" style="overflow:visible">
+        ${ownerHTML}
       </div>
       <div onclick="event.stopPropagation()">
         <select class="kpi-status-select kpi-status-pill ${sc}"
@@ -5357,6 +5357,125 @@ function setupRealtime() {
       .subscribe();
   } catch(e) {
     console.warn('Realtime setup failed:', e);
+  }
+}
+
+
+// 현재 열린 드릴 팝업 추적
+let _openOwnerDrill = null;
+
+function closeAllOwnerDrills() {
+  document.querySelectorAll('.owner-drill-popup').forEach(p => p.remove());
+  _openOwnerDrill = null;
+}
+
+document.addEventListener('click', function(e) {
+  if(!e.target.closest('.owner-drill-wrap') && !e.target.closest('.owner-drill-popup')) {
+    closeAllOwnerDrills();
+  }
+});
+
+function openOwnerDrill(wrapEl, kpiId) {
+  // 이미 열려있으면 닫기
+  const existing = wrapEl.querySelector('.owner-drill-popup');
+  if(existing) { existing.remove(); return; }
+  closeAllOwnerDrills();
+
+  const kpi = (state._lastKpis||[]).find(k=>k.id===kpiId);
+  if(!kpi) return;
+  const owners = (kpi.owners||'').split(',').map(o=>o.trim()).filter(Boolean);
+
+  // 전체 담당자 목록 (state.owners에서 가져오기)
+  const allOwners = (state.owners||[]).map(o=>o.name||'').filter(Boolean);
+  const suggestList = allOwners.filter(n => !owners.includes(n));
+
+  const popup = document.createElement('div');
+  popup.className = 'owner-drill-popup';
+  popup.onclick = e => e.stopPropagation();
+
+  const renderPopup = () => {
+    const curOwners = (kpi.owners||'').split(',').map(o=>o.trim()).filter(Boolean);
+    popup.innerHTML = ''
+      + '<div class="odp-title">담당자</div>'
+      + '<div class="odp-chips">'
+      + (curOwners.length
+          ? curOwners.map(o =>
+              `<span class="odp-chip">${o}<button class="odp-chip-del" onclick="removeOwner('${kpiId}','${o}',this)" title="제거">×</button></span>`
+            ).join('')
+          : '<span style="font-size:10px;color:#8a8278">없음</span>')
+      + '</div>'
+      + '<div class="odp-add-row">'
+      + '<input class="odp-input" id="ownerInput_'+kpiId+'" placeholder="이름 입력" list="ownerSuggest_'+kpiId+'" />'
+      + '<datalist id="ownerSuggest_'+kpiId+'">'
+      + allOwners.map(n=>`<option value="${n}">`).join('')
+      + '</datalist>'
+      + `<button class="odp-add-btn" onclick="addOwner('${kpiId}')">추가</button>`
+      + '</div>'
+      + (suggestList.length
+          ? '<div style="font-size:9px;color:#8a8278;margin-top:6px;margin-bottom:3px">빠른 추가</div>'
+            + '<div class="odp-suggest">'
+            + suggestList.map(n=>`<span class="odp-suggest-chip" onclick="addOwner('${kpiId}','${n}')">${n}</span>`).join('')
+            + '</div>'
+          : '');
+    popup.querySelector('#ownerInput_'+kpiId)?.addEventListener('keydown', e => {
+      if(e.key === 'Enter') { e.preventDefault(); addOwner(kpiId); }
+    });
+  };
+
+  renderPopup();
+  wrapEl.appendChild(popup);
+  popup.querySelector('#ownerInput_'+kpiId)?.focus();
+  wrapEl._rerender = renderPopup;
+}
+
+async function addOwner(kpiId, nameArg) {
+  const input = document.getElementById('ownerInput_'+kpiId);
+  const name = (nameArg || (input ? input.value.trim() : '')).trim();
+  if(!name) return;
+
+  const kpi = (state._lastKpis||[]).find(k=>k.id===kpiId);
+  if(!kpi) return;
+  const owners = (kpi.owners||'').split(',').map(o=>o.trim()).filter(Boolean);
+  if(owners.includes(name)) {
+    if(input) input.value = '';
+    return;
+  }
+  owners.push(name);
+  const newVal = owners.join(', ');
+  await _saveKpiOwners(kpiId, newVal, kpi);
+  if(input) input.value = '';
+}
+
+async function removeOwner(kpiId, name, btnEl) {
+  const kpi = (state._lastKpis||[]).find(k=>k.id===kpiId);
+  if(!kpi) return;
+  const owners = (kpi.owners||'').split(',').map(o=>o.trim()).filter(Boolean).filter(o=>o!==name);
+  await _saveKpiOwners(kpiId, owners.join(', '), kpi);
+}
+
+async function _saveKpiOwners(kpiId, val, kpi) {
+  try {
+    const { error } = await state.sb.from('kpis').update({owners: val}).eq('id', kpiId);
+    if(error) throw error;
+    kpi.owners = val;
+    // 드릴 팝업 내용 갱신
+    const wrap = document.querySelector(`.owner-drill-wrap[data-kpi-id="${CSS.escape(kpiId)}"]`);
+    if(wrap && wrap._rerender) wrap._rerender();
+    // 트리거 표시 갱신
+    const trigger = wrap?.querySelector('.owner-drill-trigger');
+    if(trigger) {
+      const owners2 = val.split(',').map(o=>o.trim()).filter(Boolean);
+      trigger.innerHTML = owners2.length > 0
+        ? `<span class="kpi-owner-chip" style="font-size:10px;padding:2px 5px;border-radius:2px;background:#e4e0d8;border:1px solid #ccc8bf;color:#1a1714;font-weight:600;white-space:nowrap">${owners2[0]}</span>`
+          + (owners2.length > 1 ? `<span style="font-size:9px;color:#5c6b4a;margin-left:2px">+${owners2.length-1}</span>` : '')
+          + '<span class="owner-drill-hint">✏️</span>'
+        : '<span style="font-size:10px;color:#b0a898">+ 추가</span><span class="owner-drill-hint">✏️</span>';
+    }
+    // 담당자 현황 테이블 갱신
+    const s = computeSummary(state.tasks||[], state._lastKpis||[]);
+    renderOwnerTable(state.tasks||[], state._lastKpis||[]);
+  } catch(e) {
+    console.error('owner save error:', e);
   }
 }
 
