@@ -306,11 +306,9 @@
     }
     .kpi-owner-chips{display:flex;gap:4px;flex-wrap:wrap}
     .kpi-owner-chip{
-      font-size:10px;padding:2px 6px;border-radius:2px;
+      font-size:10px;padding:2px 5px;border-radius:2px;
       background:#e4e0d8;border:1px solid #ccc8bf;color:#1a1714;
-      font-weight:500;white-space:nowrap;
-      overflow:hidden;text-overflow:ellipsis;max-width:74px;
-      display:inline-block;
+      font-weight:600;white-space:nowrap;flex-shrink:0;
     }
     .kpi-status-pill{
       display:inline-flex;align-items:center;gap:4px;
@@ -2231,7 +2229,11 @@ function renderKPIAccordion(kpis, tasks) {
     const taskList = byKpi[kpi.id] || [];
     const taskCount = taskList.length;
     const owners = (kpi.owners||'').split(',').map(o=>o.trim()).filter(Boolean);
-    const ownerHTML = owners.map(o=>`<span class="kpi-owner-chip">${esc(o)}</span>`).join('');
+    // 담당자: 첫번째 이름 + 나머지 수 표시 (공간 절약)
+    const ownerHTML = owners.length === 0 ? ''
+      : owners.length === 1
+        ? `<span class="kpi-owner-chip">${esc(owners[0])}</span>`
+        : `<span class="kpi-owner-chip">${esc(owners[0])}</span><span style="font-size:9px;color:#8a8278;margin-left:2px">+${owners.length-1}</span>`;
     const sc = statusPillClass(kpi.progress_status||'');
     const theme = (kpi.strategic_theme||'').replace('시장 수요 창출 > ','').replace('시장 기회 확대 > ','').replace('마케팅 효능감 > ','');
 
@@ -2344,7 +2346,7 @@ function renderKPIAccordion(kpis, tasks) {
       <div onclick="event.stopPropagation()">
         <span class="kpi-editable kpi-owner-chips" contenteditable="true"
           data-kpi-id="${esc(kpi.id)}" data-field="owners"
-          style="display:flex;flex-wrap:nowrap;gap:3px;overflow:hidden;max-width:76px;align-items:center"
+          style="display:flex;align-items:center;gap:3px;overflow:hidden;width:76px"
           onblur="saveKpiField(this)"
           onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
           onfocus="this.dataset.orig=this.innerHTML;event.stopPropagation()"
