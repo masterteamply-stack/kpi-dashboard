@@ -250,7 +250,7 @@
     }
     .kpi-accordion-header{
       display:grid;
-      grid-template-columns:var(--acc-grid, 28px 1fr 110px 90px 110px 60px 60px 60px 60px 64px);
+      grid-template-columns:var(--acc-grid, 28px minmax(160px,220px) 100px 95px 110px 60px 60px 60px 60px 60px);
       padding:10px 16px;border-bottom:1px solid var(--line);
       font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#4a4038;
       background:#e8e4dc;align-items:center;
@@ -275,7 +275,7 @@
     .col-resize-handle:hover::after,.col-resize-handle.dragging::after{background:var(--primary)}
     .kpi-accordion-row{
       display:grid;
-      grid-template-columns:var(--acc-grid, 28px 1fr 110px 90px 110px 60px 60px 60px 60px 64px);
+      grid-template-columns:var(--acc-grid, 28px minmax(160px,220px) 100px 95px 110px 60px 60px 60px 60px 60px);
       align-items:start;gap:0;
       padding:14px 16px;border-bottom:1px solid var(--line);
       cursor:pointer;transition:background .15s;font-size:13px;
@@ -305,12 +305,11 @@
       background:#d8e4cc;color:#3d5228;letter-spacing:.04em;font-weight:600;
     }
     .kpi-owner-chips{display:flex;gap:4px;flex-wrap:wrap}
-    .kpi-owner-chip{
-      font-size:10px;padding:2px 6px;border-radius:10px;
-      background:#e4e0d8;color:#1a1714;
-      font-weight:600;white-space:nowrap;
-      display:inline-block;
-    }
+    .kpi-owner-chip{font-size:10px;padding:2px 7px;border-radius:10px;background:#e4e0d8;color:#1a1714;font-weight:600;white-space:nowrap;display:inline-block;}
+    .owner-trigger{display:flex;flex-wrap:wrap;gap:3px;align-items:center;}
+    .owner-edit-icon{font-size:9px;color:#b0a898;margin-left:1px;}
+    .owner-empty{font-size:10px;color:#b0a898;}
+    .owner-drill-wrap{position:relative;}
     .kpi-status-pill{
       display:inline-flex;align-items:center;gap:4px;
       padding:3px 8px;border-radius:2px;font-size:11px;font-weight:500;
@@ -2265,16 +2264,16 @@ function renderKPIAccordion(kpis, tasks) {
     // 담당자 드릴 트리거 (클릭 시 팝업으로 전체 편집)
     const ownerChips = owners.map(o=>`<span class="kpi-owner-chip" style="font-size:10px;padding:2px 5px;border-radius:2px;background:#e4e0d8;border:1px solid #ccc8bf;color:#1a1714;font-weight:600;white-space:nowrap;flex-shrink:0">${esc(o)}</span>`).join('');
     const ownerMoreBadge = owners.length > 1 ? `<span style="font-size:9px;color:#5c6b4a;flex-shrink:0">+${owners.length-1}</span>` : '';
-    // 담당자: 칩 인라인 표시 + 클릭 시 등록된 담당자 목록에서 추가/제거
+    // 담당자 칩 - 모두 인라인 표시 + 클릭 팝업
     const ownerChipList = owners.map(o =>
       `<span class="kpi-owner-chip">${esc(o)}</span>`
-    ).join('');
+    ).join(' ');
     const ownerHTML = `<div class="owner-drill-wrap" data-kpi-id="${esc(kpi.id)}"
       onclick="event.stopPropagation();openOwnerDrill(this,'${esc(kpi.id)}')"
-      style="cursor:pointer;width:100%;overflow:hidden">
-      <div style="display:flex;flex-wrap:wrap;gap:3px;align-items:center;min-height:22px">
-        ${owners.length > 0 ? ownerChipList : '<span style="font-size:10px;color:#b0a898">+ 추가</span>'}
-        <span style="font-size:9px;color:#8a8278;margin-left:2px">✎</span>
+      style="cursor:pointer">
+      <div class="owner-trigger">
+        ${owners.length ? ownerChipList : '<span class="owner-empty">+ 추가</span>'}
+        <span class="owner-edit-icon">✎</span>
       </div>
     </div>`;
     const sc = statusPillClass(kpi.progress_status||'');
@@ -2386,7 +2385,7 @@ function renderKPIAccordion(kpis, tasks) {
           ${theme ? `<span class="kpi-theme-badge">${esc(theme)}</span>` : ''}
           </div>
       </div>
-      <div onclick="event.stopPropagation()" style="overflow:hidden;min-width:0">
+      <div onclick="event.stopPropagation()">
         ${ownerHTML}
       </div>
       <div onclick="event.stopPropagation()">
