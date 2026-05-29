@@ -1308,37 +1308,44 @@
     </div>
   </section>
 
-  <section style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;align-items:stretch">
+  <section style="margin-bottom:18px">
     <div class="panel">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-            <h3 style="margin-bottom:0">활동 유형별 예산 집행</h3>
-            <button class="panel-collapse-btn" onclick="togglePanel('actPanel',this)">−</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h3 style="margin-bottom:0">마케팅 활동 예산 & 추이</h3>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="trend-toggle">
+            <button class="trend-btn active" id="trendBtnM" onclick="switchTrendView('month')">월별</button>
+            <button class="trend-btn" id="trendBtnQ" onclick="switchTrendView('quarter')">분기별</button>
           </div>
-          <div id="actContent" class="panel-content">
-            <div id="activityChartWrap" style="width:100%;min-height:220px"></div>
+          <button class="panel-collapse-btn" onclick="togglePanel('actPanel',this)">−</button>
+        </div>
+      </div>
+      <div id="actContent" class="panel-content">
+        <div style="display:grid;grid-template-columns:280px 1fr;gap:20px;align-items:start">
+          <!-- 좌: 유형별 포션 도넛 -->
+          <div>
+            <div style="font-size:10px;font-weight:700;color:#8a8278;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">유형별 집행 비중</div>
+            <div id="activityChartWrap" style="width:100%"></div>
+          </div>
+          <!-- 우: 월별/분기별 추이 -->
+          <div>
+            <div style="font-size:10px;font-weight:700;color:#8a8278;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">활동 추이 (건수 · 비용)</div>
+            <canvas id="activityTrendChart" height="200" style="width:100%"></canvas>
+            <!-- 관련 오더 미니 추이 -->
+            <div id="orderMiniWrap" style="margin-top:10px;padding:8px 12px;background:#f5f2ed;border-radius:6px;display:flex;align-items:center;gap:12px">
+              <div style="flex-shrink:0">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8278">총 관련 오더</div>
+                <div id="orderMiniTotal" style="font-size:16px;font-weight:800;color:#1a1714;margin-top:2px">–</div>
+                <div id="orderMiniSub" style="font-size:10px;color:#8a8278;margin-top:1px">로딩 중…</div>
+              </div>
+              <div style="flex:1;min-width:0">
+                <canvas id="orderMiniChart" height="34" style="width:100%;display:block"></canvas>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="panel">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-            <h3 style="margin-bottom:0">마케팅 활동 추이</h3>
-            <div class="trend-toggle">
-              <button class="trend-btn active" id="trendBtnM" onclick="switchTrendView('month')">월별</button>
-              <button class="trend-btn" id="trendBtnQ" onclick="switchTrendView('quarter')">분기별</button>
-            </div>
-          </div>
-          <canvas id="activityTrendChart" height="124" style="width:100%"></canvas>
-          <!-- 관련 오더 미니 추이 -->
-          <div id="orderMiniWrap" style="margin-top:10px;padding:8px 12px;background:#f5f2ed;border-radius:6px;display:flex;align-items:center;gap:12px">
-            <div style="flex-shrink:0">
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8278">총 관련 오더</div>
-              <div id="orderMiniTotal" style="font-size:16px;font-weight:800;color:#1a1714;margin-top:2px">–</div>
-              <div id="orderMiniSub" style="font-size:10px;color:#8a8278;margin-top:1px">로딩 중…</div>
-            </div>
-            <div style="flex:1;min-width:0">
-              <canvas id="orderMiniChart" height="34" style="width:100%;display:block"></canvas>
-            </div>
-          </div>
-        </div>
+      </div>
+    </div>
   </section>
 
   <section class="row-full" style="margin-top:0"> <div class="panel">
@@ -3326,6 +3333,7 @@ function renderStrategicThemeChart(kpis, tasks) {
 // ── Activity Type Chart ──
 function renderActivityTypeChart(tasks) {
   const ctx = document.getElementById('activityChart');
+  if(ctx) { ctx.width=160; ctx.height=160; }
   if(!ctx) return;
 
   // 마케팅 활동 유형별 집계
@@ -5334,14 +5342,14 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
   // 레이아웃: 도넛(200px) | 우측 범례
   wrapEl.innerHTML = ''
     + '<div style="display:flex;gap:16px;align-items:flex-start">'
-    +   '<div style="position:relative;width:200px;height:200px;flex-shrink:0">'
+    +   '<div style="position:relative;width:160px;height:160px;flex-shrink:0">'
     +     '<canvas id="activityChart" width="200" height="200"></canvas>'
     +     '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">'
     +       '<div style="font-size:13px;font-weight:800;color:#1a1714">' + fmt(totalSpend) + '</div>'
     +       '<div style="font-size:9px;color:#8a8278">총 집행</div>'
     +     '</div>'
     +   '</div>'
-    +   '<div style="flex:1;display:flex;flex-direction:column;gap:5px;padding-top:6px;overflow-y:auto;max-height:210px">'
+    +   '<div style="flex:1;display:flex;flex-direction:column;gap:4px;padding-top:4px">'
     +   sorted.map(function(tp,i) {
           const spend = spendByType[tp]||0;
           const plan  = planByType[tp]||0;
@@ -5365,6 +5373,7 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
     + '</div>';
 
   const ctx = document.getElementById('activityChart');
+  if(ctx) { ctx.width=160; ctx.height=160; }
   if(!ctx) { console.warn('activityChart canvas not found'); return; }
   if(window._actChart) { try { window._actChart.destroy(); } catch(e){} }
   window._actChart = null;
