@@ -314,6 +314,11 @@
     }
     .kpi-owner-chips{display:flex;gap:4px;flex-wrap:wrap}
 
+
+    .budget-cell{ border-bottom:1px dashed #c8c4bc;padding:1px 2px;border-radius:2px;transition:background .15s; }
+    .budget-cell:hover{ background:#f5f2ed; }
+    .budget-cell:focus{ background:#fff;border-bottom-color:#4a6b7c;outline:none; }
+
     .spend-cell{
       border-bottom:1px dashed #c8c4bc;
       padding:1px 2px;
@@ -436,6 +441,11 @@
     }
     .kpi-statement{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}
     .kpi-owner-chips{display:flex;gap:4px;flex-wrap:wrap}
+
+
+    .budget-cell{ border-bottom:1px dashed #c8c4bc;padding:1px 2px;border-radius:2px;transition:background .15s; }
+    .budget-cell:hover{ background:#f5f2ed; }
+    .budget-cell:focus{ background:#fff;border-bottom-color:#4a6b7c;outline:none; }
 
     .spend-cell{
       border-bottom:1px dashed #c8c4bc;
@@ -2429,7 +2439,18 @@ function renderKPIAccordion(kpis, tasks) {
             </div>
         </td>
         <td onclick="event.stopPropagation()"><select class="cell-select" data-task-id="${t.id}" data-field="task_type" onchange="saveTaskSelectEdit(this)" style="font-size:10px;padding:2px 4px;max-width:90px;background:#fdfcf9;border:1px solid #e0dbd2;border-radius:3px;color:#3d5228;font-weight:600;cursor:pointer;outline:none"><option value="">-</option>${getMktgTypes().map(tp=>`<option value="${esc(tp)}"${tp===t.task_type?' selected':''} style="color:#1a1714">${esc(tp)}</option>`).join('')}</select></td>
-        <td style="color:#6b6259;font-size:12px">${fmtKRW(t.allocated_budget)}</td>
+        <td style="min-width:90px">
+          <span class="cell-editable budget-cell"
+            contenteditable="true"
+            data-task-id="${t.id}"
+            data-field="allocated_budget"
+            onblur="saveBudgetEdit(this)"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+            onfocus="this.dataset.orig=this.textContent;this.textContent=String(Number(String(this.textContent).replace(/[^0-9.]/g,''))||0)"
+            style="font-size:11px;color:#6b6259;cursor:text;display:inline-block;min-width:60px"
+            title="배정 예산 클릭하여 수정 (원화)"
+          >${(t.allocated_budget||0)>0?fmtKRW(t.allocated_budget||0):'₩0'}</span>
+        </td>
         <td style="min-width:90px">
           <span class="cell-editable spend-cell"
             contenteditable="true"
@@ -6063,6 +6084,44 @@ function renderRegionBudgetDonut(tasks, kpis) {
 }
 
 
+
+async function saveBudgetEdit(el) {
+  const taskId = el.dataset.taskId;
+  const raw    = String(el.textContent).trim().replace(/[^0-9.]/g,'');
+  const newVal = parseFloat(raw)||0;
+
+  const task = (state.tasks||[]).find(t=>t.id===taskId)
+             || (state._lastKpiTasks||[]).find(t=>t.id===taskId);
+  if(!task) { el.textContent = '₩0'; return; }
+
+  el.textContent = newVal>0 ? fmtKRW(newVal) : '₩0';
+  if(Number(task.allocated_budget||0) === newVal) return;
+
+  try {
+    const { error } = await state.sb.from('tasks')
+      .update({ allocated_budget: newVal, updated_at: new Date().toISOString() })
+      .eq('id', taskId);
+    if(error) throw error;
+
+    task.allocated_budget = newVal;
+    const t2 = (state._lastKpiTasks||[]).find(t=>t.id===taskId);
+    if(t2) t2.allocated_budget = newVal;
+
+    // 활동유형별 차트 갱신 (budget_plan 기반이지만 task 예산도 표시)
+    renderActivityTypeChartWithBudget(state._lastKpis||[], state._lastKpiTasks||state.tasks||[]);
+    // KPI 카드 갱신
+    const cs = computeSummary(state.tasks||[], state._lastKpis||[]);
+    renderKPICards(cs); renderSummary(cs);
+
+    el.style.color = '#3a7c3a';
+    setTimeout(() => { el.style.color = ''; }, 1200);
+  } catch(e) {
+    console.error('budget save error:', e);
+    el.style.color = 'var(--red)';
+    setTimeout(() => { el.style.color = ''; el.textContent = task.allocated_budget>0?fmtKRW(task.allocated_budget):'₩0'; }, 1500);
+  }
+}
+
 async function saveSpendEdit(el) {
   const taskId = el.dataset.taskId;
   const raw    = el.textContent.trim().replace(/[^0-9.]/g,'');
@@ -6093,6 +6152,9 @@ async function saveSpendEdit(el) {
     // 지역별 ROI 테이블 즉시 갱신
     renderRegionOrderChart(state._lastKpiTasks||state.tasks||[]);
     renderRegionBudgetDonut(state._lastKpiTasks||state.tasks||[], state._lastKpis||[]);
+
+    // 활동유형별 도넛 차트 갱신
+    renderActivityTypeChartWithBudget(state._lastKpis||[], state._lastKpiTasks||state.tasks||[]);
 
     // KPI 카드 ROI 갱신
     const cs = computeSummary(state.tasks||[], state._lastKpis||[]);
