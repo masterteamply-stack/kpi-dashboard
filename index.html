@@ -3974,29 +3974,41 @@ function renderDrawerEditForm(task) {
   const el = document.getElementById('drawerEditForm');
   if(!el || !task) return;
 
-  const kpi      = (state._lastKpis||[]).find(k => k.id === task.kpi_id);
-  // task.quarter 기준 (Q1/Q2/Q3/Q4 또는 q1~q4)
-  const taskQ    = (task.quarter||'').toLowerCase().replace('분기','').trim(); // 'q1'~'q4'
-  const qKey     = (['q1','q2','q3','q4'].includes(taskQ)) ? taskQ
-                 : (() => { const m=new Date().getMonth(); return m<3?'q1':m<6?'q2':m<9?'q3':'q4'; })();
-  const qTarget  = kpi ? (Number(kpi[qKey+'_target'])||0) : 0;
-  const qLabel   = qKey.toUpperCase();
-  const unit     = kpi?.unit || '';
-  const owners   = (state.owners||[]).map(o=>o.name).filter(Boolean);
+  const kpi    = (state._lastKpis||[]).find(k => k.id === task.kpi_id);
+  const taskQ  = (task.quarter||'').toLowerCase().replace(/[^q1-4]/g,'').trim();
+  const qKey   = ['q1','q2','q3','q4'].includes(taskQ) ? taskQ
+               : (() => { const mo=new Date().getMonth(); return mo<3?'q1':mo<6?'q2':mo<9?'q3':'q4'; })();
+  const qTarget = kpi ? (kpi[qKey+'_target']!=null ? Number(kpi[qKey+'_target']) : '') : '';
+  const qLabel  = qKey.toUpperCase();
+  const unit    = kpi?.unit || '';
+  const kpiTitle = kpi?.title || '';
+  const owners  = (state.owners||[]).map(o=>o.name).filter(Boolean);
+  const fmtD    = d => d ? String(d).slice(0,10) : '';
+  const statuses  = ['todo','in_progress','done','blocked'];
+  const statKr    = {todo:'대기',in_progress:'진행 중',done:'완료',blocked:'차단'};
+  const priorities= ['low','medium','high','critical'];
+  const priKr     = {low:'낮음',medium:'보통',high:'높음',critical:'긴급'};
 
-  const fmtD = d => d ? (d.slice?d.slice(0,10):d) : '';
-  const statuses = ['todo','in_progress','done','blocked'];
-  const statKr   = {todo:'대기', in_progress:'진행 중', done:'완료', blocked:'차단'};
-  const priorities = ['low','medium','high','critical'];
-  const priKr    = {low:'낮음', medium:'보통', high:'높음', critical:'긴급'};
+  // task 데이터를 form에 저장 (저장 시 변경 감지용)
+  el.dataset.kpiId  = task.kpi_id||'';
+  el.dataset.qKey   = qKey;
+  el.dataset.origTarget = String(qTarget);
 
   el.innerHTML = `
     <div style="display:flex;flex-direction:column;gap:12px;padding:4px 0">
+
+      ${kpiTitle ? `<div style="background:#f0ede6;border-radius:6px;padding:8px 12px">
+        <div style="font-size:9px;color:#8a8278;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px">연결 KPI</div>
+        <div style="font-size:12px;font-weight:700;color:#1a1714">${esc(kpiTitle)}</div>
+        <div style="font-size:10px;color:#5c6b4a">${qLabel} 분기</div>
+      </div>` : ''}
+
       <div>
         <label class="field-label">제목</label>
         <input type="text" id="de_title" value="${esc(task.title||'')}"
           style="width:100%;border:1px solid var(--line);border-radius:4px;padding:7px 10px;font-size:13px;font-family:var(--font-body)"/>
       </div>
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div>
           <label class="field-label">상태</label>
@@ -4011,6 +4023,7 @@ function renderDrawerEditForm(task) {
           </select>
         </div>
       </div>
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div>
           <label class="field-label">담당자</label>
@@ -4025,25 +4038,32 @@ function renderDrawerEditForm(task) {
             style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)"/>
         </div>
       </div>
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div>
-          <label class="field-label">${qLabel} 목표${unit?' ('+unit+')':''}</label>
-          <input type="number" id="de_target" value="${qTarget||''}" readonly
-            style="width:100%;border:1px solid #e8e4dc;border-radius:4px;padding:6px 8px;font-size:12px;background:#f8f5f0;font-family:var(--font-body)"/>
+          <label class="field-label" style="display:flex;align-items:center;gap:4px">
+            ${qLabel} 목표${unit?' ('+unit+')':''}
+            <span style="font-size:8px;color:#5c6b4a;background:#e4f0dd;padding:1px 5px;border-radius:3px">KPI 연동</span>
+          </label>
+          <input type="number" id="de_target" value="${qTarget}" min="0" step="any"
+            style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)"/>
+          <div style="font-size:9px;color:#8a8278;margin-top:2px">수정 시 KPI ${qLabel} 목표 전체 반영</div>
         </div>
         <div>
           <label class="field-label">실적 수치${unit?' ('+unit+')':''}</label>
           <input type="number" id="de_progress" value="${task.progress!=null?task.progress:0}" min="0" step="any"
-            placeholder="실제 측정된 지표값 입력"
+            placeholder="실제 측정 지표값"
             style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)"/>
-          <div style="font-size:9px;color:#8a8278;margin-top:3px">Task 완료 시 실제 획득한 측정값 (기본값 0)</div>
+          <div style="font-size:9px;color:#8a8278;margin-top:2px">완료 시 획득한 실측값 (기본 0)</div>
         </div>
       </div>
+
       <div>
         <label class="field-label">메모</label>
         <textarea id="de_notes" rows="3"
           style="width:100%;border:1px solid var(--line);border-radius:4px;padding:7px 10px;font-size:12px;resize:vertical;font-family:var(--font-body)">${esc(task.notes||'')}</textarea>
       </div>
+
       <div style="display:flex;gap:8px;justify-content:flex-end;padding-top:4px">
         <button onclick="saveDrawerEdit('${esc(task.id)}')" class="btn btn-primary" style="font-size:12px">저장</button>
         <button onclick="closeDrawer()" class="btn btn-secondary" style="font-size:12px">닫기</button>
@@ -4055,6 +4075,13 @@ function renderDrawerEditForm(task) {
 async function saveDrawerEdit(taskId) {
   const task = state.drawer?.task;
   if(!task) return;
+
+  const formEl    = document.getElementById('drawerEditForm');
+  const kpiId     = formEl?.dataset.kpiId;
+  const qKey      = formEl?.dataset.qKey;
+  const origTarget= parseFloat(formEl?.dataset.origTarget||'0')||0;
+  const newTarget = parseFloat(document.getElementById('de_target')?.value)||0;
+
   const updates = {
     title:    document.getElementById('de_title')?.value.trim(),
     status:   document.getElementById('de_status')?.value,
@@ -4064,21 +4091,38 @@ async function saveDrawerEdit(taskId) {
     progress: parseFloat(document.getElementById('de_progress')?.value)||0,
     updated_at: new Date().toISOString(),
   };
-  // owner_id 매핑
   const ownerName = document.getElementById('de_owner')?.value;
   if(ownerName) {
     const ow = (state.owners||[]).find(o=>o.name===ownerName);
     if(ow) updates.owner_id = ow.id;
   }
+
+  const btn = document.querySelector('#drawerTabEdit .btn-primary');
   try {
-    const { error } = await state.sb.from('tasks').update(updates).eq('id', taskId);
-    if(error) throw error;
+    // 1. Task 저장
+    const { error: te } = await state.sb.from('tasks').update(updates).eq('id', taskId);
+    if(te) throw te;
     Object.assign(task, updates);
-    // 화면 갱신
-    const btn = document.querySelector('#drawerTabEdit .btn-primary');
+
+    // 2. 목표값 변경 시 KPI q_target 업데이트
+    if(kpiId && qKey && newTarget !== origTarget) {
+      const qField = qKey + '_target';
+      const { error: ke } = await state.sb.from('kpis').update({ [qField]: newTarget }).eq('id', kpiId);
+      if(ke) throw ke;
+      // 메모리 업데이트
+      const kpi = (state._lastKpis||[]).find(k=>k.id===kpiId);
+      if(kpi) kpi[qField] = newTarget;
+      // form origTarget 갱신
+      if(formEl) formEl.dataset.origTarget = String(newTarget);
+    }
+
     if(btn) { btn.textContent='✅ 저장됨'; setTimeout(()=>{ btn.textContent='저장'; },1500); }
-    refreshDashboard();
+    await refreshDashboard();
+
   } catch(e) {
+    if(btn) btn.textContent='❌ 실패';
+    setTimeout(()=>{ if(btn) btn.textContent='저장'; },2000);
+    console.error('saveDrawerEdit error:', e);
     alert('저장 실패: '+(e.message||String(e)));
   }
 }
