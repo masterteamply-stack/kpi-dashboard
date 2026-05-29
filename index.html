@@ -306,9 +306,10 @@
     }
     .kpi-owner-chips{display:flex;gap:4px;flex-wrap:wrap}
     .kpi-owner-chip{
-      font-size:10px;padding:2px 5px;border-radius:2px;
-      background:#e4e0d8;border:1px solid #ccc8bf;color:#1a1714;
-      font-weight:600;white-space:nowrap;flex-shrink:0;
+      font-size:10px;padding:2px 6px;border-radius:10px;
+      background:#e4e0d8;color:#1a1714;
+      font-weight:600;white-space:nowrap;
+      display:inline-block;
     }
     .kpi-status-pill{
       display:inline-flex;align-items:center;gap:4px;
@@ -1160,7 +1161,7 @@
       .container{padding:20px 14px 48px}
     }
 
-    .owner-drill-wrap{ position:relative; }
+    .owner-drill-wrap{ position:relative;width:100%;overflow:hidden; }
     .owner-drill-trigger{
       display:flex;align-items:center;gap:3px;cursor:pointer;
       min-height:22px;overflow:hidden;width:78px;
@@ -2258,15 +2259,15 @@ function renderKPIAccordion(kpis, tasks) {
     // 담당자 드릴 트리거 (클릭 시 팝업으로 전체 편집)
     const ownerChips = owners.map(o=>`<span class="kpi-owner-chip" style="font-size:10px;padding:2px 5px;border-radius:2px;background:#e4e0d8;border:1px solid #ccc8bf;color:#1a1714;font-weight:600;white-space:nowrap;flex-shrink:0">${esc(o)}</span>`).join('');
     const ownerMoreBadge = owners.length > 1 ? `<span style="font-size:9px;color:#5c6b4a;flex-shrink:0">+${owners.length-1}</span>` : '';
-    const ownerHTML = `<div class="owner-drill-wrap" data-kpi-id="${esc(kpi.id)}"`
-      + ` onclick="event.stopPropagation();openOwnerDrill(this,'${esc(kpi.id)}')">`
-      + `<div class="owner-drill-trigger">`
-      + (owners.length > 0
-          ? `<span class="kpi-owner-chip" style="font-size:10px;padding:2px 5px;border-radius:2px;background:#e4e0d8;border:1px solid #ccc8bf;color:#1a1714;font-weight:600;white-space:nowrap">${esc(owners[0])}</span>`
-          + (owners.length > 1 ? `<span style="font-size:9px;color:#5c6b4a;margin-left:2px">+${owners.length-1}</span>` : '')
-          : `<span style="font-size:10px;color:#b0a898">+ 추가</span>`)
-      + `<span class="owner-drill-hint">✏️</span>`
-      + `</div></div>`;
+    const ownerHTML = `<div class="owner-drill-wrap" data-kpi-id="${esc(kpi.id)}"
+      onclick="event.stopPropagation();openOwnerDrill(this,'${esc(kpi.id)}')"
+      style="width:100%;overflow:hidden;cursor:pointer">
+      <div class="owner-drill-trigger" style="display:flex;align-items:center;flex-wrap:wrap;gap:3px;width:100%">
+      ${ owners.length > 0
+          ? owners.map(o=>`<span class="kpi-owner-chip">${esc(o)}</span>`).join('')
+          : `<span style="font-size:10px;color:#b0a898;cursor:pointer">+ 추가</span>`
+      }
+      </div></div>`;
     const sc = statusPillClass(kpi.progress_status||'');
     const theme = (kpi.strategic_theme||'').replace('시장 수요 창출 > ','').replace('시장 기회 확대 > ','').replace('마케팅 효능감 > ','');
 
@@ -2376,7 +2377,7 @@ function renderKPIAccordion(kpis, tasks) {
           ${theme ? `<span class="kpi-theme-badge">${esc(theme)}</span>` : ''}
           </div>
       </div>
-      <div onclick="event.stopPropagation()" style="overflow:visible">
+      <div onclick="event.stopPropagation()" style="overflow:hidden;min-width:0">
         ${ownerHTML}
       </div>
       <div onclick="event.stopPropagation()">
