@@ -1315,7 +1315,7 @@
             <button class="panel-collapse-btn" onclick="togglePanel('actPanel',this)">−</button>
           </div>
           <div id="actContent" class="panel-content">
-            <canvas id="activityChart" height="124" style="width:100%"></canvas>
+            <div id="activityChartWrap" style="width:100%;min-height:220px"></div>
           </div>
         </div>
         <div class="panel">
@@ -5293,8 +5293,13 @@ async function saveBudgetPlan(kpiId) {
 
 // ── 활동 유형별 차트: budget_plan 반영 ──
 function renderActivityTypeChartWithBudget(kpis, tasks) {
-  const wrapEl = document.getElementById('activityChartWrap');
-  if(!wrapEl) return;
+  let wrapEl = document.getElementById('activityChartWrap');
+  if(!wrapEl) {
+    // fallback: canvas 부모를 wrap으로 사용
+    const cv0 = document.getElementById('activityChart');
+    if(!cv0) return;
+    wrapEl = cv0.parentElement || cv0;
+  }
 
   const planByType = {};
   for(const kpi of kpis) {
@@ -5360,8 +5365,9 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
     + '</div>';
 
   const ctx = document.getElementById('activityChart');
-  if(!ctx) return;
-  if(window._actChart) window._actChart.destroy();
+  if(!ctx) { console.warn('activityChart canvas not found'); return; }
+  if(window._actChart) { try { window._actChart.destroy(); } catch(e){} }
+  window._actChart = null;
 
   const labelPlugin = {
     id: 'actLabels',
