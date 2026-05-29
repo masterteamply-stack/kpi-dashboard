@@ -1255,7 +1255,7 @@
   </section>
 
   <!-- Regional + Activity + Trend charts -->
-  <section style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
+  <section style="margin-bottom:18px">
     <div class="panel">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
         <h3 style="margin-bottom:0">지역별 마케팅 ROI 분석</h3>
@@ -1274,41 +1274,9 @@
         </div>
       </div>
     </div>
-    <div class="row-grid-2" style="margin-bottom:0">
-    <div class="panel">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-            <h3 style="margin-bottom:0">활동 유형별 예산 집행</h3>
-            <button class="panel-collapse-btn" onclick="togglePanel('actPanel',this)">−</button>
-          </div>
-          <div id="actContent" class="panel-content">
-            <canvas id="activityChart" height="200"></canvas>
-          </div>
-        </div>
-        <div class="panel">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-            <h3 style="margin-bottom:0">마케팅 활동 추이</h3>
-            <div class="trend-toggle">
-              <button class="trend-btn active" id="trendBtnM" onclick="switchTrendView('month')">월별</button>
-              <button class="trend-btn" id="trendBtnQ" onclick="switchTrendView('quarter')">분기별</button>
-            </div>
-          </div>
-          <canvas id="activityTrendChart" height="200"></canvas>
-          <!-- 관련 오더 미니 추이 -->
-          <div id="orderMiniWrap" style="margin-top:10px;padding:8px 12px;background:#f5f2ed;border-radius:6px;display:flex;align-items:center;gap:12px">
-            <div style="flex-shrink:0">
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8278">총 관련 오더</div>
-              <div id="orderMiniTotal" style="font-size:16px;font-weight:800;color:#1a1714;margin-top:2px">–</div>
-              <div id="orderMiniSub" style="font-size:10px;color:#8a8278;margin-top:1px">로딩 중…</div>
-            </div>
-            <div style="flex:1;min-width:0">
-              <canvas id="orderMiniChart" height="60" style="width:100%;display:block"></canvas>
-            </div>
-          </div>
-        </div>
-      </section>
-    
-      <!-- Digital KPI -->
-      <section class="row-full">
+  </section>
+
+  <section class="row-full">
         
     </div><div class="panel">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
@@ -1345,6 +1313,40 @@
         </div>
       </div>
     </div>
+  </section>
+
+  <section style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
+    <div class="row-grid-2" style="margin-bottom:0">
+    <div class="panel">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <h3 style="margin-bottom:0">활동 유형별 예산 집행</h3>
+            <button class="panel-collapse-btn" onclick="togglePanel('actPanel',this)">−</button>
+          </div>
+          <div id="actContent" class="panel-content">
+            <canvas id="activityChart" height="200"></canvas>
+          </div>
+        </div>
+        <div class="panel">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <h3 style="margin-bottom:0">마케팅 활동 추이</h3>
+            <div class="trend-toggle">
+              <button class="trend-btn active" id="trendBtnM" onclick="switchTrendView('month')">월별</button>
+              <button class="trend-btn" id="trendBtnQ" onclick="switchTrendView('quarter')">분기별</button>
+            </div>
+          </div>
+          <canvas id="activityTrendChart" height="200"></canvas>
+          <!-- 관련 오더 미니 추이 -->
+          <div id="orderMiniWrap" style="margin-top:10px;padding:8px 12px;background:#f5f2ed;border-radius:6px;display:flex;align-items:center;gap:12px">
+            <div style="flex-shrink:0">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8278">총 관련 오더</div>
+              <div id="orderMiniTotal" style="font-size:16px;font-weight:800;color:#1a1714;margin-top:2px">–</div>
+              <div id="orderMiniSub" style="font-size:10px;color:#8a8278;margin-top:1px">로딩 중…</div>
+            </div>
+            <div style="flex:1;min-width:0">
+              <canvas id="orderMiniChart" height="60" style="width:100%;display:block"></canvas>
+            </div>
+          </div>
+        </div>
   </section>
 
   <!-- Owner table -->
@@ -5219,7 +5221,7 @@ function initDkpiDefaultData() {
     localStorage.setItem('region_sub_detail', JSON.stringify(regionSub));
     localStorage.setItem('region_sub_net', JSON.stringify(netMonthly));
     localStorage.setItem('region_sub_grand_total', '1369693');
-    const revenueData = {"ASIA": {"2026-01": 720738.83, "2026-02": 360079.47, "2026-03": 529373.18, "2026-04": 818848.14}, "CIS": {"2026-01": 2848036.64, "2026-02": 2186313.65, "2026-03": 2853069.52, "2026-04": 1931563.17}, "Domestic": {"2026-01": 315608.02, "2026-02": 240597.92, "2026-03": 223410.0, "2026-04": 158136.28}, "EUROPE": {"2026-01": 673877.76, "2026-02": 599096.89, "2026-03": 364919.85, "2026-04": 852498.4}, "LATAM": {"2026-01": 1800763.05, "2026-02": 1281384.7, "2026-03": 1549639.89, "2026-04": 1897274.26}, "MENA": {"2026-01": 1398148.95, "2026-02": 585233.0, "2026-03": 204853.22, "2026-04": 516776.4}, "NA": {"2026-01": 906690.97, "2026-02": 764536.01, "2026-03": 1163940.62, "2026-04": 732667.7}, "RUS": {"2026-01": 2961612.21, "2026-02": 7758612.92, "2026-03": 8937232.11, "2026-04": 10594022.77}};
+    const revenueData = {"ASIA": {"2026-01": 720738.83, "2026-02": 360079.47, "2026-03": 529373.18, "2026-04": 818848.14}, "CIS": {"2026-01": 2848036.64, "2026-02": 2186313.65, "2026-03": 2853069.52, "2026-04": 1931563.17}, "KR": {"2026-01": 315608.02, "2026-02": 240597.92, "2026-03": 223410.0, "2026-04": 158136.28}, "EUROPE": {"2026-01": 673877.76, "2026-02": 599096.89, "2026-03": 364919.85, "2026-04": 852498.4}, "LATAM": {"2026-01": 1800763.05, "2026-02": 1281384.7, "2026-03": 1549639.89, "2026-04": 1897274.26}, "MENA": {"2026-01": 1398148.95, "2026-02": 585233.0, "2026-03": 204853.22, "2026-04": 516776.4}, "NA": {"2026-01": 906690.97, "2026-02": 764536.01, "2026-03": 1163940.62, "2026-04": 732667.7}, "RUS": {"2026-01": 2961612.21, "2026-02": 7758612.92, "2026-03": 8937232.11, "2026-04": 10594022.77}};
     localStorage.setItem('revenue_by_region', JSON.stringify(revenueData));
     localStorage.setItem('revenue_monthly_total', JSON.stringify({"2026-01": 11471137, "2026-02": 13162466, "2026-03": 15198838, "2026-04": 17498960}));
     localStorage.setItem('dkpi_initialized', 'v5');
