@@ -211,6 +211,7 @@
     .drawer-title{font-family:var(--font-display);font-size:20px;font-weight:800;line-height:1.25;letter-spacing:-.03em;margin:0 0 4px}
     .drawer-sub{font-size:12px;color:var(--muted)}
     .drawer-body{padding:16px 20px 28px;overflow-y:auto;display:grid;gap:14px;flex:1}
+    .field-label{display:block;font-size:10px;font-weight:700;color:#8a8278;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
     .drawer-card{
       background:var(--panel2);border:1px solid var(--line);
       border-radius:var(--radius);padding:14px;
@@ -1518,7 +1519,7 @@
 <!-- ── 상세 사이드 드로어 ── -->
 <div class="resize-tooltip" id="resizeTooltip"></div>
 <div class="col-resize-line" id="resizeLine"></div>
-<div id="drawerBackdrop" class="drawer-backdrop"></div>
+<div id="drawerBackdrop" class="drawer-backdrop" onclick="closeDrawer()"></div>
 <aside id="taskDrawer" class="drawer" aria-hidden="true">
   <div class="drawer-header">
     <div style="flex:1;min-width:0">
@@ -1527,7 +1528,7 @@
     </div>
     <div style="display:flex;gap:6px;align-items:center">
       <button class="drawer-expand-btn" onclick="toggleDrawerExpand()" id="drawerExpandBtn" title="확장">⤢</button>
-      <button id="drawerCloseBtn" class="modal-close" type="button">×</button>
+      <button id="drawerCloseBtn" class="modal-close" type="button" onclick="closeDrawer()">×</button>
     </div>
   </div>
   <div class="drawer-tabs">
@@ -3900,25 +3901,192 @@ function refreshTypeSelects() {
 // ── Drawer expand ──
 let _drawerExpanded = false;
 
-function openDetailDrawer(taskId) {
-  // 기존 openDrawer / openTaskDrawer 함수 호출
-  if(typeof openDrawer === 'function') { openDrawer(taskId); return; }
-  // 직접 taskDrawer 열기
+// ── Drawer: 탭 전환 ──
+function switchDrawerTab(tab, btnEl) {
+  document.querySelectorAll('.dtab').forEach(b => b.classList.remove('active'));
+  if(btnEl) btnEl.classList.add('active');
+  ['Edit','Comments','Attachments','Overview'].forEach(t => {
+    const el = document.getElementById('drawerTab'+t);
+    if(el) el.style.display = (tab === t.toLowerCase()) ? 'block' : 'none';
+  });
+  state.drawer = state.drawer||{};
+  state.drawer.tab = tab;
+  if(tab === 'edit') {
+    const task = state.drawer.task;
+    if(task) renderDrawerEditForm(task);
+  }
+  if(tab === 'comments') renderDrawerComments();
+  if(tab === 'attachments') renderDrawerAttachments();
+}
+
+// ── Drawer: 열기 ──
+function openDrawer(taskId) {
   const task = (state.tasks||[]).find(t=>t.id===taskId)
              || (state._lastKpiTasks||[]).find(t=>t.id===taskId);
   if(!task) { console.warn('Task not found:', taskId); return; }
+
   state.drawer = state.drawer||{};
   state.drawer.open   = true;
   state.drawer.taskId = taskId;
   state.drawer.task   = task;
   state.drawer.tab    = 'edit';
-  const el = document.getElementById('taskDrawer');
-  if(el) {
-    el.classList.add('open');
-    el.setAttribute('aria-hidden','false');
-    renderDrawerEditForm(task);
+
+  // 헤더 업데이트
+  const title = document.getElementById('drawerTitle');
+  const sub   = document.getElementById('drawerSub');
+  if(title) title.textContent = task.title || '업무 상세';
+  if(sub)   sub.textContent   = task.kpi_id ? ('KPI: ' + (task.kpis?.title || task.kpi_id)) : '';
+
+  // 탭 초기화
+  document.querySelectorAll('.dtab').forEach((b,i) => b.classList.toggle('active', i===0));
+  ['Overview','Comments','Attachments'].forEach(t => {
+    const el = document.getElementById('drawerTab'+t);
+    if(el) el.style.display = 'none';
+  });
+  const editEl = document.getElementById('drawerTabEdit');
+  if(editEl) editEl.style.display = 'block';
+
+  // 드로어 열기
+  const drawer = document.getElementById('taskDrawer');
+  const backdrop = document.getElementById('drawerBackdrop');
+  if(drawer)   { drawer.classList.add('open'); drawer.setAttribute('aria-hidden','false'); }
+  if(backdrop) backdrop.classList.add('open');
+
+  renderDrawerEditForm(task);
+}
+
+// ── Drawer: 닫기 ──
+function closeDrawer() {
+  const drawer   = document.getElementById('taskDrawer');
+  const backdrop = document.getElementById('drawerBackdrop');
+  if(drawer)   { drawer.classList.remove('open'); drawer.setAttribute('aria-hidden','true'); }
+  if(backdrop) backdrop.classList.remove('open');
+  if(state.drawer) state.drawer.open = false;
+}
+
+// ── Drawer: 수정 폼 렌더 ──
+function renderDrawerEditForm(task) {
+  const el = document.getElementById('drawerEditForm');
+  if(!el || !task) return;
+
+  const kpi      = (state._lastKpis||[]).find(k => k.id === task.kpi_id);
+  const curQ     = (() => { const m=new Date().getMonth(); return m<3?'q1':m<6?'q2':m<9?'q3':'q4'; })();
+  const qTarget  = kpi ? Number(kpi[curQ+'_target']||0) : 0;
+  const unit     = kpi?.unit || '';
+  const owners   = (state.owners||[]).map(o=>o.name).filter(Boolean);
+
+  const fmtD = d => d ? (d.slice?d.slice(0,10):d) : '';
+  const statuses = ['todo','in_progress','done','blocked'];
+  const statKr   = {todo:'대기', in_progress:'진행 중', done:'완료', blocked:'차단'};
+  const priorities = ['low','medium','high','critical'];
+  const priKr    = {low:'낮음', medium:'보통', high:'높음', critical:'긴급'};
+
+  el.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:12px;padding:4px 0">
+      <div>
+        <label class="field-label">제목</label>
+        <input type="text" id="de_title" value="${esc(task.title||'')}"
+          style="width:100%;border:1px solid var(--line);border-radius:4px;padding:7px 10px;font-size:13px;font-family:var(--font-body)"/>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label class="field-label">상태</label>
+          <select id="de_status" style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)">
+            ${statuses.map(s=>`<option value="${s}" ${task.status===s?'selected':''}>${statKr[s]}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="field-label">우선순위</label>
+          <select id="de_priority" style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)">
+            ${priorities.map(p=>`<option value="${p}" ${task.priority===p?'selected':''}>${priKr[p]}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label class="field-label">담당자</label>
+          <select id="de_owner" style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)">
+            <option value="">미지정</option>
+            ${owners.map(n=>`<option value="${n}" ${(task.owners?.name||task.owner_name)===n?'selected':''}>${n}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="field-label">마감일</label>
+          <input type="date" id="de_due" value="${fmtD(task.due_date)}"
+            style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)"/>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label class="field-label">목표${unit?' ('+unit+')':''}</label>
+          <input type="number" id="de_target" value="${qTarget||''}" readonly
+            style="width:100%;border:1px solid #e8e4dc;border-radius:4px;padding:6px 8px;font-size:12px;background:#f8f5f0;font-family:var(--font-body)"/>
+        </div>
+        <div>
+          <label class="field-label">실적${unit?' ('+unit+')':''}</label>
+          <input type="number" id="de_progress" value="${task.progress!=null?task.progress:''}" min="0"
+            style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)"/>
+        </div>
+      </div>
+      <div>
+        <label class="field-label">메모</label>
+        <textarea id="de_notes" rows="3"
+          style="width:100%;border:1px solid var(--line);border-radius:4px;padding:7px 10px;font-size:12px;resize:vertical;font-family:var(--font-body)">${esc(task.notes||'')}</textarea>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;padding-top:4px">
+        <button onclick="saveDrawerEdit('${esc(task.id)}')" class="btn btn-primary" style="font-size:12px">저장</button>
+        <button onclick="closeDrawer()" class="btn btn-secondary" style="font-size:12px">닫기</button>
+      </div>
+    </div>`;
+}
+
+// ── Drawer: 저장 ──
+async function saveDrawerEdit(taskId) {
+  const task = state.drawer?.task;
+  if(!task) return;
+  const updates = {
+    title:    document.getElementById('de_title')?.value.trim(),
+    status:   document.getElementById('de_status')?.value,
+    priority: document.getElementById('de_priority')?.value,
+    due_date: document.getElementById('de_due')?.value || null,
+    notes:    document.getElementById('de_notes')?.value.trim(),
+    progress: parseFloat(document.getElementById('de_progress')?.value)||0,
+    updated_at: new Date().toISOString(),
+  };
+  // owner_id 매핑
+  const ownerName = document.getElementById('de_owner')?.value;
+  if(ownerName) {
+    const ow = (state.owners||[]).find(o=>o.name===ownerName);
+    if(ow) updates.owner_id = ow.id;
+  }
+  try {
+    const { error } = await state.sb.from('tasks').update(updates).eq('id', taskId);
+    if(error) throw error;
+    Object.assign(task, updates);
+    // 화면 갱신
+    const btn = document.querySelector('#drawerTabEdit .btn-primary');
+    if(btn) { btn.textContent='✅ 저장됨'; setTimeout(()=>{ btn.textContent='저장'; },1500); }
+    refreshDashboard();
+  } catch(e) {
+    alert('저장 실패: '+(e.message||String(e)));
   }
 }
+
+// ── Drawer: 댓글 탭 ──
+function renderDrawerComments() {
+  const el = document.getElementById('drawerTabComments');
+  if(!el) return;
+  // 기존 댓글 UI 유지 (이미 HTML에 존재)
+}
+
+// ── Drawer: 첨부파일 탭 ──
+function renderDrawerAttachments() {
+  const el = document.getElementById('drawerTabAttachments');
+  if(!el) return;
+  // 기존 첨부파일 UI 유지
+}
+
+function openDetailDrawer(taskId) { openDrawer(taskId); }
 
 function toggleDrawerExpand() {
   const drawer = document.getElementById('taskDrawer');
