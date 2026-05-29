@@ -1327,11 +1327,11 @@
       <div id="dkpiContent" class="panel-content"><div id="dkpiSheet" style="display:none;margin-bottom:16px;border:1px solid #e8e4dc;border-radius:10px;overflow:hidden"><div style="background:#f5f2ed;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="font-size:11px;font-weight:700;color:#3d3830">월별 데이터 입력</span><div style="display:flex;gap:4px"><button id="dkpiSheet10Btn" class="toggle-btn active" style="font-size:11px" onclick="switchDkpiSheet('B2D-10')">📊 Engagement</button><button id="dkpiSheet11Btn" class="toggle-btn" style="font-size:11px" onclick="switchDkpiSheet('B2D-11')">👆 Click</button><button id="dkpiSheetCDBtn" class="toggle-btn" style="font-size:11px" onclick="switchDkpiSheet('channel_discriber')">📡 구독자</button><button id="dkpiSheetRegBtn" class="toggle-btn" style="font-size:11px" onclick="switchDkpiSheet('region_sub')">🗺️ 지역별</button><button id="dkpiSheetRevBtn" class="toggle-btn" style="font-size:11px" onclick="switchDkpiSheet('revenue')">💰 매출</button></div><button onclick="saveDkpiSheet()" class="btn btn-primary" style="font-size:11px;padding:4px 12px;margin-left:auto">저장 → 차트 반영</button></div><div style="overflow-x:auto"><table id="dkpiSheetTable" style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#eceae3"><th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#8a8278">월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">1월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">2월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">3월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">4월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">5월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">6월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">7월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">8월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">9월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">10월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">11월</th><th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">12월</th></tr></thead><tbody id="dkpiSheetBody"></tbody></table></div></div><div class="digital-kpi-grid">
         <div class="digital-kpi-card">
           <div class="digital-kpi-name">📊 Engagement (노출/도달)</div>
-          <canvas id="engagementChart" height="124" style="width:100%"></canvas>
+          <canvas id="engagementChart" height="240" style="width:100%"></canvas>
         </div>
         <div class="digital-kpi-card">
           <div class="digital-kpi-name">👆 Click (광고 클릭)</div>
-          <canvas id="clickChart" height="124" style="width:100%"></canvas>
+          <canvas id="clickChart" height="240" style="width:100%"></canvas>
         </div>
         <!-- 지역별 구독자 증가 추이 -->
         <div class="digital-kpi-card" id="regionSubCard">
@@ -5610,19 +5610,19 @@ function renderRegionSubChart() {
   // ── 포션 뷰 (도넛+범례) - donut 버튼 클릭 시 OR _regView==='donut' ──
   if(_regView === 'donut') {
     wrap.innerHTML =
-      '<div style="display:flex;gap:10px;align-items:flex-start">'
-      + '<div style="position:relative;flex-shrink:0;width:130px;height:130px">'
-      + '<canvas id="regionDonutChart" width="124" height="124"></canvas>'
+      '<div style="display:flex;flex-direction:column;align-items:center;gap:8px">'
+      + '<div style="position:relative;flex-shrink:0;width:160px;height:160px">'
+      + '<canvas id="regionDonutChart" width="160" height="160"></canvas>'
       + '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">'
       + '<div style="font-size:11px;font-weight:800;color:#1a1714;line-height:1.1">' + fmtN(sumTotal) + '</div>'
       + '<div style="font-size:9px;color:#8a8278">총 구독자</div>'
       + '</div></div>'
-      + '<div style="flex:1;overflow-y:auto;max-height:150px;min-width:0">'
+      + '<div style="width:100%;display:grid;grid-template-columns:1fr 1fr;gap:1px 4px">'
       + entries.map(x => {
           const pct   = sumTotal>0 ? (x.total/sumTotal*100).toFixed(1) : '0';
           const lastMo = Object.keys(x.monthly).sort().slice(-1)[0];
           const lastV  = lastMo ? (x.monthly[lastMo]||0) : 0;
-          return '<div style="display:flex;align-items:center;gap:5px;padding:2px 0">'
+          return '<div style="display:flex;align-items:center;gap:4px;padding:1px 4px">'
             + '<div style="width:8px;height:8px;border-radius:50%;background:'+x.color+';flex-shrink:0"></div>'
             + '<div style="font-size:10px;font-weight:700;color:#1a1714;min-width:36px">'+x.r+'</div>'
             + '<div style="flex:1;background:#e8e4dc;height:4px;border-radius:2px">'
@@ -5724,7 +5724,7 @@ function renderRegionSubChart() {
       pointRadius:4,fill:false,tension:.4,order:0,borderDash:[]});
   }
 
-  wrap.innerHTML = '<canvas id="regionBarChart" height="124"></canvas>';
+  wrap.innerHTML = '<canvas id="regionBarChart" height="240"></canvas>';
   const ctx2 = document.getElementById('regionBarChart');
   if(!ctx2) return;
   if(window._regionBarChart) window._regionBarChart.destroy();
