@@ -250,7 +250,7 @@
     }
     .kpi-accordion-header{
       display:grid;
-      grid-template-columns:28px 1fr 100px 90px 130px 60px 60px 60px 60px 58px;
+      grid-template-columns:28px 1fr 200px 90px 150px 60px 60px 60px 60px 80px;
       padding:10px 16px;border-bottom:1px solid var(--line);
       font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#4a4038;
       background:#e8e4dc;align-items:center;
@@ -275,7 +275,7 @@
     .col-resize-handle:hover::after,.col-resize-handle.dragging::after{background:var(--primary)}
     .kpi-accordion-row{
       display:grid;
-      grid-template-columns:28px 1fr 100px 90px 130px 60px 60px 60px 60px 58px;
+      grid-template-columns:28px 1fr 200px 90px 150px 60px 60px 60px 60px 80px;
       align-items:start;gap:0;
       padding:14px 16px;border-bottom:1px solid var(--line);
       cursor:pointer;transition:background .15s;font-size:13px;
@@ -394,15 +394,15 @@
       pointer-events:none;z-index:9998;display:none;opacity:.7;
     }
     @media(max-width:1200px){
-      :root{ --acc-grid:28px 1fr 100px 90px 130px 60px 60px 60px 60px 58px }
+      :root{ --acc-grid:28px 1fr 200px 90px 150px 60px 60px 60px 60px 80px }
     }
     
     @media(max-width:1200px){
-      .kpi-accordion-row,.kpi-accordion-header{grid-template-columns:28px 1fr 100px 90px 130px 60px 60px 60px 60px 58px}
+      .kpi-accordion-row,.kpi-accordion-header{grid-template-columns:28px 1fr 200px 90px 150px 60px 60px 60px 60px 80px}
     }
     .kpi-accordion-row{
       display:grid;
-      grid-template-columns:28px 1fr 100px 90px 130px 60px 60px 60px 60px 58px;
+      grid-template-columns:28px 1fr 200px 90px 150px 60px 60px 60px 60px 80px;
       align-items:center;gap:0;
       padding:13px 14px;border-bottom:1px solid var(--line);
       cursor:pointer;transition:background .15s;font-size:13px;
@@ -468,7 +468,7 @@
     .accordion-empty{padding:20px 48px;color:var(--muted);font-size:13px}
     .kpi-accordion-header{
       display:grid;
-      grid-template-columns:28px 1fr 100px 90px 130px 60px 60px 60px 60px 58px;
+      grid-template-columns:28px 1fr 200px 90px 150px 60px 60px 60px 60px 80px;
       padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.06);
       font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
       background:rgba(255,255,255,.02);
@@ -1299,8 +1299,8 @@
         <div style="display:flex;align-items:center;gap:8px">
           <button class="toggle-btn" onclick="toggleDkpiSheet()" id="dkpiSheetBtn" style="font-size:11px;background:#f0ede6;border-color:#d4cec5">📝 데이터 입력</button>
           <div class="toggle-switch-wrap">
-            <button id="dkpiBtnQ" class="toggle-btn active" onclick="switchDkpiView('quarter')">분기별</button>
-            <button id="dkpiBtnM" class="toggle-btn" onclick="switchDkpiView('month')">월별</button>
+            <button id="dkpiBtnQ" class="toggle-btn" onclick="switchDkpiView('quarter')">분기별</button>
+            <button id="dkpiBtnM" class="toggle-btn active" onclick="switchDkpiView('month')">월별</button>
             <button id="dkpiBtnC" class="toggle-btn" onclick="switchDkpiView('cumulative')">누적</button>
           </div>
           <button class="panel-collapse-btn" onclick="togglePanel('dkpiPanel',this)">−</button>
@@ -3309,7 +3309,7 @@ function renderActivityTypeChart(tasks) {
 }
 
 // ── Digital KPI Chart ──
-let _dkpiView = 'quarter';
+let _dkpiView = 'month';
 function switchDkpiView(mode) {
   _dkpiView = mode;
   document.getElementById('dkpiBtnQ')?.classList.toggle('active', mode==='quarter');
