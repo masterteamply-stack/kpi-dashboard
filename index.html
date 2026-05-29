@@ -1321,7 +1321,7 @@
         </div>
       </div>
       <div id="actContent" class="panel-content">
-        <div style="display:grid;grid-template-columns:280px 1fr;gap:20px;align-items:start">
+        <div style="display:grid;grid-template-columns:220px 1fr;gap:20px;align-items:start">
           <!-- 좌: 유형별 포션 도넛 -->
           <div>
             <div style="font-size:10px;font-weight:700;color:#8a8278;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">유형별 집행 비중</div>
@@ -5301,135 +5301,118 @@ async function saveBudgetPlan(kpiId) {
 
 // ── 활동 유형별 차트: budget_plan 반영 ──
 function renderActivityTypeChartWithBudget(kpis, tasks) {
-  let wrapEl = document.getElementById('activityChartWrap');
-  if(!wrapEl) {
-    // fallback: canvas 부모를 wrap으로 사용
-    const cv0 = document.getElementById('activityChart');
-    if(!cv0) return;
-    wrapEl = cv0.parentElement || cv0;
-  }
+  const wrapEl = document.getElementById('activityChartWrap');
+  if(!wrapEl) return;
 
   const planByType = {};
   for(const kpi of kpis) {
     const entries = getKpiBudget(kpi);
-    entries.forEach(function(e) {
-      if(e.type && e.amount>0)
-        planByType[e.type] = (planByType[e.type]||0) + Number(e.amount);
-    });
+    entries.forEach(function(e){ if(e.type&&e.amount>0) planByType[e.type]=(planByType[e.type]||0)+Number(e.amount); });
   }
-
   const spendByType = {};
   for(const t of tasks) {
-    const tp = t.task_type;
-    if(!tp || PROCESS_TYPES_SET.has(tp)) continue;
-    spendByType[tp] = (spendByType[tp]||0) + Number(t.spend||0);
+    const tp=t.task_type;
+    if(!tp||PROCESS_TYPES_SET.has(tp)) continue;
+    spendByType[tp]=(spendByType[tp]||0)+Number(t.spend||0);
   }
+  const allTypes=[...new Set([...Object.keys(planByType),...Object.keys(spendByType)])].filter(Boolean);
+  if(!allTypes.length){ wrapEl.innerHTML='<p style="color:#8a8278;font-size:11px;padding:16px">데이터 없음</p>'; return; }
 
-  const allTypes = [...new Set([...Object.keys(planByType), ...Object.keys(spendByType)])].filter(Boolean);
-  if(!allTypes.length) { wrapEl.innerHTML = '<p style="color:#8a8278;font-size:11px;padding:20px">데이터 없음</p>'; return; }
+  const sorted=allTypes.sort(function(a,b){ return (spendByType[b]||0)-(spendByType[a]||0); });
+  const totalSpend=sorted.reduce(function(s,tp){ return s+(spendByType[tp]||0); },0);
 
-  const sorted = allTypes.sort(function(a,b){ return (spendByType[b]||0)-(spendByType[a]||0); });
-  const totalSpend = sorted.reduce(function(s,tp){ return s+(spendByType[tp]||0); }, 0);
-
-  const PALETTE = ['#5c6b4a','#4a6b7c','#c17f3a','#8a5a3a','#6b4a7c','#3a7c6b','#7c4a5a','#4a7c5c','#7c7c3a','#4a547c'];
-  const fmt = function(v) {
+  const PALETTE=['#5c6b4a','#4a6b7c','#c17f3a','#8a5a3a','#6b4a7c','#3a7c6b','#7c4a5a','#4a7c5c','#7c7c3a','#4a547c'];
+  const fmt=function(v){
     if(v>=100000000) return (v/100000000).toFixed(1)+'억';
     if(v>=10000000)  return (v/10000000).toFixed(1)+'천만';
     if(v>=10000)     return (v/10000).toFixed(0)+'만';
     return Math.round(v).toLocaleString();
   };
 
-  // 레이아웃: 도넛(200px) | 우측 범례
-  wrapEl.innerHTML = ''
-    + '<div style="display:flex;gap:16px;align-items:flex-start">'
-    +   '<div style="position:relative;width:96px;height:96px;flex-shrink:0">'
-    +     '<canvas id="activityChart" width="200" height="200"></canvas>'
-    +     '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">'
-    +       '<div style="font-size:13px;font-weight:800;color:#1a1714">' + fmt(totalSpend) + '</div>'
-    +       '<div style="font-size:9px;color:#8a8278">총 집행</div>'
-    +     '</div>'
-    +   '</div>'
-    +   '<div style="flex:1;display:flex;flex-direction:column;gap:4px;padding-top:4px">'
-    +   sorted.map(function(tp,i) {
-          const spend = spendByType[tp]||0;
-          const plan  = planByType[tp]||0;
-          const pct   = totalSpend>0 ? (spend/totalSpend*100).toFixed(1) : '0';
-          const rate  = plan>0 ? Math.round(spend/plan*100) : null;
-          const col   = PALETTE[i%PALETTE.length];
-          const rateCol = rate===null?'#8a8278':rate>=80?'#3a7c3a':rate>=50?'#c17f3a':'#9e4a3a';
-          return '<div style="display:flex;align-items:center;gap:7px;padding:3px 0;border-bottom:1px solid #f0ede6">'
-            + '<div style="width:9px;height:9px;border-radius:50%;background:'+col+';flex-shrink:0"></div>'
-            + '<div style="flex:1;min-width:0">'
-            +   '<div style="font-size:11px;font-weight:700;color:#1a1714;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+tp+'</div>'
-            +   '<div style="font-size:10px;color:'+col+';font-weight:700">₩'+fmt(spend)+'<span style="color:#8a8278;font-weight:400">' +(plan>0?' / ₩'+fmt(plan):'')+  '</span></div>'
-            + '</div>'
-            + '<div style="text-align:right;flex-shrink:0">'
-            +   '<div style="font-size:11px;font-weight:800;color:#1a1714">'+pct+'%</div>'
-            +   (rate!==null ? '<div style="font-size:9px;color:'+rateCol+'">집행 '+rate+'%</div>' : '')
-            + '</div>'
-            + '</div>';
-        }).join('')
-    + '</div>'
-    + '</div>';
+  // 레이아웃: 도넛(140px 중앙) + 아래에 범례 2열 그리드
+  wrapEl.innerHTML=''
+    +'<div style="display:flex;flex-direction:column;align-items:center;gap:12px">'
+    // 도넛
+    +'<div style="position:relative;width:140px;height:140px;flex-shrink:0">'
+    +  '<canvas id="activityChart" width="140" height="140"></canvas>'
+    +  '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">'
+    +    '<div style="font-size:12px;font-weight:800;color:#1a1714">'+fmt(totalSpend)+'</div>'
+    +    '<div style="font-size:9px;color:#8a8278">총 집행</div>'
+    +  '</div>'
+    +'</div>'
+    // 범례 2열
+    +'<div style="width:100%;display:grid;grid-template-columns:1fr 1fr;gap:4px 8px">'
+    +sorted.map(function(tp,i){
+        const spend=spendByType[tp]||0;
+        const plan=planByType[tp]||0;
+        const pct=totalSpend>0?(spend/totalSpend*100).toFixed(1):'0';
+        const rate=plan>0?Math.round(spend/plan*100):null;
+        const col=PALETTE[i%PALETTE.length];
+        const rateCol=rate===null?'#8a8278':rate>=80?'#3a7c3a':rate>=50?'#c17f3a':'#9e4a3a';
+        return '<div style="display:flex;align-items:center;gap:5px;padding:3px 4px;background:#faf8f4;border-radius:4px">'
+          +'<div style="width:8px;height:8px;border-radius:50%;background:'+col+';flex-shrink:0"></div>'
+          +'<div style="flex:1;min-width:0;overflow:hidden">'
+          +  '<div style="font-size:10px;font-weight:700;color:#1a1714;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+tp+'</div>'
+          +  '<div style="font-size:9px;color:'+col+';white-space:nowrap">₩'+fmt(spend)+'<span style="color:#8a8278;font-weight:400">'+(plan>0?' /₩'+fmt(plan):'')+'</span></div>'
+          +'</div>'
+          +'<div style="text-align:right;flex-shrink:0">'
+          +  '<div style="font-size:10px;font-weight:800;color:#3d3830">'+pct+'%</div>'
+          +  (rate!==null?'<div style="font-size:8px;color:'+rateCol+'">'+rate+'%</div>':'')
+          +'</div>'
+          +'</div>';
+     }).join('')
+    +'</div>'
+    +'</div>';
 
-  const ctx = document.getElementById('activityChart');
-  if(ctx) { ctx.width=160; ctx.height=160; }
-  if(!ctx) { console.warn('activityChart canvas not found'); return; }
-  if(window._actChart) { try { window._actChart.destroy(); } catch(e){} }
-  window._actChart = null;
+  const ctx=document.getElementById('activityChart');
+  if(!ctx) return;
+  if(window._actChart){ try{window._actChart.destroy();}catch(e){} }
+  window._actChart=null;
 
-  const labelPlugin = {
-    id: 'actLabels',
-    afterDatasetsDraw: function(chart) {
-      const c2 = chart.ctx;
-      const total2 = chart.data.datasets[0].data.reduce(function(s,v){return s+v;},0);
+  const labelPlugin={
+    id:'actLabels',
+    afterDatasetsDraw:function(chart){
+      const c2=chart.ctx;
+      const total2=chart.data.datasets[0].data.reduce(function(s,v){return s+v;},0);
       c2.save();
-      chart.getDatasetMeta(0).data.forEach(function(arc, i) {
-        const val = chart.data.datasets[0].data[i];
-        if(!val || total2===0 || val/total2 < 0.05) return;
-        const mid = (arc.startAngle + arc.endAngle) / 2;
-        const r   = (arc.outerRadius + arc.innerRadius) / 2;
-        c2.font      = 'bold 9px sans-serif';
-        c2.fillStyle = 'rgba(255,255,255,0.9)';
-        c2.textAlign = 'center';
-        c2.textBaseline = 'middle';
-        c2.fillText('₩'+fmt(val), arc.x + Math.cos(mid)*r, arc.y + Math.sin(mid)*r);
+      chart.getDatasetMeta(0).data.forEach(function(arc,i){
+        const val=chart.data.datasets[0].data[i];
+        if(!val||total2===0||val/total2<0.06) return;
+        const mid=(arc.startAngle+arc.endAngle)/2;
+        const r=(arc.outerRadius+arc.innerRadius)/2;
+        c2.font='bold 8px sans-serif';
+        c2.fillStyle='rgba(255,255,255,0.9)';
+        c2.textAlign='center'; c2.textBaseline='middle';
+        c2.fillText('₩'+fmt(val), arc.x+Math.cos(mid)*r, arc.y+Math.sin(mid)*r);
       });
       c2.restore();
     }
   };
 
-  window._actChart = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: sorted,
-      datasets: [{
-        data: sorted.map(function(tp){ return spendByType[tp]||0; }),
-        backgroundColor: sorted.map(function(_,i){ return PALETTE[i%PALETTE.length]; }),
-        borderWidth: 2,
-        borderColor: '#fdfcf9',
-        hoverOffset: 6
+  window._actChart=new Chart(ctx,{
+    type:'doughnut',
+    data:{
+      labels:sorted,
+      datasets:[{
+        data:sorted.map(function(tp){return spendByType[tp]||0;}),
+        backgroundColor:sorted.map(function(_,i){return PALETTE[i%PALETTE.length];}),
+        borderWidth:2,borderColor:'#fdfcf9',hoverOffset:4
       }]
     },
-    plugins: [labelPlugin],
-    options: {
-      responsive: false,
-      cutout: '54%',
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: function(c) {
-              const tp2  = sorted[c.dataIndex];
-              const sp2  = spendByType[tp2]||0;
-              const pl2  = planByType[tp2]||0;
-              const rt2  = pl2>0 ? Math.round(sp2/pl2*100) : null;
-              const lines = [tp2+': ₩'+fmt(sp2), '비중: '+(totalSpend>0?(sp2/totalSpend*100).toFixed(1)+'%':'0%')];
-              if(rt2!==null) lines.push('집행율: '+rt2+'%');
-              return lines;
-            }
-          }
-        }
+    plugins:[labelPlugin],
+    options:{
+      responsive:false,cutout:'54%',
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:function(c){
+          const tp2=sorted[c.dataIndex];
+          const sp2=spendByType[tp2]||0;
+          const pl2=planByType[tp2]||0;
+          const rt2=pl2>0?Math.round(sp2/pl2*100):null;
+          const lines=[tp2+': ₩'+fmt(sp2),'비중:'+(totalSpend>0?(sp2/totalSpend*100).toFixed(1)+'%':'0%')];
+          if(rt2!==null) lines.push('집행율:'+rt2+'%');
+          return lines;
+        }}}
       }
     }
   });
