@@ -4210,89 +4210,90 @@ function restorePanelStates() {
 
 // ── Regional Orders & Marketing Cost Chart ──
 function renderRegionOrderChart(tasks) {
-  // 지역별 마케팅 ROI 분석 테이블
   const el = document.getElementById('regionRoiTable');
   if(!el) return;
 
-  // B2B 매출 데이터 (localStorage)
-  const revData  = (() => { try { return JSON.parse(localStorage.getItem('revenue_by_region')||'{}'); } catch(e){return {};} })();
-  const revMonthly = (() => { try { return JSON.parse(localStorage.getItem('revenue_monthly_total')||'{}'); } catch(e){return {};} })();
+  const b2bData  = (() => { try { return JSON.parse(localStorage.getItem('revenue_by_region')||'{}'); } catch(e){return {};} })();
+  const ecomData = (() => { try { return JSON.parse(localStorage.getItem('ecom_by_region')||'{}'); } catch(e){return {};} })();
 
-  // 지역별 마케팅 집행비 (tasks에서 합산)
+  // 지역별 매출 합산 (B2B + e-Com)
+  const allRegions = new Set([...Object.keys(b2bData), ...Object.keys(ecomData)]);
+  const regionData = {};
+  for(const r of allRegions) {
+    const b2b  = Object.values(b2bData[r]||{}).reduce((s,v)=>s+Number(v||0),0);
+    const ecom = Object.values(ecomData[r]||{}).reduce((s,v)=>s+Number(v||0),0);
+    regionData[r] = { b2b, ecom, total: b2b+ecom };
+  }
+
+  // 마케팅 집행비 (tasks)
   const spendByRegion = {};
   for(const t of tasks) {
     const r = (t.region||'기타').toUpperCase();
-    spendByRegion[r] = (spendByRegion[r]||0) + Number(t.spend||t.allocated_budget||0);
+    const v = Number(t.spend||t.allocated_budget||0);
+    if(v>0) spendByRegion[r] = (spendByRegion[r]||0) + v;
   }
-
-  // 지역별 매출 합산
-  const revByRegion = {};
-  for(const [region, months] of Object.entries(revData)) {
-    revByRegion[region] = Object.values(months).reduce((s,v)=>s+Number(v||0),0);
-  }
+  const _KRW_USD = 1502;
 
   // 전체 합계
-  const totalRev   = Object.values(revByRegion).reduce((s,v)=>s+v,0);
-  const totalSpend = Object.values(spendByRegion).reduce((s,v)=>s+v,0);
-  const totalRoi   = totalSpend>0 ? ((totalRev-totalSpend)/totalSpend*100) : null;
+  const totalB2B  = Object.values(regionData).reduce((s,v)=>s+v.b2b, 0);
+  const totalEcom = Object.values(regionData).reduce((s,v)=>s+v.ecom, 0);
+  const totalRev  = totalB2B + totalEcom;
+  const totalSpendKrw = Object.values(spendByRegion).reduce((s,v)=>s+v, 0);
+  const totalSpendUsd = totalSpendKrw / _KRW_USD;
+  const totalRoi = totalSpendUsd>0 ? ((totalRev-totalSpendUsd)/totalSpendUsd*100) : null;
 
-  const fmtUSD = v => v>=1000000 ? '$'+(v/1000000).toFixed(2)+'M' : v>=1000 ? '$'+(v/1000).toFixed(1)+'K' : '$'+Math.round(v).toLocaleString();
-  const fmtPct2 = v => v===null ? '–' : (v>=0?'+':'')+v.toFixed(1)+'%';
-  const roiColor = v => v===null ? '#8a8278' : v>=100 ? '#1a6b1a' : v>=0 ? '#3a7c3a' : '#c0392b';
+  const fmtU = v => v>=1000000?'$'+(v/1000000).toFixed(2)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':v>0?'$'+Math.round(v).toLocaleString():'–';
+  const fmtK = v => v>=100000000?'₩'+(v/100000000).toFixed(1)+'억':v>=10000?'₩'+(v/10000).toFixed(0)+'만':v>0?'₩'+v.toLocaleString():'–';
+  const fmtP = v => v===null?'–':(v>=0?'+':'')+v.toFixed(1)+'%';
+  const rCol = v => v===null?'#8a8278':v>=100?'#1a6b1a':v>=0?'#3a7c3a':'#c0392b';
 
-  // 모든 지역 목록
-  const regions = [...new Set([...Object.keys(revByRegion), ...Object.keys(spendByRegion)])].sort();
+  const entries = Object.entries(regionData).filter(([,v])=>v.total>0).sort((a,b)=>b[1].total-a[1].total);
 
   let html = '<div style="overflow-x:auto">';
   html += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
-  // 헤더
   html += '<thead><tr style="background:#e8e4dc">';
-  ['지역','매출 (USD)','마케팅 집행','ROI','매출 비중'].forEach(h => {
-    html += `<th style="padding:8px 12px;text-align:${h==='지역'?'left':'right'};font-size:10px;font-weight:700;color:#4a4038;white-space:nowrap">${h}</th>`;
+  ['지역','총 매출','B2B','e-Com','집행비','ROI','비중'].forEach(h => {
+    html += `<th style="padding:7px 10px;text-align:${h==='지역'?'left':'right'};font-size:10px;font-weight:700;color:#4a4038;white-space:nowrap">${h}</th>`;
   });
   html += '</tr></thead><tbody>';
 
-  // 지역별 행
-  const rowData = regions.map(r => {
-    const rev   = revByRegion[r]||0;
-    const spend = spendByRegion[r]||0;
-    const roi   = spend>0 ? (rev-spend)/spend*100 : (rev>0 ? null : null);
-    const pct   = totalRev>0 ? rev/totalRev*100 : 0;
-    return {r, rev, spend, roi, pct};
-  }).filter(d => d.rev>0 || d.spend>0).sort((a,b)=>b.rev-a.rev);
+  entries.forEach(([ r, v ], i) => {
+    const spendKrw = spendByRegion[r.toUpperCase()]||spendByRegion[r]||0;
+    const spendUsd = spendKrw / _KRW_USD;
+    const roi = spendUsd>0 ? ((v.total-spendUsd)/spendUsd*100) : null;
+    const pct = totalRev>0 ? v.total/totalRev*100 : 0;
+    const bg  = i%2===0 ? '#fdfcf9' : '#f8f5f0';
 
-  rowData.forEach((d,i) => {
-    const bg = i%2===0 ? '#fdfcf9' : '#f8f5f0';
     html += `<tr style="background:${bg};border-bottom:1px solid #f0ede6">`;
-    html += `<td style="padding:7px 12px;font-weight:700;color:#1a1714">${d.r}</td>`;
-    html += `<td style="padding:7px 12px;text-align:right;font-weight:700;color:#1a6b3a">${d.rev>0?fmtUSD(d.rev):'–'}</td>`;
-    html += `<td style="padding:7px 12px;text-align:right;color:#6b4a3a">${d.spend>0?fmtUSD(d.spend):'–'}</td>`;
-    html += `<td style="padding:7px 12px;text-align:right;font-weight:700;color:${roiColor(d.roi)}">${fmtPct2(d.roi)}</td>`;
+    html += `<td style="padding:6px 10px;font-weight:700;color:#1a1714">${r}</td>`;
+    html += `<td style="padding:6px 10px;text-align:right;font-weight:700;color:#1a6b3a">${fmtU(v.total)}</td>`;
+    html += `<td style="padding:6px 10px;text-align:right;color:#3a5c3a">${v.b2b>0?fmtU(v.b2b):'–'}</td>`;
+    html += `<td style="padding:6px 10px;text-align:right;color:#4a6b7c">${v.ecom>0?fmtU(v.ecom):'–'}</td>`;
+    html += `<td style="padding:6px 10px;text-align:right;color:#6b4a3a">${spendKrw>0?fmtK(spendKrw):'–'}</td>`;
+    html += `<td style="padding:6px 10px;text-align:right;font-weight:700;color:${rCol(roi)}">${fmtP(roi)}</td>`;
     // 비중 바
-    const barW = Math.round(d.pct);
-    html += `<td style="padding:7px 12px;text-align:right">`;
-    html += `<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">`;
-    html += `<div style="width:60px;background:#e8e4dc;height:5px;border-radius:3px;flex-shrink:0">`;
-    html += `<div style="width:${Math.min(100,barW)}%;height:100%;background:#5c6b4a;border-radius:3px"></div></div>`;
-    html += `<span style="min-width:30px;text-align:right;color:#6b6259">${d.pct.toFixed(1)}%</span>`;
-    html += `</div></td></tr>`;
+    html += `<td style="padding:6px 10px;text-align:right"><div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">`;
+    html += `<div style="width:50px;background:#e8e4dc;height:4px;border-radius:3px"><div style="width:${Math.min(100,pct.toFixed(0))}%;height:100%;background:#5c6b4a;border-radius:3px"></div></div>`;
+    html += `<span style="min-width:32px;text-align:right;color:#6b6259;font-size:10px">${pct.toFixed(1)}%</span></div></td>`;
+    html += '</tr>';
   });
 
   // 합계 행
   html += `<tr style="background:#e8e4dc;border-top:2px solid #c8c4bc;font-weight:700">`;
-  html += `<td style="padding:8px 12px;font-weight:700;color:#1a1714">합계</td>`;
-  html += `<td style="padding:8px 12px;text-align:right;color:#1a6b3a;font-weight:800">${fmtUSD(totalRev)}</td>`;
-  html += `<td style="padding:8px 12px;text-align:right;color:#6b4a3a">${totalSpend>0?fmtUSD(totalSpend):'–'}</td>`;
-  html += `<td style="padding:8px 12px;text-align:right;font-weight:800;color:${roiColor(totalRoi)}">${fmtPct2(totalRoi)}</td>`;
-  html += `<td style="padding:8px 12px;text-align:right;color:#8a8278">100%</td>`;
-  html += '</tr></tbody></table></div>';
+  html += `<td style="padding:8px 10px;font-weight:800">합계</td>`;
+  html += `<td style="padding:8px 10px;text-align:right;color:#1a6b3a;font-weight:800">${fmtU(totalRev)}</td>`;
+  html += `<td style="padding:8px 10px;text-align:right;color:#3a5c3a">${fmtU(totalB2B)}</td>`;
+  html += `<td style="padding:8px 10px;text-align:right;color:#4a6b7c">${totalEcom>0?fmtU(totalEcom):'–'}</td>`;
+  html += `<td style="padding:8px 10px;text-align:right;color:#6b4a3a">${totalSpendKrw>0?fmtK(totalSpendKrw):'–'}</td>`;
+  html += `<td style="padding:8px 10px;text-align:right;font-weight:800;color:${rCol(totalRoi)}">${fmtP(totalRoi)}</td>`;
+  html += `<td style="padding:8px 10px;text-align:right;color:#8a8278">100%</td>`;
+  html += '</tr>';
 
-  // 마지막 업데이트 정보
-  const lastMonth = Object.keys(revMonthly).sort().slice(-1)[0];
-  if(lastMonth) {
-    const mo = parseInt(lastMonth.slice(5));
-    html += `<div style="text-align:right;font-size:9px;color:#b0a898;margin-top:6px">${mo}월 기준 누적 · 📝 데이터 입력에서 업데이트</div>`;
-  }
+  // 범례
+  html += '<tr><td colspan="7" style="padding:6px 10px;font-size:9px;color:#b0a898">';
+  html += '※ B2B: 일반 딜러 채널 · e-Com: Amazon 등 e-커머스 · 집행비: KRW 기준 (÷1,502 환산)';
+  html += '</td></tr>';
+  html += '</tbody></table></div>';
 
   el.innerHTML = html;
 }
@@ -5207,7 +5208,7 @@ window.debugBudgetPlan = function() {
 // ── 디지털 KPI 기본 데이터 초기화 ──
 function initDkpiDefaultData() {
   // 이미 데이터가 있으면 건너뜀
-  if(localStorage.getItem('dkpi_initialized')==='v4') return;
+  if(localStorage.getItem('dkpi_initialized')==='v5') return;
   try {
     const eng  = {"2026-01": {"target": 4277306, "result": 4381186}, "2026-02": {"target": 9980381, "result": 5685770}, "2026-03": {"target": 9980381, "result": 6128704}, "2026-04": {"target": 9980381, "result": 2719065}, "2026-05": {"target": 11406149, "result": null}, "2026-06": {"target": 11406149, "result": null}, "2026-07": {"target": 11406149, "result": null}, "2026-08": {"target": 11406149, "result": null}, "2026-09": {"target": 12119034, "result": null}, "2026-10": {"target": 12119034, "result": null}, "2026-11": {"target": 19960761, "result": null}, "2026-12": {"target": 18534993, "result": null}};
     const clk  = {"2026-01": {"target": 83604, "result": 97900}, "2026-02": {"target": 125405, "result": 105568}, "2026-03": {"target": 209009, "result": 141947}, "2026-04": {"target": 334414, "result": 177904}, "2026-05": {"target": 334414, "result": null}, "2026-06": {"target": 376216, "result": null}, "2026-07": {"target": 376216, "result": null}, "2026-08": {"target": 418018, "result": null}, "2026-09": {"target": 418018, "result": null}, "2026-10": {"target": 418018, "result": null}, "2026-11": {"target": 543423, "result": null}, "2026-12": {"target": 543423, "result": null}};
@@ -5218,10 +5219,10 @@ function initDkpiDefaultData() {
     localStorage.setItem('region_sub_detail', JSON.stringify(regionSub));
     localStorage.setItem('region_sub_net', JSON.stringify(netMonthly));
     localStorage.setItem('region_sub_grand_total', '1369693');
-    const revenueData = {"ASIA": {"2026-01": 720738.83, "2026-02": 360079.47, "2026-03": 529373.18, "2026-04": 818848.14}, "CIS": {"2026-01": 2848036.64, "2026-02": 2186313.65, "2026-03": 2853069.52, "2026-04": 1931563.17}, "Domestic": {"2026-01": 315608.02, "2026-02": 240597.92, "2026-03": 223410.0, "2026-04": 158136.28}, "EUROPE": {"2026-01": 673877.76, "2026-02": 599096.89, "2026-03": 364919.85, "2026-04": 852498.4}, "LATAM": {"2026-01": 1800763.05, "2026-02": 1281384.7, "2026-03": 1549639.89, "2026-04": 1897274.26}, "MENA": {"2026-01": 1398148.95, "2026-02": 585233.0, "2026-03": 204853.22, "2026-04": 516776.4}, "NA": {"2026-01": 1042284.72, "2026-02": 805827.93, "2026-03": 1205139.99, "2026-04": 678536.94}, "RUS": {"2026-01": 2961612.21, "2026-02": 7758612.92, "2026-03": 8937232.11, "2026-04": 10594022.77}};
+    const revenueData = {"ASIA": {"2026-01": 720738.83, "2026-02": 360079.47, "2026-03": 529373.18, "2026-04": 818848.14}, "CIS": {"2026-01": 2848036.64, "2026-02": 2186313.65, "2026-03": 2853069.52, "2026-04": 1931563.17}, "Domestic": {"2026-01": 315608.02, "2026-02": 240597.92, "2026-03": 223410.0, "2026-04": 158136.28}, "EUROPE": {"2026-01": 673877.76, "2026-02": 599096.89, "2026-03": 364919.85, "2026-04": 852498.4}, "LATAM": {"2026-01": 1800763.05, "2026-02": 1281384.7, "2026-03": 1549639.89, "2026-04": 1897274.26}, "MENA": {"2026-01": 1398148.95, "2026-02": 585233.0, "2026-03": 204853.22, "2026-04": 516776.4}, "NA": {"2026-01": 906690.97, "2026-02": 764536.01, "2026-03": 1163940.62, "2026-04": 732667.7}, "RUS": {"2026-01": 2961612.21, "2026-02": 7758612.92, "2026-03": 8937232.11, "2026-04": 10594022.77}};
     localStorage.setItem('revenue_by_region', JSON.stringify(revenueData));
-    localStorage.setItem('revenue_monthly_total', JSON.stringify({"2026-01": 11761070.18, "2026-02": 13817146.48, "2026-03": 15867637.76, "2026-04": 17447656.36}));
-    localStorage.setItem('dkpi_initialized', 'v4');
+    localStorage.setItem('revenue_monthly_total', JSON.stringify({"2026-01": 11471137, "2026-02": 13162466, "2026-03": 15198838, "2026-04": 17498960}));
+    localStorage.setItem('dkpi_initialized', 'v5');
     console.log('[DKPI] 기본 데이터 초기화 완료');
   } catch(e) { console.warn('DKPI init failed:', e); }
 }
