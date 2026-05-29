@@ -3276,10 +3276,12 @@ function switchDkpiView(mode) {
   document.getElementById('dkpiBtnQ')?.classList.toggle('active', mode==='quarter');
   document.getElementById('dkpiBtnM')?.classList.toggle('active', mode==='month');
   document.getElementById('dkpiBtnC')?.classList.toggle('active', mode==='cumulative');
-  // 지역별 구독자도 추이 뷰로 자동 전환
-  _regView = 'bar';
-  document.getElementById('regViewDonut')?.classList.remove('active');
-  document.getElementById('regViewBar')?.classList.add('active');
+  // 지역별 구독자: 분기/월별/누적 토글 시 추이 뷰로 자동 전환
+  if(_regView !== 'bar') {
+    _regView = 'bar';
+    document.getElementById('regViewDonut')?.classList.remove('active');
+    document.getElementById('regViewBar')?.classList.add('active');
+  }
   renderDigitalKpiCharts(state._lastKpis||[], state._lastKpiTasks||[]);
   renderRegionSubChart();
 }
