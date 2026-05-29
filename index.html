@@ -3277,6 +3277,7 @@ function switchDkpiView(mode) {
   document.getElementById('dkpiBtnM')?.classList.toggle('active', mode==='month');
   document.getElementById('dkpiBtnC')?.classList.toggle('active', mode==='cumulative');
   renderDigitalKpiCharts(state._lastKpis||[], state._lastKpiTasks||[]);
+  renderRegionSubChart(); // 분기/월별/누적 토글 동기화
 }
 
 // ── 디지털 KPI 월별 localStorage 헬퍼 ──
@@ -5113,8 +5114,8 @@ function renderRegionSubChart() {
   const wrap = document.getElementById('regionSubWrap');
   if(!wrap) return;
 
-  const detail  = (() => { try { return JSON.parse(localStorage.getItem('region_sub_detail')||'{}'); } catch(e){return {};} })();
-  const netRaw  = (() => { try { return JSON.parse(localStorage.getItem('region_sub_net')||'{}'); } catch(e){return {};} })();
+  const detail     = (() => { try { return JSON.parse(localStorage.getItem('region_sub_detail')||'{}'); } catch(e){return {};} })();
+  const netRaw     = (() => { try { return JSON.parse(localStorage.getItem('region_sub_net')||'{}'); } catch(e){return {};} })();
   const grandTotal = (() => { try { return parseInt(localStorage.getItem('region_sub_grand_total')||'0'); } catch(e){return 0;} })();
 
   if(!Object.keys(detail).length) {
@@ -5123,17 +5124,24 @@ function renderRegionSubChart() {
   }
 
   const COLORS = ['#5c6b4a','#4a6b7c','#c17f3a','#8a5a3a','#6b4a7c','#3a7c6b','#7c4a5a','#4a7c5c','#7c7c3a','#4a547c','#7c6b4a','#3a6b4a'];
-  const fmtN = v => v>=1000000?(v/1000000).toFixed(2)+'M':v>=1000?(v/1000).toFixed(1)+'K':String(v);
+  const fmtN   = v => v>=1000000?(v/1000000).toFixed(2)+'M':v>=1000?(v/1000).toFixed(1)+'K':String(v);
 
   const entries = Object.entries(detail)
-    .map(([r,v],i)=>({r,total:v.total||0,monthly:v.monthly||{},color:COLORS[i%COLORS.length]}))
-    .filter(x=>x.total>0)
-    .sort((a,b)=>b.total-a.total);
+    .map(([r,v],i) => ({r, total:v.total||0, monthly:v.monthly||{}, color:COLORS[i%COLORS.length]}))
+    .filter(x => x.total > 0)
+    .sort((a,b) => b.total - a.total);
 
-  const sumTotal = grandTotal || entries.reduce((s,x)=>s+x.total,0);
+  const sumTotal  = grandTotal || entries.reduce((s,x) => s+x.total, 0);
   const netMonths = Object.keys(netRaw).sort();
 
-  // ── 포션 뷰: 도넛 + 범례 ──
+  // _dkpiView 값으로 뷰 결정 (포션은 donut 유지, 나머지는 bar 계열)
+  // 분기별: 분기별 신규 합산 바
+  // 월별:   월별 지역별 스택 바 (기존 bar)
+  // 누적:   월별 누적 라인 차트
+
+  const currentView = _dkpiView || 'quarter'; // 기본 분기별
+
+  // ── 포션 뷰 (도넛+범례) - donut 버튼 클릭 시 OR _regView==='donut' ──
   if(_regView === 'donut') {
     wrap.innerHTML =
       '<div style="display:flex;gap:10px;align-items:flex-start">'
@@ -5144,8 +5152,8 @@ function renderRegionSubChart() {
       + '<div style="font-size:9px;color:#8a8278">총 구독자</div>'
       + '</div></div>'
       + '<div style="flex:1;overflow-y:auto;max-height:150px;min-width:0">'
-      + entries.map((x,i) => {
-          const pct = sumTotal>0 ? (x.total/sumTotal*100).toFixed(1) : '0';
+      + entries.map(x => {
+          const pct   = sumTotal>0 ? (x.total/sumTotal*100).toFixed(1) : '0';
           const lastMo = Object.keys(x.monthly).sort().slice(-1)[0];
           const lastV  = lastMo ? (x.monthly[lastMo]||0) : 0;
           return '<div style="display:flex;align-items:center;gap:5px;padding:2px 0">'
@@ -5170,14 +5178,11 @@ function renderRegionSubChart() {
         datasets:[{
           data: entries.map(x=>x.total),
           backgroundColor: entries.map(x=>x.color),
-          borderWidth:2,
-          borderColor:'#fdfcf9',
-          hoverOffset:4
+          borderWidth:2, borderColor:'#fdfcf9', hoverOffset:4
         }]
       },
       options:{
-        responsive:false,
-        cutout:'60%',
+        responsive:false, cutout:'60%',
         plugins:{
           legend:{display:false},
           tooltip:{callbacks:{label:c=>c.label+': '+fmtN(c.raw)+' ('+((c.raw/sumTotal)*100).toFixed(1)+'%)'}}
@@ -5187,97 +5192,101 @@ function renderRegionSubChart() {
     return;
   }
 
-  // ── 추이 뷰: 스택 바 차트 (지역별 월별 순증) ──
-  const months = netMonths.length ? netMonths
-    : Object.keys(detail[entries[0]?.r]?.monthly||{}).sort().filter(m=>m.startsWith('2026'));
+  // ── 추이 뷰 (분기별 / 월별 / 누적) ──
+  const allMonths = netMonths.length ? netMonths
+    : [...new Set(entries.flatMap(x=>Object.keys(x.monthly)))].sort().filter(m=>m.startsWith('2026'));
 
-  if(!months.length) {
+  if(!allMonths.length) {
     wrap.innerHTML = '<div style="text-align:center;font-size:11px;color:#8a8278;padding:24px">월별 데이터 없음</div>';
     return;
   }
 
-  const moLabels = months.map(m => parseInt(m.slice(5))+'월');
+  let labels, datasets, isCum = false, isQ = false;
 
-  // 순증 라인 + 지역별 스택 바
-  const datasets = entries
-    .filter(x => months.some(m => (x.monthly[m]||0)>0))
-    .map(x => ({
+  if(currentView === 'quarter') {
+    // 분기별: 4분기로 집계
+    isQ = true;
+    const qMap = {'01':'Q1','02':'Q1','03':'Q1','04':'Q2','05':'Q2','06':'Q2','07':'Q3','08':'Q3','09':'Q3','10':'Q4','11':'Q4','12':'Q4'};
+    const qOrder = ['Q1','Q2','Q3','Q4'];
+    labels = qOrder;
+    const filteredEntries = entries.filter(x => qOrder.some(q =>
+      allMonths.filter(m=>qMap[m.slice(5)]===q).some(mo=>(x.monthly[mo]||0)>0)
+    ));
+    datasets = filteredEntries.map(x => ({
       label: x.r,
-      data: months.map(m => x.monthly[m]||0),
-      backgroundColor: x.color.replace(')',', .75)').replace('rgb','rgba').replace('#', 'rgba('+parseInt(x.color.slice(1,3),16)+','+parseInt(x.color.slice(3,5),16)+','+parseInt(x.color.slice(5,7),16)+','),
-      borderColor: x.color,
-      borderWidth: 1,
-      stack: 'region',
+      data: qOrder.map(q => allMonths.filter(m=>qMap[m.slice(5)]===q).reduce((s,mo)=>s+(x.monthly[mo]||0),0)),
+      backgroundColor: x.color+'cc', borderColor: x.color, borderWidth:1, stack:'region'
     }));
+    // 분기별 순증 라인
+    const netQData = qOrder.map(q => allMonths.filter(m=>qMap[m.slice(5)]===q).reduce((s,mo)=>s+(netRaw[mo]||0),0));
+    datasets.unshift({type:'line',label:'전체 순증',data:netQData,borderColor:'#1a1714',borderWidth:2,
+      pointBackgroundColor:'#1a1714',pointRadius:4,fill:false,tension:.3,order:0,yAxisID:'y'});
 
-  // 색상 처리를 더 간단하게
-  const coloredDatasets = entries
-    .filter(x => months.some(m => (x.monthly[m]||0)>0))
-    .map(x => ({
+  } else if(currentView === 'month') {
+    // 월별: 지역별 스택
+    labels = allMonths.map(m => parseInt(m.slice(5))+'월');
+    const filteredEntries = entries.filter(x => allMonths.some(m=>(x.monthly[m]||0)>0));
+    datasets = filteredEntries.map(x => ({
       label: x.r,
-      data: months.map(m => x.monthly[m]||0),
-      backgroundColor: x.color + 'cc',
-      borderColor: x.color,
-      borderWidth: 1,
-      stack: 'region',
+      data: allMonths.map(m => x.monthly[m]||0),
+      backgroundColor: x.color+'cc', borderColor: x.color, borderWidth:1, stack:'region'
     }));
+    const netDataset = {type:'line',label:'전체 순증',data:allMonths.map(m=>netRaw[m]||0),
+      borderColor:'#1a1714',borderWidth:2,pointBackgroundColor:'#1a1714',pointRadius:4,
+      fill:false,tension:.3,order:0,yAxisID:'y'};
+    datasets.unshift(netDataset);
 
-  // 전체 순증 라인 (netRaw)
-  const netDataset = {
-    type: 'line',
-    label: '전체 순증',
-    data: months.map(m => netRaw[m]||0),
-    borderColor: '#1a1714',
-    borderWidth: 2,
-    pointBackgroundColor: '#1a1714',
-    pointRadius: 4,
-    fill: false,
-    tension: .3,
-    order: 0,
-    yAxisID: 'y',
-  };
+  } else {
+    // 누적: 월별 누계 라인 (지역별 + 전체)
+    isCum = true;
+    labels = allMonths.map(m => parseInt(m.slice(5))+'월');
+    const filteredEntries = entries.filter(x => allMonths.some(m=>(x.monthly[m]||0)>0));
+    datasets = filteredEntries.map(x => {
+      let cum = 0;
+      return {
+        type:'line', label: x.r,
+        data: allMonths.map(m => { cum += x.monthly[m]||0; return cum; }),
+        borderColor: x.color, borderWidth:2, pointRadius:3,
+        fill: false, tension:.4, order:1
+      };
+    });
+    // 전체 누적 라인
+    let cumNet = 0;
+    const netCumData = allMonths.map(m => { cumNet += netRaw[m]||0; return cumNet; });
+    datasets.unshift({type:'line',label:'전체 순증 누계',data:netCumData,
+      borderColor:'#1a1714',borderWidth:2.5,pointBackgroundColor:'#1a1714',
+      pointRadius:4,fill:false,tension:.4,order:0,borderDash:[]});
+  }
 
   wrap.innerHTML = '<canvas id="regionBarChart" height="160"></canvas>';
   const ctx2 = document.getElementById('regionBarChart');
   if(!ctx2) return;
   if(window._regionBarChart) window._regionBarChart.destroy();
+
   window._regionBarChart = new Chart(ctx2, {
-    type:'bar',
-    data:{
-      labels: moLabels,
-      datasets: [netDataset, ...coloredDatasets]
-    },
+    type: isCum ? 'line' : 'bar',
+    data:{ labels, datasets },
     options:{
       responsive:true,
-      layout:{padding:{top:14}},
+      layout:{padding:{top:16}},
       plugins:{
         legend:{
-          display:true,
-          position:'bottom',
-          labels:{
-            boxWidth:8, font:{size:9}, color:'#6b6259', padding:6,
-            filter: item => item.text !== '전체 순증'
-          }
+          display:true, position:'bottom',
+          labels:{boxWidth:8,font:{size:9},color:'#6b6259',padding:5,
+            filter: item => item.text !== '전체 순증' && item.text !== '전체 순증 누계' || isCum}
         },
-        tooltip:{
-          callbacks:{
-            label: c => c.dataset.label+': '+new Intl.NumberFormat('ko-KR').format(c.parsed.y)
-          }
-        }
+        tooltip:{callbacks:{label:c=>c.dataset.label+': '+new Intl.NumberFormat('ko-KR').format(c.parsed.y)+(isCum?' (누계)':'')}}
       },
       scales:{
         x:{
-          stacked:true,
+          stacked: !isCum,
           ticks:{color:'#8a8278',font:{size:10}},
           grid:{display:false}
         },
         y:{
-          stacked:true,
+          stacked: !isCum,
           beginAtZero:true,
-          ticks:{
-            color:'#8a8278',font:{size:9},
-            callback:v=>v>=1000?(v/1000).toFixed(0)+'K':v
-          },
+          ticks:{color:'#8a8278',font:{size:9},callback:v=>v>=1000?(v/1000).toFixed(0)+'K':v},
           grid:{color:'rgba(60,50,40,.05)'}
         }
       }
