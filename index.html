@@ -2782,82 +2782,65 @@ function renderKpiGauge(kpi, taskList) {
     return m ? Number(m[0]) : null;
   };
   const fmtV = v => {
-    if(v===null) return '–';
+    if(v===null) return '\u2013';
     if(v>=1000000) return (v/1000000).toFixed(1)+'M';
     if(v>=1000) return (v/1000).toFixed(0)+'K';
     return String(Math.round(v));
   };
   const unit = kpi.unit||'';
-
-  // 현재 분기 결정
   const curQ = (() => { const mo=new Date().getMonth(); return mo<3?'q1':mo<6?'q2':mo<9?'q3':'q4'; })();
 
-  // Task 기반 진척도: 분기별 task.progress(실측값) 합 / 해당 분기 q_target
-  // 분기별 집계
   const byQ = { q1:0, q2:0, q3:0, q4:0 };
-  const cntQ = { q1:0, q2:0, q3:0, q4:0 };
   for(const t of taskList) {
-    const tq = (t.quarter||'').toLowerCase().replace(/[^q1-4]/g,'').trim();
-    const q  = ['q1','q2','q3','q4'].find(q=>tq.includes(q)) || curQ;
-    byQ[q] = (byQ[q]||0) + Number(t.progress||0);
-    cntQ[q] = (cntQ[q]||0) + 1;
+    const raw = (t.quarter||'').toLowerCase();
+    const q   = ['q1','q2','q3','q4'].find(qq => raw.includes(qq)) || curQ;
+    byQ[q] += Number(t.progress||0);
   }
 
-  // 가장 최신 데이터가 있는 분기 선택 (진척도 표시용)
   let displayQ = curQ;
   for(const q of [curQ,'q2','q1','q3','q4']) {
-    if(byQ[q] > 0 || parseN(kpi[q+'_result']) !== null) { displayQ=q; break; }
+    if(byQ[q]>0 || parseN(kpi[q+'_result'])!==null) { displayQ=q; break; }
   }
 
-  // 1순위: DB q_result 직접 입력값
   const dbResult = parseN(kpi[displayQ+'_result']);
   const qTarget  = parseN(kpi[displayQ+'_target']);
 
-  let actualVal, targetVal, achvPct, sourceLabel;
+  let actualVal=null, targetVal=null, achvPct=null, sourceLabel='';
 
-  if(dbResult !== null && qTarget !== null && qTarget > 0) {
-    // DB 결과값 우선
-    actualVal   = dbResult;
-    targetVal   = qTarget;
-    achvPct     = Math.round(dbResult / qTarget * 100);
-    sourceLabel = displayQ.toUpperCase();
-  } else if(byQ[displayQ] > 0 && qTarget !== null && qTarget > 0) {
-    // Task progress 합산
-    actualVal   = byQ[displayQ];
-    targetVal   = qTarget;
-    achvPct     = Math.round(byQ[displayQ] / qTarget * 100);
-    sourceLabel = displayQ.toUpperCase()+'·Task합';
-  } else if(taskList.length > 0) {
-    // 전체 분기 합산 / q4_target
+  if(dbResult!==null && qTarget!==null && qTarget>0) {
+    actualVal=dbResult; targetVal=qTarget;
+    achvPct=Math.round(dbResult/qTarget*100);
+    sourceLabel=displayQ.toUpperCase();
+  } else if(byQ[displayQ]>0 && qTarget!==null && qTarget>0) {
+    actualVal=byQ[displayQ]; targetVal=qTarget;
+    achvPct=Math.round(byQ[displayQ]/qTarget*100);
+    sourceLabel=displayQ.toUpperCase()+' Task';
+  } else {
     const totalProg = Object.values(byQ).reduce((s,v)=>s+v,0);
-    const annualT   = parseN(kpi.q4_target) || Math.max(...['q1','q2','q3'].map(q=>parseN(kpi[q+'_target'])||0));
-    if(annualT > 0 && totalProg > 0) {
-      actualVal   = totalProg;
-      targetVal   = annualT;
-      achvPct     = Math.round(totalProg / annualT * 100);
-      sourceLabel = '연간·Task합';
+    const annualT   = parseN(kpi.q4_target)||Math.max(...['q1','q2','q3'].map(q=>parseN(kpi[q+'_target'])||0));
+    if(annualT>0 && totalProg>0) {
+      actualVal=totalProg; targetVal=annualT;
+      achvPct=Math.round(totalProg/annualT*100);
+      sourceLabel='연간';
     }
   }
 
-  if(achvPct == null) {
-    return '<div class="kpi-gauge-pct">–</div>'
+  if(achvPct===null) {
+    return '<div class="kpi-gauge-pct">\u2013</div>'
       +'<div class="kpi-gauge-outer"><div class="kpi-gauge-bar" style="width:0%"></div></div>'
-      +'<div style="font-size:9px;color:#b0a898;margin-top:2px">실적 미입력</div>';
+      +'<div style="font-size:9px;color:#b0a898;margin-top:2px">\uc2e4\uc801 \ubbf8\uc785\ub825</div>';
   }
-
-  const cc  = achvPct>=80?'':achvPct>=50?'warn':'danger';
-  const barW = Math.min(100, achvPct);
-
-  return ''
-    +'<div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px">'
-    +  `<span class="kpi-gauge-pct">${achvPct}%</span>`
-    +  `<span style="font-size:9px;color:#8a8278;font-weight:600">${sourceLabel}</span>`
+  const cc = achvPct>=80?'':achvPct>=50?'warn':'danger';
+  const bw = Math.min(100,achvPct);
+  return '<div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px">'
+    +'<span class="kpi-gauge-pct">'+achvPct+'%</span>'
+    +'<span style="font-size:9px;color:#8a8278;font-weight:600">'+sourceLabel+'</span>'
     +'</div>'
-    +`<div class="kpi-gauge-outer"><div class="kpi-gauge-bar ${cc}" style="width:${barW}%"></div></div>`
+    +'<div class="kpi-gauge-outer"><div class="kpi-gauge-bar '+cc+'" style="width:'+bw+'%"></div></div>'
     +'<div style="font-size:10px;color:#6b6259;margin-top:3px">'
-    +  `<span style="color:#5c6b4a;font-weight:700">${fmtV(actualVal)}</span>`
-    +  `<span style="color:#8a8278"> / ${fmtV(targetVal)}</span>`
-    +  (unit?`<span style="color:#8a8278;margin-left:2px">${unit}</span>`:'')
+    +'<span style="color:#5c6b4a;font-weight:700">'+fmtV(actualVal)+'</span>'
+    +'<span style="color:#8a8278"> / '+fmtV(targetVal)+'</span>'
+    +(unit?'<span style="color:#8a8278;margin-left:2px">'+unit+'</span>':'')
     +'</div>';
 }
 
