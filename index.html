@@ -5695,59 +5695,47 @@ function renderRegionSubChart() {
 
   // ── 포션 뷰 (도넛+범례) - donut 버튼 클릭 시 OR _regView==='donut' ──
   if(_regView === 'donut') {
-    wrap.innerHTML =
-      '<div style="display:flex;flex-direction:column;align-items:center;gap:10px">'
-      // 도넛
-      + '<div style="position:relative;width:160px;height:160px;flex-shrink:0">'
-      +   '<canvas id="regionDonutChart" width="160" height="160"></canvas>'
-      +   '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">'
-      +     '<div style="font-size:12px;font-weight:800;color:#1a1714;line-height:1.1">'+fmtN(sumTotal)+'</div>'
-      +     '<div style="font-size:9px;color:#8a8278">총 구독자</div>'
-      +   '</div>'
-      + '</div>'
-      // 범례 2열 그리드
-      + '<div style="width:100%;display:grid;grid-template-columns:1fr 1fr;gap:3px 8px">'
-      + entries.map(x => {
-          const pct   = sumTotal>0 ? (x.total/sumTotal*100).toFixed(1) : '0';
-          const lastMo = Object.keys(x.monthly).sort().slice(-1)[0];
-          const lastV  = lastMo ? (x.monthly[lastMo]||0) : 0;
-          return '<div style="display:flex;align-items:center;gap:5px;padding:3px 4px;background:#faf8f4;border-radius:3px;overflow:hidden">'
-            + '<div style="width:8px;height:8px;border-radius:50%;background:'+x.color+';flex-shrink:0"></div>'
-            + '<div style="flex:1;min-width:0;overflow:hidden">'
-            +   '<div style="font-size:10px;font-weight:700;color:#1a1714;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+x.r+'</div>'
-            +   '<div style="font-size:9px;color:#6b6259">'+fmtN(x.total)+'</div>'
-            + '</div>'
-            + '<div style="text-align:right;flex-shrink:0">'
-            +   '<div style="font-size:10px;font-weight:800;color:#3d3830">'+pct+'%</div>'
-            +   (lastV>0?'<div style="font-size:8px;color:#5c6b4a">+'+fmtN(lastV)+'</div>':'')
-            + '</div>'
-            + '</div>';
-        }).join('')
-      + '</div>'
-      + '</div>';
+    wrap.innerHTML = (function() {
+      var h = '';
+      h += '<div style="display:flex;flex-direction:column;align-items:center;gap:10px">';
+      h += '<div style="position:relative;width:160px;height:160px">';
+      h += '<canvas id="regionDonutChart" width="160" height="160"></canvas>';
+      h += '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">';
+      h += '<div style="font-size:12px;font-weight:800;color:#1a1714">' + fmtN(sumTotal) + '</div>';
+      h += '<div style="font-size:9px;color:#8a8278">총 구독자</div></div></div>';
+      h += '<div style="width:100%;display:grid;grid-template-columns:1fr 1fr;gap:3px 6px">';
+      entries.forEach(function(x) {
+        var pct = sumTotal>0 ? (x.total/sumTotal*100).toFixed(1) : '0';
+        var lm = Object.keys(x.monthly).sort().slice(-1)[0];
+        var lv = lm ? (x.monthly[lm]||0) : 0;
+        h += '<div style="display:flex;align-items:center;gap:4px;padding:3px;background:#faf8f4;border-radius:3px;overflow:hidden">';
+        h += '<div style="width:7px;height:7px;border-radius:50%;background:' + x.color + ';flex-shrink:0"></div>';
+        h += '<div style="flex:1;min-width:0;overflow:hidden">';
+        h += '<div style="font-size:10px;font-weight:700;color:#1a1714;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + x.r + '</div>';
+        h += '<div style="font-size:9px;color:#6b6259">' + fmtN(x.total) + '</div></div>';
+        h += '<div style="text-align:right;flex-shrink:0">';
+        h += '<div style="font-size:10px;font-weight:800;color:#3d3830">' + pct + '%</div>';
+        if(lv>0) h += '<div style="font-size:8px;color:#5c6b4a">+' + fmtN(lv) + '</div>';
+        h += '</div></div>';
+      });
+      h += '</div></div>';
+      return h;
+    })();
 
-    const ctx = document.getElementById('regionDonutChart');
+    var ctx = document.getElementById('regionDonutChart');
     if(!ctx) return;
     if(window._regionDonutChart) window._regionDonutChart.destroy();
     window._regionDonutChart = new Chart(ctx, {
       type:'doughnut',
-      data:{
-        labels: entries.map(x=>x.r),
-        datasets:[{
-          data: entries.map(x=>x.total),
-          backgroundColor: entries.map(x=>x.color),
-          borderWidth:2, borderColor:'#fdfcf9', hoverOffset:4
-        }]
-      },
-      options:{
-        responsive:false, cutout:'58%',
-        plugins:{
-          legend:{display:false},
-          tooltip:{callbacks:{label:c=>c.label+': '+fmtN(c.raw)+' ('+((c.raw/sumTotal)*100).toFixed(1)+'%)'}}
-        }
-      }
+      data:{ labels: entries.map(function(x){return x.r;}),
+        datasets:[{ data: entries.map(function(x){return x.total;}),
+          backgroundColor: entries.map(function(x){return x.color;}),
+          borderWidth:2, borderColor:'#fdfcf9', hoverOffset:4 }] },
+      options:{ responsive:false, cutout:'58%',
+        plugins:{ legend:{display:false},
+          tooltip:{callbacks:{label:function(c){return c.label+': '+fmtN(c.raw)+' ('+((c.raw/sumTotal)*100).toFixed(1)+'%)';}}} } }
     });
-    return;}
+    return;;}
 
   // ── 추이 뷰 (분기별 / 월별 / 누적) ──
   const allMonths = netMonths.length ? netMonths
