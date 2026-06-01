@@ -5504,6 +5504,26 @@ function updateOrderMiniChart() {
 
   const labels = months.map(m => { const [,mm]=m.split('-'); return parseInt(mm)+'월'; });
   const values = months.map(m => monthly[m] || 0);
+  const fmtUSD = v => v>=1000000?'$'+(v/1000000).toFixed(1)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':v>0?'$'+Math.round(v):'';
+
+  // 수치 라벨 플러그인
+  const orderLabelPlugin = {
+    id: 'orderLabels',
+    afterDatasetsDraw(chart) {
+      const {ctx: c, data} = chart;
+      c.save();
+      c.font = 'bold 9px sans-serif';
+      c.textAlign = 'center';
+      c.textBaseline = 'bottom';
+      chart.getDatasetMeta(0).data.forEach((bar, i) => {
+        const val = data.datasets[0].data[i];
+        if(!val) return;
+        c.fillStyle = bar.options?.backgroundColor?.includes('0.9') ? '#3d3830' : '#5c6b4a';
+        c.fillText(fmtUSD(val), bar.x, bar.y - 2);
+      });
+      c.restore();
+    }
+  };
 
   if(window._orderMiniChart) window._orderMiniChart.destroy();
   window._orderMiniChart = new Chart(ctx, {
@@ -5514,11 +5534,13 @@ function updateOrderMiniChart() {
         data: values,
         backgroundColor: values.map((v,i) => i===values.length-1 ? 'rgba(92,107,74,.9)' : 'rgba(92,107,74,.35)'),
         borderRadius: 2,
-        barPercentage: 0.7,
+        barPercentage: 0.65,
       }]
     },
+    plugins: [orderLabelPlugin],
     options:{
       responsive:true,
+      layout:{padding:{top:18}},
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'$'+new Intl.NumberFormat('en-US').format(Math.round(c.parsed.y))}}},
       scales:{
         x:{ticks:{color:'#8a8278',font:{size:9}},grid:{display:false}},
@@ -5527,6 +5549,7 @@ function updateOrderMiniChart() {
     }
   });
 }
+
 
 // ── CTR WebLead 실시간 데이터 ──
 async function fetchWebLeadData() {
