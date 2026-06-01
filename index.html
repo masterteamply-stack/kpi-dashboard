@@ -1294,8 +1294,8 @@
         <button class="panel-collapse-btn" onclick="togglePanel('regionPanel',this)">−</button>
       </div>
       <div id="regionContent" class="panel-content">
-        <div style="display:grid;grid-template-columns:60% 40%;gap:16px;align-items:start;overflow:hidden">
-          <div id="regionRoiTable" style="overflow:hidden;min-width:0"></div>
+        <div style="display:grid;grid-template-columns:60% 40%;gap:16px;align-items:start">
+          <div id="regionRoiTable" style="min-width:0;overflow:visible"></div>
           <div>
             <div style="font-size:11px;font-weight:700;color:#4a4038;margin-bottom:8px">지역별 예산 집행</div>
             <div style="display:flex;flex-direction:column;align-items:center">
@@ -4565,8 +4565,8 @@ function renderRegionOrderChart(tasks) {
   const totalRoi   = totalSpendU>0?((totalRev-totalSpendU)/totalSpendU*100):null;
 
   // 컬럼: 지역 | 매출 | 집행비 | ROI
-  let h = '<table style="width:100%;border-collapse:collapse;font-size:10px;table-layout:fixed">';
-  h += '<colgroup><col style="width:22%"><col style="width:24%"><col style="width:26%"><col style="width:28%"></colgroup>';
+  let h = '<div style="overflow:visible"><table style="width:100%;border-collapse:collapse;font-size:10px;table-layout:fixed">';
+  h += '<colgroup><col style="width:20%"><col style="width:24%"><col style="width:24%"><col style="width:32%"></colgroup>';
   h += '<thead><tr style="background:#e8e4dc">';
   [['지역','left'],['매출','right'],['집행비','right'],['ROI','right']].forEach(([label,align])=>{
     h += `<th style="padding:5px 6px;text-align:${align};font-size:9px;font-weight:700;color:#4a4038;white-space:nowrap">${label}</th>`;
@@ -4593,6 +4593,7 @@ function renderRegionOrderChart(tasks) {
   h += `<td style="padding:5px 6px;text-align:right;font-weight:800;color:${rCol(totalRoi)};white-space:nowrap">${fmtP(totalRoi)}</td>`;
   h += '</tr>';
   h += '</tbody></table>';
+  h += '</div>';
   h += `<div style="text-align:right;font-size:8px;color:#b0a898;margin-top:4px">4월 기준 누적 · 집행비:KRW ÷ ${_KRW_USD}</div>`;
   el.innerHTML = h;
 }
