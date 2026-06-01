@@ -1294,7 +1294,7 @@
         <button class="panel-collapse-btn" onclick="togglePanel('regionPanel',this)">−</button>
       </div>
       <div id="regionContent" class="panel-content">
-        <div style="display:grid;grid-template-columns:1fr 260px;gap:20px;align-items:start">
+        <div style="display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start">
           <div id="regionRoiTable"></div>
           <div>
             <div style="font-size:11px;font-weight:700;color:#4a4038;margin-bottom:10px">지역별 예산 집행</div>
@@ -4528,89 +4528,93 @@ function renderRegionOrderChart(tasks) {
   const el = document.getElementById('regionRoiTable');
   if(!el) return;
 
+  // 매출 데이터 (B2B + e-Com 합산)
   const b2bData  = (() => { try { return JSON.parse(localStorage.getItem('revenue_by_region')||'{}'); } catch(e){return {};} })();
   const ecomData = (() => { try { return JSON.parse(localStorage.getItem('ecom_by_region')||'{}'); } catch(e){return {};} })();
 
-  // 지역별 매출 합산 (B2B + e-Com)
+  // 지역별 총 매출 합산 (B2B + e-Com 통합)
   const allRegions = new Set([...Object.keys(b2bData), ...Object.keys(ecomData)]);
-  const regionData = {};
+  const revByRegion = {};
   for(const r of allRegions) {
     const b2b  = Object.values(b2bData[r]||{}).reduce((s,v)=>s+Number(v||0),0);
     const ecom = Object.values(ecomData[r]||{}).reduce((s,v)=>s+Number(v||0),0);
-    regionData[r] = { b2b, ecom, total: b2b+ecom };
+    revByRegion[r] = b2b + ecom;
   }
 
-  // 마케팅 집행비 (tasks)
+  // 지역별 마케팅 집행비 (KRW)
   const spendByRegion = {};
   for(const t of tasks) {
-    const r = (t.region||'GLOBAL').toUpperCase(); // HQ 마컴팀 기본 = GLOBAL
+    const r = (t.region||'GLOBAL').toUpperCase();
     const v = Number(t.spend||t.allocated_budget||0);
     if(v>0) spendByRegion[r] = (spendByRegion[r]||0) + v;
   }
+
   const _KRW_USD = 1502;
+  const totalRev   = Object.values(revByRegion).reduce((s,v)=>s+v,0);
+  const totalSpendK= Object.values(spendByRegion).reduce((s,v)=>s+v,0);
+  const totalSpendU= totalSpendK / _KRW_USD;
+  const totalRoi   = totalSpendU>0 ? ((totalRev-totalSpendU)/totalSpendU*100) : null;
 
-  // 전체 합계
-  const totalB2B  = Object.values(regionData).reduce((s,v)=>s+v.b2b, 0);
-  const totalEcom = Object.values(regionData).reduce((s,v)=>s+v.ecom, 0);
-  const totalRev  = totalB2B + totalEcom;
-  const totalSpendKrw = Object.values(spendByRegion).reduce((s,v)=>s+v, 0);
-  const totalSpendUsd = totalSpendKrw / _KRW_USD;
-  const totalRoi = totalSpendUsd>0 ? ((totalRev-totalSpendUsd)/totalSpendUsd*100) : null;
+  const fmtU  = v => v>=1000000?'$'+(v/1000000).toFixed(2)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':v>0?'$'+Math.round(v).toLocaleString():'–';
+  const fmtK  = v => v>=100000000?'₩'+(v/100000000).toFixed(1)+'억':v>=10000?'₩'+(v/10000).toFixed(0)+'만':v>0?'₩'+v.toLocaleString():'–';
+  const fmtP  = v => v===null?'–':(v>=0?'+':'')+v.toFixed(1)+'%';
+  const rCol  = v => v===null?'#8a8278':v>=100?'#1a6b1a':v>=0?'#3a7c3a':'#c0392b';
 
-  const fmtU = v => v>=1000000?'$'+(v/1000000).toFixed(2)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':v>0?'$'+Math.round(v).toLocaleString():'–';
-  const fmtK = v => v>=100000000?'₩'+(v/100000000).toFixed(1)+'억':v>=10000?'₩'+(v/10000).toFixed(0)+'만':v>0?'₩'+v.toLocaleString():'–';
-  const fmtP = v => v===null?'–':(v>=0?'+':'')+v.toFixed(1)+'%';
-  const rCol = v => v===null?'#8a8278':v>=100?'#1a6b1a':v>=0?'#3a7c3a':'#c0392b';
+  const entries = Object.entries(revByRegion)
+    .filter(([,v]) => v>0 || spendByRegion[_r = arguments[0]] > 0)
+    .map(([r,rev]) => ({ r, rev, spend:spendByRegion[r]||0 }))
+    .filter(d => d.rev>0 || d.spend>0)
+    .sort((a,b) => b.rev-a.rev);
 
-  const entries = Object.entries(regionData).filter(([,v])=>v.total>0).sort((a,b)=>b[1].total-a[1].total);
+  // 실제로는 entries를 다시 만들기
+  const rows2 = [];
+  for(const r of [...new Set([...Object.keys(revByRegion), ...Object.keys(spendByRegion)])]) {
+    const rev   = revByRegion[r]||0;
+    const spend = spendByRegion[r]||0;
+    if(rev>0 || spend>0) rows2.push({ r, rev, spend });
+  }
+  rows2.sort((a,b) => b.rev-a.rev);
 
-  let html = '<div style="overflow-x:auto">';
-  html += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
-  html += '<thead><tr style="background:#e8e4dc">';
-  ['지역','총 매출','B2B','e-Com','집행비','ROI','비중'].forEach(h => {
-    html += `<th style="padding:7px 10px;text-align:${h==='지역'?'left':'right'};font-size:10px;font-weight:700;color:#4a4038;white-space:nowrap">${h}</th>`;
+  let html2 = '<div style="overflow-x:auto">';
+  html2 += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+  html2 += '<thead><tr style="background:#e8e4dc">';
+  ['지역','매출 (USD)','집행비','ROI','비중'].forEach(h => {
+    html2 += `<th style="padding:7px 10px;text-align:${h==='지역'?'left':'right'};font-size:10px;font-weight:700;color:#4a4038;white-space:nowrap">${h}</th>`;
   });
-  html += '</tr></thead><tbody>';
+  html2 += '</tr></thead><tbody>';
 
-  entries.forEach(([ r, v ], i) => {
-    const spendKrw = spendByRegion[r.toUpperCase()]||spendByRegion[r]||0;
-    const spendUsd = spendKrw / _KRW_USD;
-    const roi = spendUsd>0 ? ((v.total-spendUsd)/spendUsd*100) : null;
-    const pct = totalRev>0 ? v.total/totalRev*100 : 0;
-    const bg  = i%2===0 ? '#fdfcf9' : '#f8f5f0';
-
-    html += `<tr style="background:${bg};border-bottom:1px solid #f0ede6">`;
-    html += `<td style="padding:6px 10px;font-weight:700;color:#1a1714">${r}</td>`;
-    html += `<td style="padding:6px 10px;text-align:right;font-weight:700;color:#1a6b3a">${fmtU(v.total)}</td>`;
-    html += `<td style="padding:6px 10px;text-align:right;color:#3a5c3a">${v.b2b>0?fmtU(v.b2b):'–'}</td>`;
-    html += `<td style="padding:6px 10px;text-align:right;color:#4a6b7c">${v.ecom>0?fmtU(v.ecom):'–'}</td>`;
-    html += `<td style="padding:6px 10px;text-align:right;color:#6b4a3a">${spendKrw>0?fmtK(spendKrw):'–'}</td>`;
-    html += `<td style="padding:6px 10px;text-align:right;font-weight:700;color:${rCol(roi)}">${fmtP(roi)}</td>`;
-    // 비중 바
-    html += `<td style="padding:6px 10px;text-align:right"><div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">`;
-    html += `<div style="width:50px;background:#e8e4dc;height:4px;border-radius:3px"><div style="width:${Math.min(100,pct.toFixed(0))}%;height:100%;background:#5c6b4a;border-radius:3px"></div></div>`;
-    html += `<span style="min-width:32px;text-align:right;color:#6b6259;font-size:10px">${pct.toFixed(1)}%</span></div></td>`;
-    html += '</tr>';
+  rows2.forEach((d,i) => {
+    const spendU = d.spend / _KRW_USD;
+    const roi    = spendU>0 ? (d.rev-spendU)/spendU*100 : null;
+    const pct    = totalRev>0 ? d.rev/totalRev*100 : 0;
+    const bg     = i%2===0 ? '#fdfcf9' : '#f8f5f0';
+    html2 += `<tr style="background:${bg};border-bottom:1px solid #f0ede6">`;
+    html2 += `<td style="padding:6px 10px;font-weight:700;color:#1a1714">${d.r}</td>`;
+    html2 += `<td style="padding:6px 10px;text-align:right;font-weight:700;color:#1a6b3a">${d.rev>0?fmtU(d.rev):'–'}</td>`;
+    html2 += `<td style="padding:6px 10px;text-align:right;color:#6b4a3a">${d.spend>0?fmtK(d.spend):'–'}</td>`;
+    html2 += `<td style="padding:6px 10px;text-align:right;font-weight:700;color:${rCol(roi)}">${fmtP(roi)}</td>`;
+    html2 += `<td style="padding:6px 10px;text-align:right">`;
+    html2 += `<div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">`;
+    html2 += `<div style="width:50px;background:#e8e4dc;height:4px;border-radius:3px"><div style="width:${Math.min(100,pct).toFixed(0)}%;height:100%;background:#5c6b4a;border-radius:3px"></div></div>`;
+    html2 += `<span style="min-width:32px;text-align:right;color:#6b6259;font-size:10px">${pct.toFixed(1)}%</span>`;
+    html2 += `</div></td></tr>`;
   });
 
-  // 합계 행
-  html += `<tr style="background:#e8e4dc;border-top:2px solid #c8c4bc;font-weight:700">`;
-  html += `<td style="padding:8px 10px;font-weight:800">합계</td>`;
-  html += `<td style="padding:8px 10px;text-align:right;color:#1a6b3a;font-weight:800">${fmtU(totalRev)}</td>`;
-  html += `<td style="padding:8px 10px;text-align:right;color:#3a5c3a">${fmtU(totalB2B)}</td>`;
-  html += `<td style="padding:8px 10px;text-align:right;color:#4a6b7c">${totalEcom>0?fmtU(totalEcom):'–'}</td>`;
-  html += `<td style="padding:8px 10px;text-align:right;color:#6b4a3a">${totalSpendKrw>0?fmtK(totalSpendKrw):'–'}</td>`;
-  html += `<td style="padding:8px 10px;text-align:right;font-weight:800;color:${rCol(totalRoi)}">${fmtP(totalRoi)}</td>`;
-  html += `<td style="padding:8px 10px;text-align:right;color:#8a8278">100%</td>`;
-  html += '</tr>';
+  html2 += `<tr style="background:#e8e4dc;border-top:2px solid #c8c4bc;font-weight:700">`;
+  html2 += `<td style="padding:7px 10px;font-weight:800">합계</td>`;
+  html2 += `<td style="padding:7px 10px;text-align:right;color:#1a6b3a;font-weight:800">${fmtU(totalRev)}</td>`;
+  html2 += `<td style="padding:7px 10px;text-align:right;color:#6b4a3a">${totalSpendK>0?fmtK(totalSpendK):'–'}</td>`;
+  html2 += `<td style="padding:7px 10px;text-align:right;font-weight:800;color:${rCol(totalRoi)}">${fmtP(totalRoi)}</td>`;
+  html2 += `<td style="padding:7px 10px;text-align:right;color:#8a8278">100%</td>`;
+  html2 += '</tr></tbody></table>';
 
-  // 범례
-  html += '<tr><td colspan="7" style="padding:6px 10px;font-size:9px;color:#b0a898">';
-  html += '※ B2B: 일반 딜러 채널 · e-Com: Amazon 등 e-커머스 · 집행비: KRW 기준 (÷1,502 환산)';
-  html += '</td></tr>';
-  html += '</tbody></table></div>';
-
-  el.innerHTML = html;
+  const lastMonth = Object.keys(JSON.parse(localStorage.getItem('revenue_monthly_total')||'{}')).sort().slice(-1)[0];
+  if(lastMonth) {
+    const mo = parseInt(lastMonth.slice(5));
+    html2 += `<div style="text-align:right;font-size:9px;color:#b0a898;margin-top:5px">${mo}월 기준 누적 · 집행비: KRW ÷ ${_KRW_USD}</div>`;
+  }
+  html2 += '</div>';
+  el.innerHTML = html2;
 }
 
 
