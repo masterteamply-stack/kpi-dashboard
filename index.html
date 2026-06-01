@@ -2881,9 +2881,13 @@ function renderKpiGauge(kpi, taskList) {
     achvPct=Math.round(dbResult/qTarget*100);
     sourceLabel=displayQ.toUpperCase();
   } else if(byQ[displayQ]>0 && qTarget!==null && qTarget>0) {
-    actualVal=byQ[displayQ]; targetVal=qTarget;
-    achvPct=Math.round(byQ[displayQ]/qTarget*100);
-    sourceLabel=displayQ.toUpperCase()+' Task';
+    // 집계 방식: avg(평균) 또는 sum(누적) - localStorage에서 읽기
+    const aggType = (() => { try { return localStorage.getItem('kpi_agg_'+kpi.id)||'sum'; } catch(e){return 'sum';} })();
+    const qTasks  = taskList.filter(t => (parseQuarterKey(t.quarter)||curQ) === displayQ);
+    const aggVal  = aggType==='avg' && qTasks.length>0 ? byQ[displayQ]/qTasks.length : byQ[displayQ];
+    actualVal=aggVal; targetVal=qTarget;
+    achvPct=Math.round(aggVal/qTarget*100);
+    sourceLabel=displayQ.toUpperCase()+(aggType==='avg'?' 평균':' 누적');
   } else {
     const totalProg = Object.values(byQ).reduce((s,v)=>s+v,0);
     const annualT   = parseN(kpi.q4_target)||Math.max(...['q1','q2','q3'].map(q=>parseN(kpi[q+'_target'])||0));
@@ -6289,6 +6293,47 @@ function applyFilters() {
   renderActivityTrendChart(tasks);
   renderDigitalKpiCharts(kpis, tasks);
   renderRegionSubChart();
+}
+
+
+// Task 삭제 확인 모달
+function openDeleteModal(taskId, title) {
+  if(!confirm('삭제 확인\n\n"' + (title||'Task') + '"\n\n이 Task를 삭제하시겠습니까? 복구할 수 없습니다.')) return;
+  deleteTask(taskId);
+}
+
+async function deleteTask(taskId) {
+  try {
+    const { error } = await state.sb.from('tasks').delete().eq('id', taskId);
+    if(error) throw error;
+    // 모든 캐시에서 제거
+    ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(k => {
+      if(state[k]) state[k] = state[k].filter(t => t.id !== taskId);
+    });
+    // 열린 KPI 모달 새로고침
+    const openModal = document.querySelector('.modal-backdrop.open .kpi-detail-modal');
+    if(openModal) {
+      const kpiId = openModal.querySelector('[data-kpi-id]')?.dataset?.kpiId;
+      if(kpiId) { openModal.closest('.modal-backdrop').remove(); openKpiDetail(kpiId); }
+    }
+    await refreshDashboard();
+  } catch(e) {
+    alert('삭제 실패: ' + (e.message||String(e)));
+  }
+}
+
+
+function setKpiAgg(kpiId, val) {
+  try { localStorage.setItem('kpi_agg_'+kpiId, val); } catch(e){}
+  // KPI 게이지 즉시 갱신
+  const kpi = (state._lastKpis||[]).find(k=>k.id===kpiId);
+  const tasks = (state._lastKpiTasks||[]).filter(t=>t.kpi_id===kpiId);
+  if(kpi) {
+    // KPI 아코디언의 게이지 업데이트
+    const gaugeEl = document.querySelector('.kpi-progress-wrap[data-kpi="'+kpiId+'"]');
+    if(gaugeEl) gaugeEl.innerHTML = renderKpiGauge(kpi, tasks);
+    else renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||[]);
+  }
 }
 
 // ── 14. Init ───────────────────────────────────────────────
