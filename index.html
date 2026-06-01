@@ -1247,9 +1247,9 @@
 
   <!-- Toolbar -->
   <section class="toolbar">
-    <select id="quarterFilter" class="control"><option value="all">전체 분기</option></select>
-    <select id="regionFilter"  class="control"><option value="all">전체 지역</option></select>
-    <select id="ownerFilter"   class="control"><option value="all">전체 담당자</option></select>
+    <select id="quarterFilter" class="control" onchange="applyFilters()"><option value="all">전체 분기</option></select>
+    <select id="regionFilter"  class="control" onchange="applyFilters()"><option value="all">전체 지역</option></select>
+    <select id="ownerFilter"   class="control" onchange="applyFilters()"><option value="all">전체 담당자</option></select>
     <button id="refreshBtn"  class="btn btn-secondary">↻ 새로고침</button>
     <button id="addTaskBtn"  class="btn btn-primary">＋ 업무 추가</button>
   </section>
@@ -1700,7 +1700,8 @@ const fmtNum  = v => new Intl.NumberFormat("ko-KR").format(Number(v||0));
 const fmtT = v => {
   if(v==null||v===undefined||v===''||isNaN(Number(v))) return '-';
   const n=Number(v);
-  if(n>=10000000) return (n/10000000).toFixed(1)+'천만';
+  if(isNaN(n)||!isFinite(n)) return '–';
+    if(n>=10000000) return (n/10000000).toFixed(1)+'천만';
   if(n>=1000000)  return (n/1000000).toFixed(1)+'백만';
   if(n>=10000)    return (n/10000).toFixed(1)+'만';
   return new Intl.NumberFormat('ko-KR').format(n);
@@ -2712,9 +2713,13 @@ async function refreshDashboard() {
       fetchKpisWithTasks().catch(e => { console.warn('KPI fetch:', e); return { kpis:[], tasks:[] }; })
     ]);
     state.tasks = tasksData;
+    state._allTasks = [...tasksData]; // 원본 전체 보존
+
 
     // KPI accordion 렌더 → state._lastKpis / state._lastKpiTasks 세팅
     renderKPIAccordion(kpiResult.kpis, kpiResult.tasks);
+    state._allKpiTasks = [...(kpiResult.tasks||[])]; // 원본 전체 보존
+
 
     // computeSummary는 _lastKpis 세팅 후 실행 → KPI count 정확
     const s = computeSummary(state.tasks, state._lastKpis||[]);
@@ -3189,6 +3194,7 @@ function renderTop7KPI(kpis, tasks) {
   const _fmtT = v => {
     if(v==null||v===''||isNaN(Number(v))) return '-';
     const n=Number(v);
+    if(isNaN(n)||!isFinite(n)) return '–';
     if(n>=10000000) return (n/10000000).toFixed(1)+'천만';
     if(n>=1000000)  return (n/1000000).toFixed(1)+'백만';
     if(n>=10000)    return (n/10000).toFixed(1)+'만';
@@ -4188,6 +4194,10 @@ async function saveDrawerEdit(taskId) {
     const { error: te } = await state.sb.from('tasks').update(updates).eq('id', taskId);
     if(te) throw te;
     Object.assign(task, updates);
+    // _allTasks/_allKpiTasks에도 반영
+    ['_allTasks','_allKpiTasks'].forEach(k=>{
+      const t2=(state[k]||[]).find(t=>t.id===taskId); if(t2) Object.assign(t2,updates);
+    });
 
     // 2. 목표값 변경 시 KPI q_target 업데이트
     if(kpiId && qKey && newTarget !== origTarget) {
@@ -4860,6 +4870,7 @@ function renderKpiPanelForTheme(theme, kpis, tasks) {
   const _fmtT = v => {
     if(v==null||v===''||isNaN(Number(v))) return '-';
     const n=Number(v);
+    if(isNaN(n)||!isFinite(n)) return '–';
     if(n>=10000000) return (n/10000000).toFixed(1)+'천만';
     if(n>=1000000) return (n/1000000).toFixed(1)+'백만';
     return new Intl.NumberFormat('ko-KR').format(n);
@@ -6232,6 +6243,52 @@ async function saveSpendEdit(el) {
     el.style.color = 'var(--red)';
     setTimeout(() => { el.style.color = ''; el.textContent = task.spend > 0 ? fmtKRW(task.spend) : '₩0'; }, 1500);
   }
+}
+
+
+// 필터 변경 시 전체 대시보드 재렌더 (DB 재조회 없이)
+function applyFilters() {
+  const qSel = document.getElementById('quarterFilter');
+  const rSel = document.getElementById('regionFilter');
+  const oSel = document.getElementById('ownerFilter');
+  state.filters = state.filters || {};
+  state.filters.quarter = qSel?.value || 'all';
+  state.filters.region  = rSel?.value || 'all';
+  state.filters.owner   = oSel?.value || 'all';
+
+  // 캐시된 tasks 데이터 필터링
+  const allTasks = state._allTasks || state.tasks || [];
+  const allKpiTasks = state._allKpiTasks || state._lastKpiTasks || [];
+
+  const filterFn = function(t) {
+    if(state.filters.quarter !== 'all' && t.quarter !== state.filters.quarter) return false;
+    if(state.filters.region  !== 'all' && t.region  !== state.filters.region)  return false;
+    if(state.filters.owner   !== 'all') {
+      const ownerName = (t.owners?.name || t.owner_name || '');
+      if(ownerName !== state.filters.owner) return false;
+    }
+    return true;
+  };
+
+  state.tasks         = allTasks.filter(filterFn);
+  state._lastKpiTasks = allKpiTasks.filter(filterFn);
+
+  // 전체 재렌더
+  const kpis  = state._lastKpis || [];
+  const tasks = state._lastKpiTasks;
+
+  renderKPIAccordion(kpis, tasks);
+  const s = computeSummary(state.tasks, kpis);
+  renderKPICards(s);
+  renderSummary(s);
+  renderOwnerTable(state.tasks, kpis);
+  renderThemeInteractiveChart(kpis, tasks);
+  renderRegionOrderChart(tasks, kpis);
+  renderRegionBudgetDonut(tasks, kpis);
+  renderActivityTypeChartWithBudget(kpis, tasks);
+  renderActivityTrendChart(tasks);
+  renderDigitalKpiCharts(kpis, tasks);
+  renderRegionSubChart();
 }
 
 // ── 14. Init ───────────────────────────────────────────────
