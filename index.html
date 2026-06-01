@@ -2909,6 +2909,12 @@ function renderKpiGauge(kpi, taskList) {
 }
 
 // ── KPI 상세 모달 ──
+
+function handleCellKeydown(event, el) {
+  if(event.key==='Enter'){event.preventDefault();el.blur();}
+  if(event.key==='Escape'){el.textContent=el.dataset.orig;el.blur();}
+}
+
 function openKpiDetail(kpiId) {
   const _fmtT =  (v=>{if(v==null)return "-";const n=Number(v);if(n>=10000000)return (n/10000000).toFixed(1)+"천만";if(n>=1000000)return (n/1000000).toFixed(1)+"백만";return new Intl.NumberFormat("ko-KR").format(n);});
   const kpi   = (state._lastKpis||[]).find(k=>k.id===kpiId);
@@ -2958,7 +2964,7 @@ function openKpiDetail(kpiId) {
             contenteditable="true"
             data-task-id="${t.id}" data-field="title"
             onblur="saveTaskCellEdit(this)"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+            onkeydown="handleCellKeydown(event,this)"
             onfocus="this.dataset.orig=this.textContent"
             style="display:block;min-width:0"
           >${esc(t.title||'')}</span>
@@ -2978,7 +2984,7 @@ function openKpiDetail(kpiId) {
           contenteditable="true"
           data-task-id="${t.id}" data-field="progress" data-type="number"
           onblur="saveTaskCellEdit(this)"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+          onkeydown="handleCellKeydown(event,this)"
           onfocus="this.dataset.orig=this.textContent"
           title="실적 값 입력"
           style="font-size:12px;font-weight:700;color:#1a1714;padding:2px 4px;cursor:text"
