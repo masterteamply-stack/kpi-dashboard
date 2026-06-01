@@ -4560,13 +4560,6 @@ function renderRegionOrderChart(tasks) {
   const fmtP  = v => v===null?'–':(v>=0?'+':'')+v.toFixed(1)+'%';
   const rCol  = v => v===null?'#8a8278':v>=100?'#1a6b1a':v>=0?'#3a7c3a':'#c0392b';
 
-  const entries = Object.entries(revByRegion)
-    .filter(([,v]) => v>0 || spendByRegion[_r = arguments[0]] > 0)
-    .map(([r,rev]) => ({ r, rev, spend:spendByRegion[r]||0 }))
-    .filter(d => d.rev>0 || d.spend>0)
-    .sort((a,b) => b.rev-a.rev);
-
-  // 실제로는 entries를 다시 만들기
   const rows2 = [];
   for(const r of [...new Set([...Object.keys(revByRegion), ...Object.keys(spendByRegion)])]) {
     const rev   = revByRegion[r]||0;
