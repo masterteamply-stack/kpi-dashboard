@@ -1294,14 +1294,16 @@
         <button class="panel-collapse-btn" onclick="togglePanel('regionPanel',this)">−</button>
       </div>
       <div id="regionContent" class="panel-content">
-        <div style="display:grid;grid-template-columns:60% 40%;gap:16px;align-items:start">
-          <div id="regionRoiTable" style="min-width:0;overflow:hidden;width:100%;box-sizing:border-box"></div>
-          <div>
-            <div style="font-size:11px;font-weight:700;color:#4a4038;margin-bottom:8px">지역별 예산 집행</div>
-            <div style="display:flex;flex-direction:column;align-items:center">
-              <canvas id="regionBudgetDonut" style="max-width:160px;max-height:160px"></canvas>
-              <div id="regionBudgetLegend" style="margin-top:8px;width:100%;overflow:hidden"></div>
+        <!-- 행1: ROI 분석 표 (전체 너비) -->
+        <div id="regionRoiTable" style="width:100%;margin-bottom:20px"></div>
+        <!-- 행2: 지역별 예산 집행 도넛 (전체 너비) -->
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#4a4038;margin-bottom:10px">지역별 예산 집행</div>
+          <div style="display:flex;gap:24px;align-items:flex-start">
+            <div style="flex-shrink:0;width:180px;height:180px;position:relative">
+              <canvas id="regionBudgetDonut"></canvas>
             </div>
+            <div id="regionBudgetLegend" style="flex:1;min-width:0"></div>
           </div>
         </div>
       </div>
@@ -4545,53 +4547,64 @@ function renderRegionOrderChart(tasks) {
   }
 
   const _KRW_USD = 1502;
-  const fmtU = v => v>=1000000?'$'+(v/1000000).toFixed(1)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':'–';
-  const fmtK = v => v>=100000000?'₩'+(v/100000000).toFixed(1)+'억':v>=10000?'₩'+(v/10000).toFixed(0)+'만':'–';
-  const fmtP = v => v===null?'–':(v>=0?'+':'')+v.toFixed(0)+'%';
-  const rCol = v => v===null?'#8a8278':v>=0?'#3a7c3a':'#c0392b';
-  const P    = 'padding:4px 5px';
+  const fmtU = function(v){ return v>=1000000?'$'+(v/1000000).toFixed(2)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':v>0?'$'+Math.round(v):'–'; };
+  const fmtK = function(v){ return v>=100000000?'₩'+(v/100000000).toFixed(1)+'억':v>=10000?'₩'+(v/10000).toFixed(0)+'만':v>0?'₩'+v.toLocaleString():'–'; };
+  const fmtP = function(v){ return v===null?'–':(v>=0?'+':'')+v.toFixed(0)+'%'; };
+  const rCol = function(v){ return v===null?'#8a8278':v>=0?'#2a7c2a':'#c0392b'; };
 
   const rows = [];
   for(const r of new Set([...Object.keys(revByRegion),...Object.keys(spendByRegion)])) {
     const rev = revByRegion[r]||0;
     const spendK = spendByRegion[r]||0;
-    if(rev>0||spendK>0) rows.push({r, rev, spendK});
+    if(rev>0||spendK>0) rows.push({r:r, rev:rev, spendK:spendK});
   }
-  rows.sort((a,b)=>b.rev-a.rev);
+  rows.sort(function(a,b){return b.rev-a.rev;});
 
-  const totalRev    = rows.reduce((s,d)=>s+d.rev,0);
-  const totalSpendK = rows.reduce((s,d)=>s+d.spendK,0);
+  const totalRev    = rows.reduce(function(s,d){return s+d.rev;},0);
+  const totalSpendK = rows.reduce(function(s,d){return s+d.spendK;},0);
   const totalSpendU = totalSpendK/_KRW_USD;
   const totalRoi    = totalSpendU>0?((totalRev-totalSpendU)/totalSpendU*100):null;
 
-  let h = '<table style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:9px">';
-  h += '<colgroup><col style="width:18%"><col style="width:27%"><col style="width:25%"><col style="width:30%"></colgroup>';
+  // 헤더 스타일
+  var thStyle = 'padding:6px 10px;font-size:10px;font-weight:700;color:#4a4038;white-space:nowrap;border-bottom:2px solid #c8c4bc';
+  // 데이터 셀 공통
+  var tdBase = 'padding:5px 10px;font-size:11px;border-bottom:1px solid #f0ede6;white-space:nowrap';
+
+  var h = '<table style="width:100%;border-collapse:collapse">';
+  h += '<colgroup>';
+  h += '<col style="width:120px">';   // 지역 고정
+  h += '<col>';                        // 매출 나머지
+  h += '<col style="width:130px">';   // 집행비
+  h += '<col style="width:120px">';   // ROI
+  h += '</colgroup>';
   h += '<thead><tr style="background:#e8e4dc">';
-  h += '<th style="text-align:left;font-size:9px;font-weight:700;color:#4a4038;white-space:nowrap;'+P+'">지역</th>';
-  h += '<th style="text-align:right;font-size:9px;font-weight:700;color:#4a4038;white-space:nowrap;'+P+'">매출</th>';
-  h += '<th style="text-align:right;font-size:9px;font-weight:700;color:#4a4038;white-space:nowrap;'+P+'">집행비</th>';
-  h += '<th style="text-align:right;font-size:9px;font-weight:700;color:#4a4038;white-space:nowrap;'+P+'">ROI</th>';
+  h += '<th style="text-align:left;'+thStyle+'">지역</th>';
+  h += '<th style="text-align:right;'+thStyle+'">매출 (USD)</th>';
+  h += '<th style="text-align:right;'+thStyle+'">집행비 (KRW)</th>';
+  h += '<th style="text-align:right;'+thStyle+'">ROI</th>';
   h += '</tr></thead><tbody>';
 
   rows.forEach(function(d,i) {
-    const spendU = d.spendK/_KRW_USD;
-    const roi    = spendU>0?(d.rev-spendU)/spendU*100:null;
-    const bg     = i%2===0?'#fdfcf9':'#f8f5f0';
-    h += '<tr style="background:'+bg+';border-bottom:1px solid #f0ede6">';
-    h += '<td style="text-align:left;font-weight:700;color:#1a1714;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'+P+'">'+d.r+'</td>';
-    h += '<td style="text-align:right;color:#1a6b3a;font-weight:700;white-space:nowrap;'+P+'">'+(d.rev>0?fmtU(d.rev):'–')+'</td>';
-    h += '<td style="text-align:right;color:#6b4a3a;white-space:nowrap;'+P+'">'+(d.spendK>0?fmtK(d.spendK):'–')+'</td>';
-    h += '<td style="text-align:right;font-weight:700;color:'+rCol(roi)+';white-space:nowrap;'+P+'">'+fmtP(roi)+'</td>';
+    var spendU = d.spendK/_KRW_USD;
+    var roi    = spendU>0?(d.rev-spendU)/spendU*100:null;
+    var bg     = i%2===0?'#fdfcf9':'#f8f5f0';
+    h += '<tr style="background:'+bg+'">';
+    h += '<td style="'+tdBase+';font-weight:700;color:#1a1714">'+d.r+'</td>';
+    h += '<td style="'+tdBase+';text-align:right;color:#1a6b3a;font-weight:700">'+(d.rev>0?fmtU(d.rev):'–')+'</td>';
+    h += '<td style="'+tdBase+';text-align:right;color:#6b4a3a">'+(d.spendK>0?fmtK(d.spendK):'–')+'</td>';
+    h += '<td style="'+tdBase+';text-align:right;font-weight:800;color:'+rCol(roi)+'">'+fmtP(roi)+'</td>';
     h += '</tr>';
   });
 
+  // 합계 행
   h += '<tr style="background:#e8e4dc;border-top:2px solid #c8c4bc">';
-  h += '<td style="font-weight:800;'+P+'">합계</td>';
-  h += '<td style="text-align:right;color:#1a6b3a;font-weight:800;white-space:nowrap;'+P+'">'+fmtU(totalRev)+'</td>';
-  h += '<td style="text-align:right;color:#6b4a3a;white-space:nowrap;'+P+'">'+(totalSpendK>0?fmtK(totalSpendK):'–')+'</td>';
-  h += '<td style="text-align:right;font-weight:800;color:'+rCol(totalRoi)+';white-space:nowrap;'+P+'">'+fmtP(totalRoi)+'</td>';
-  h += '</tr></tbody></table>';
-  h += '<div style="text-align:right;font-size:8px;color:#b0a898;margin-top:3px">4월 기준 · 집행비KRW÷'+_KRW_USD+'</div>';
+  h += '<td style="'+tdBase+';font-weight:800;color:#1a1714">합계</td>';
+  h += '<td style="'+tdBase+';text-align:right;color:#1a6b3a;font-weight:800">'+fmtU(totalRev)+'</td>';
+  h += '<td style="'+tdBase+';text-align:right;color:#6b4a3a">'+(totalSpendK>0?fmtK(totalSpendK):'–')+'</td>';
+  h += '<td style="'+tdBase+';text-align:right;font-weight:800;color:'+rCol(totalRoi)+'">'+fmtP(totalRoi)+'</td>';
+  h += '</tr>';
+  h += '</tbody></table>';
+  h += '<div style="text-align:right;font-size:9px;color:#b0a898;margin-top:4px">4월 기준 누적 · 집행비 KRW ÷ '+_KRW_USD+'</div>';
   el.innerHTML = h;
 }
 
