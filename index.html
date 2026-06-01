@@ -2220,28 +2220,27 @@ function renderSummary(s) {
 
   // Engagement + Click
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-  // Engagement 월 데이터
-  const _engData = getDkpiMonthly('B2D-10');
-  const _engMos  = Object.keys(_engData).sort();
-  const _engSum  = _engMos.reduce((s,k)=>s+Number(_engData[k]?.actual||0),0);
-  const _engTgt  = _engMos.reduce((s,k)=>s+Number(_engData[k]?.target||0),0);
-  const _engLast = _engMos.length?Number(_engData[_engMos[_engMos.length-1]]?.actual||0):0;
-  const _engRate = _engTgt>0?Math.round(_engSum/_engTgt*100):null;
-  const _engMoLbl= _engMos.length?parseInt(_engMos[_engMos.length-1].split('-')[1])+'월':'';
-  const _engSub  = (_engLast>0?_engMoLbl+' '+fmtNum(_engLast):'') + (_engRate!==null?' | '+_engRate+'%':'');
-
-  // Click 월 데이터
-  const _clkData = getDkpiMonthly('B2D-11');
-  const _clkMos  = Object.keys(_clkData).sort();
-  const _clkSum  = _clkMos.reduce((s,k)=>s+Number(_clkData[k]?.actual||0),0);
-  const _clkTgt  = _clkMos.reduce((s,k)=>s+Number(_clkData[k]?.target||0),0);
-  const _clkLast = _clkMos.length?Number(_clkData[_clkMos[_clkMos.length-1]]?.actual||0):0;
-  const _clkRate = _clkTgt>0?Math.round(_clkSum/_clkTgt*100):null;
-  const _clkMoLbl= _clkMos.length?parseInt(_clkMos[_clkMos.length-1].split('-')[1])+'월':'';
-  const _clkSub  = (_clkLast>0?_clkMoLbl+' '+fmtNum(_clkLast):'') + (_clkRate!==null?' | '+_clkRate+'%':'');
-
-  h += miniCard('Engagement', (_engSum>0?fmtNum(_engSum):(engVal !== null ? fmtNum(engVal) : '–')), _engSub||'데이터 입력 필요', '#4a6b7c');
-  h += miniCard('Click', (_clkSum>0?fmtNum(_clkSum):(clkVal !== null ? fmtNum(clkVal) : '–')), _clkSub||'데이터 입력 필요', '#7a6010');
+  // Engagement/Click: getDkpiMonthly는 {month: {target, actual}} 구조
+  // 실제 누적값은 latestFromMonthly가 이미 계산 → engVal/clkVal 그대로 사용
+  // 추가 표시: 이달 실적 + 달성률
+  const _mkSub = function(kpiKey, latestVal) {
+    const d2  = getDkpiMonthly(kpiKey);
+    const mos = Object.keys(d2).sort();
+    if(!mos.length) return '';
+    const lastMo  = mos[mos.length-1];
+    const lastAct = Number(d2[lastMo]?.actual||0);
+    const lastTgt = Number(d2[lastMo]?.target||0);
+    const allAct  = mos.reduce((s,k)=>s+Number(d2[k]?.actual||0),0);
+    const allTgt  = mos.reduce((s,k)=>s+Number(d2[k]?.target||0),0);
+    const moNum   = parseInt(lastMo.split('-')[1]||0);
+    const rate    = allTgt>0?Math.round(allAct/allTgt*100):null;
+    var parts = [];
+    if(lastAct>0) parts.push(moNum+'월 '+fmtNum(lastAct));
+    if(rate!==null) parts.push('달성 '+rate+'%');
+    return parts.join(' · ');
+  };
+  h += miniCard('Engagement', engVal !== null ? fmtNum(engVal) : '–', _mkSub('B2D-10', engVal)||'데이터 입력 필요', '#4a6b7c');
+  h += miniCard('Click', clkVal !== null ? fmtNum(clkVal) : '–', _mkSub('B2D-11', clkVal)||'데이터 입력 필요', '#7a6010');
   h += '</div>';
 
   // Channel Discriber
