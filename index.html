@@ -1294,7 +1294,7 @@
         <button class="panel-collapse-btn" onclick="togglePanel('regionPanel',this)">−</button>
       </div>
       <div id="regionContent" class="panel-content">
-        <div style="display:grid;grid-template-columns:40% 60%;gap:16px;align-items:start;overflow:hidden">
+        <div style="display:grid;grid-template-columns:60% 40%;gap:16px;align-items:start;overflow:hidden">
           <div id="regionRoiTable" style="overflow:hidden;min-width:0"></div>
           <div>
             <div style="font-size:11px;font-weight:700;color:#4a4038;margin-bottom:8px">지역별 예산 집행</div>
@@ -4528,20 +4528,16 @@ function renderRegionOrderChart(tasks) {
   const el = document.getElementById('regionRoiTable');
   if(!el) return;
 
-  // 매출 데이터 (B2B + e-Com 합산)
   const b2bData  = (() => { try { return JSON.parse(localStorage.getItem('revenue_by_region')||'{}'); } catch(e){return {};} })();
   const ecomData = (() => { try { return JSON.parse(localStorage.getItem('ecom_by_region')||'{}'); } catch(e){return {};} })();
 
-  // 지역별 총 매출 합산 (B2B + e-Com 통합)
-  const allRegions = new Set([...Object.keys(b2bData), ...Object.keys(ecomData)]);
   const revByRegion = {};
-  for(const r of allRegions) {
+  for(const r of new Set([...Object.keys(b2bData),...Object.keys(ecomData)])) {
     const b2b  = Object.values(b2bData[r]||{}).reduce((s,v)=>s+Number(v||0),0);
     const ecom = Object.values(ecomData[r]||{}).reduce((s,v)=>s+Number(v||0),0);
     revByRegion[r] = b2b + ecom;
   }
 
-  // 지역별 마케팅 집행비 (KRW)
   const spendByRegion = {};
   for(const t of tasks) {
     const r = (t.region||'GLOBAL').toUpperCase();
@@ -4550,66 +4546,55 @@ function renderRegionOrderChart(tasks) {
   }
 
   const _KRW_USD = 1502;
-  const totalRev   = Object.values(revByRegion).reduce((s,v)=>s+v,0);
-  const totalSpendK= Object.values(spendByRegion).reduce((s,v)=>s+v,0);
-  const totalSpendU= totalSpendK / _KRW_USD;
-  const totalRoi   = totalSpendU>0 ? ((totalRev-totalSpendU)/totalSpendU*100) : null;
+  const fmtU = v => v>=1000000?'$'+(v/1000000).toFixed(1)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':v>0?'$'+Math.round(v):'–';
+  const fmtK = v => v>=100000000?'₩'+(v/100000000).toFixed(1)+'억':v>=10000?'₩'+(v/10000).toFixed(0)+'만':v>0?'₩'+v.toLocaleString():'–';
+  const fmtP = v => v===null?'–':(v>=0?'+':'')+v.toFixed(0)+'%';
+  const rCol = v => v===null?'#8a8278':v>=0?'#3a7c3a':'#c0392b';
 
-  const fmtU  = v => v>=1000000?'$'+(v/1000000).toFixed(2)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':v>0?'$'+Math.round(v).toLocaleString():'–';
-  const fmtK  = v => v>=100000000?'₩'+(v/100000000).toFixed(1)+'억':v>=10000?'₩'+(v/10000).toFixed(0)+'만':v>0?'₩'+v.toLocaleString():'–';
-  const fmtP  = v => v===null?'–':(v>=0?'+':'')+v.toFixed(1)+'%';
-  const rCol  = v => v===null?'#8a8278':v>=100?'#1a6b1a':v>=0?'#3a7c3a':'#c0392b';
-
-  const rows2 = [];
-  for(const r of [...new Set([...Object.keys(revByRegion), ...Object.keys(spendByRegion)])]) {
-    const rev   = revByRegion[r]||0;
-    const spend = spendByRegion[r]||0;
-    if(rev>0 || spend>0) rows2.push({ r, rev, spend });
+  const rows = [];
+  for(const r of new Set([...Object.keys(revByRegion),...Object.keys(spendByRegion)])) {
+    const rev = revByRegion[r]||0;
+    const spendK = spendByRegion[r]||0;
+    if(rev>0||spendK>0) rows.push({r, rev, spendK});
   }
-  rows2.sort((a,b) => b.rev-a.rev);
+  rows.sort((a,b)=>b.rev-a.rev);
 
-  let html2 = '<div style="width:100%;overflow:hidden">';
-  html2 += '<table style="width:100%;border-collapse:collapse;font-size:10px;table-layout:fixed">';
-  // colgroup으로 각 컬럼 너비 고정
-  html2 += '<colgroup><col style="width:18%"><col style="width:25%"><col style="width:20%"><col style="width:18%"><col style="width:19%"></colgroup>';
-  html2 += '<thead><tr style="background:#e8e4dc">';
-  [['지역','left'],['매출(USD)','right'],['집행비','right'],['ROI','right'],['비중','right']].forEach(([h,align]) => {
-    html2 += `<th style="padding:5px 6px;text-align:${align};font-size:9px;font-weight:700;color:#4a4038;white-space:nowrap;overflow:hidden">${h}</th>`;
+  const totalRev   = rows.reduce((s,d)=>s+d.rev,0);
+  const totalSpendK= rows.reduce((s,d)=>s+d.spendK,0);
+  const totalSpendU= totalSpendK/_KRW_USD;
+  const totalRoi   = totalSpendU>0?((totalRev-totalSpendU)/totalSpendU*100):null;
+
+  // 컬럼: 지역 | 매출 | 집행비 | ROI
+  let h = '<table style="width:100%;border-collapse:collapse;font-size:10px;table-layout:fixed">';
+  h += '<colgroup><col style="width:22%"><col style="width:24%"><col style="width:26%"><col style="width:28%"></colgroup>';
+  h += '<thead><tr style="background:#e8e4dc">';
+  [['지역','left'],['매출','right'],['집행비','right'],['ROI','right']].forEach(([label,align])=>{
+    h += `<th style="padding:5px 6px;text-align:${align};font-size:9px;font-weight:700;color:#4a4038;white-space:nowrap">${label}</th>`;
   });
-  html2 += '</tr></thead><tbody>';
+  h += '</tr></thead><tbody>';
 
-  rows2.forEach((d,i) => {
-    const spendU = d.spend / _KRW_USD;
-    const roi    = spendU>0 ? (d.rev-spendU)/spendU*100 : null;
-    const pct    = totalRev>0 ? d.rev/totalRev*100 : 0;
-    const bg     = i%2===0 ? '#fdfcf9' : '#f8f5f0';
-    html2 += `<tr style="background:${bg};border-bottom:1px solid #f0ede6">`;
-    html2 += `<td style="padding:5px 6px;font-weight:700;color:#1a1714;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.r}</td>`;
-    html2 += `<td style="padding:5px 6px;text-align:right;font-weight:700;color:#1a6b3a;white-space:nowrap">${d.rev>0?fmtU(d.rev):'–'}</td>`;
-    html2 += `<td style="padding:5px 6px;text-align:right;color:#6b4a3a;white-space:nowrap">${d.spend>0?fmtK(d.spend):'–'}</td>`;
-    html2 += `<td style="padding:5px 6px;text-align:right;font-weight:700;color:${rCol(roi)};white-space:nowrap">${fmtP(roi)}</td>`;
-    html2 += `<td style="padding:5px 7px;text-align:right">`;
-    html2 += `<div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">`;
-    html2 += `<div style="width:36px;background:#e8e4dc;height:3px;border-radius:3px"><div style="width:${Math.min(100,pct).toFixed(0)}%;height:100%;background:#5c6b4a;border-radius:3px"></div></div>`;
-    html2 += `<span style="min-width:28px;text-align:right;color:#6b6259;font-size:9px">${pct.toFixed(1)}%</span>`;
-    html2 += `</div></td></tr>`;
+  rows.forEach((d,i)=>{
+    const spendU = d.spendK/_KRW_USD;
+    const roi    = spendU>0?(d.rev-spendU)/spendU*100:null;
+    const bg     = i%2===0?'#fdfcf9':'#f8f5f0';
+    h += `<tr style="background:${bg};border-bottom:1px solid #f0ede6">`;
+    h += `<td style="padding:5px 6px;font-weight:700;color:#1a1714;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.r}</td>`;
+    h += `<td style="padding:5px 6px;text-align:right;color:#1a6b3a;font-weight:700;white-space:nowrap">${d.rev>0?fmtU(d.rev):'–'}</td>`;
+    h += `<td style="padding:5px 6px;text-align:right;color:#6b4a3a;white-space:nowrap">${d.spendK>0?fmtK(d.spendK):'–'}</td>`;
+    h += `<td style="padding:5px 6px;text-align:right;font-weight:700;color:${rCol(roi)};white-space:nowrap">${fmtP(roi)}</td>`;
+    h += '</tr>';
   });
 
-  html2 += `<tr style="background:#e8e4dc;border-top:2px solid #c8c4bc;font-weight:700">`;
-  html2 += `<td style="padding:5px 7px;font-weight:800">합계</td>`;
-  html2 += `<td style="padding:5px 7px;text-align:right;color:#1a6b3a;font-weight:800">${fmtU(totalRev)}</td>`;
-  html2 += `<td style="padding:5px 7px;text-align:right;color:#6b4a3a">${totalSpendK>0?fmtK(totalSpendK):'–'}</td>`;
-  html2 += `<td style="padding:5px 7px;text-align:right;font-weight:800;color:${rCol(totalRoi)}">${fmtP(totalRoi)}</td>`;
-  html2 += `<td style="padding:5px 7px;text-align:right;color:#8a8278">100%</td>`;
-  html2 += '</tr></tbody></table>';
-
-  const lastMonth = Object.keys(JSON.parse(localStorage.getItem('revenue_monthly_total')||'{}')).sort().slice(-1)[0];
-  if(lastMonth) {
-    const mo = parseInt(lastMonth.slice(5));
-    html2 += `<div style="text-align:right;font-size:9px;color:#b0a898;margin-top:5px">${mo}월 기준 누적 · 집행비: KRW ÷ ${_KRW_USD}</div>`;
-  }
-  html2 += '</div>';
-  el.innerHTML = html2;
+  // 합계
+  h += `<tr style="background:#e8e4dc;border-top:2px solid #c8c4bc">`;
+  h += `<td style="padding:5px 6px;font-weight:800;font-size:10px">합계</td>`;
+  h += `<td style="padding:5px 6px;text-align:right;color:#1a6b3a;font-weight:800;white-space:nowrap">${fmtU(totalRev)}</td>`;
+  h += `<td style="padding:5px 6px;text-align:right;color:#6b4a3a;white-space:nowrap">${totalSpendK>0?fmtK(totalSpendK):'–'}</td>`;
+  h += `<td style="padding:5px 6px;text-align:right;font-weight:800;color:${rCol(totalRoi)};white-space:nowrap">${fmtP(totalRoi)}</td>`;
+  h += '</tr>';
+  h += '</tbody></table>';
+  h += `<div style="text-align:right;font-size:8px;color:#b0a898;margin-top:4px">4월 기준 누적 · 집행비:KRW ÷ ${_KRW_USD}</div>`;
+  el.innerHTML = h;
 }
 
 
