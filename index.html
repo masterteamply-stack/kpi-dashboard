@@ -4549,6 +4549,7 @@ function renderRegionOrderChart(tasks) {
   const fmtK = v => v>=100000000?'₩'+(v/100000000).toFixed(1)+'억':v>=10000?'₩'+(v/10000).toFixed(0)+'만':'–';
   const fmtP = v => v===null?'–':(v>=0?'+':'')+v.toFixed(0)+'%';
   const rCol = v => v===null?'#8a8278':v>=0?'#3a7c3a':'#c0392b';
+  const P    = 'padding:4px 5px';
 
   const rows = [];
   for(const r of new Set([...Object.keys(revByRegion),...Object.keys(spendByRegion)])) {
@@ -4563,38 +4564,34 @@ function renderRegionOrderChart(tasks) {
   const totalSpendU = totalSpendK/_KRW_USD;
   const totalRoi    = totalSpendU>0?((totalRev-totalSpendU)/totalSpendU*100):null;
 
-  // 완전히 셀 내용 안에서 끝나도록 font-size:9px, padding:4px
-  const P = 'padding:4px 5px';
-  const TH = `font-size:9px;font-weight:700;color:#4a4038;white-space:nowrap;${P}`;
-
   let h = '<table style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:9px">';
   h += '<colgroup><col style="width:18%"><col style="width:27%"><col style="width:25%"><col style="width:30%"></colgroup>';
-  h += `<thead><tr style="background:#e8e4dc">`;
-  h += `<th style="text-align:left;${TH}">지역</th>`;
-  h += `<th style="text-align:right;${TH}">매출</th>`;
-  h += `<th style="text-align:right;${TH}">집행비</th>`;
-  h += `<th style="text-align:right;${TH}">ROI</th>`;
-  h += `</tr></thead><tbody>`;
+  h += '<thead><tr style="background:#e8e4dc">';
+  h += '<th style="text-align:left;font-size:9px;font-weight:700;color:#4a4038;white-space:nowrap;'+P+'">지역</th>';
+  h += '<th style="text-align:right;font-size:9px;font-weight:700;color:#4a4038;white-space:nowrap;'+P+'">매출</th>';
+  h += '<th style="text-align:right;font-size:9px;font-weight:700;color:#4a4038;white-space:nowrap;'+P+'">집행비</th>';
+  h += '<th style="text-align:right;font-size:9px;font-weight:700;color:#4a4038;white-space:nowrap;'+P+'">ROI</th>';
+  h += '</tr></thead><tbody>';
 
-  rows.forEach((d,i) => {
+  rows.forEach(function(d,i) {
     const spendU = d.spendK/_KRW_USD;
     const roi    = spendU>0?(d.rev-spendU)/spendU*100:null;
     const bg     = i%2===0?'#fdfcf9':'#f8f5f0';
-    h += `<tr style="background:${bg};border-bottom:1px solid #f0ede6">`;
-    h += `<td style="text-align:left;font-weight:700;color:#1a1714;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${P}">${d.r}</td>`;
-    h += `<td style="text-align:right;color:#1a6b3a;font-weight:700;white-space:nowrap;${P}">${d.rev>0?fmtU(d.rev):'–'}</td>`;
-    h += `<td style="text-align:right;color:#6b4a3a;white-space:nowrap;${P}">${d.spendK>0?fmtK(d.spendK):'–'}</td>`;
-    h += `<td style="text-align:right;font-weight:700;color:${rCol(roi)};white-space:nowrap;${P}">${fmtP(roi)}</td>`;
+    h += '<tr style="background:'+bg+';border-bottom:1px solid #f0ede6">';
+    h += '<td style="text-align:left;font-weight:700;color:#1a1714;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'+P+'">'+d.r+'</td>';
+    h += '<td style="text-align:right;color:#1a6b3a;font-weight:700;white-space:nowrap;'+P+'">'+(d.rev>0?fmtU(d.rev):'–')+'</td>';
+    h += '<td style="text-align:right;color:#6b4a3a;white-space:nowrap;'+P+'">'+(d.spendK>0?fmtK(d.spendK):'–')+'</td>';
+    h += '<td style="text-align:right;font-weight:700;color:'+rCol(roi)+';white-space:nowrap;'+P+'">'+fmtP(roi)+'</td>';
     h += '</tr>';
   });
 
-  h += `<tr style="background:#e8e4dc;border-top:2px solid #c8c4bc">`;
-  h += `<td style="font-weight:800;${P}">합계</td>`;
-  h += `<td style="text-align:right;color:#1a6b3a;font-weight:800;white-space:nowrap;${P}">${fmtU(totalRev)}</td>`;
-  h += `<td style="text-align:right;color:#6b4a3a;white-space:nowrap;${P}">${totalSpendK>0?fmtK(totalSpendK):'–'}</td>`;
-  h += `<td style="text-align:right;font-weight:800;color:${rCol(totalRoi)};white-space:nowrap;${P}">${fmtP(totalRoi)}</td>`;
+  h += '<tr style="background:#e8e4dc;border-top:2px solid #c8c4bc">';
+  h += '<td style="font-weight:800;'+P+'">합계</td>';
+  h += '<td style="text-align:right;color:#1a6b3a;font-weight:800;white-space:nowrap;'+P+'">'+fmtU(totalRev)+'</td>';
+  h += '<td style="text-align:right;color:#6b4a3a;white-space:nowrap;'+P+'">'+(totalSpendK>0?fmtK(totalSpendK):'–')+'</td>';
+  h += '<td style="text-align:right;font-weight:800;color:'+rCol(totalRoi)+';white-space:nowrap;'+P+'">'+fmtP(totalRoi)+'</td>';
   h += '</tr></tbody></table>';
-  h += `<div style="text-align:right;font-size:8px;color:#b0a898;margin-top:3px">4월 기준 · 집행비KRW÷${_KRW_USD}</div>`;
+  h += '<div style="text-align:right;font-size:8px;color:#b0a898;margin-top:3px">4월 기준 · 집행비KRW÷'+_KRW_USD+'</div>';
   el.innerHTML = h;
 }
 
