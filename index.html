@@ -2678,7 +2678,7 @@ function renderKPIAccordion(kpis, tasks) {
   }
   renderTop7KPI(kpis, tasks);
   renderThemeInteractiveChart(kpis, tasks);
-  renderRegionOrderChart(tasks);
+  renderRegionOrderChart(tasks, state._lastKpis||[]);
   renderActivityTypeChartWithBudget(kpis, tasks);
   renderActivityTrendChart(tasks);
   renderDigitalKpiCharts(kpis, tasks);
@@ -2726,7 +2726,7 @@ async function refreshDashboard() {
     const kpis  = state._lastKpis||[];
     const tasks2 = state._lastKpiTasks||[];
     renderThemeInteractiveChart(kpis, tasks2);
-    renderRegionOrderChart(tasks2);
+    renderRegionOrderChart(tasks2, state._lastKpis||[]);
     renderRegionBudgetDonut(tasks2, kpis);
     renderActivityTypeChartWithBudget(kpis, tasks2);
     renderActivityTrendChart(tasks2);
@@ -4515,13 +4515,15 @@ function restorePanelStates() {
 }
 
 // ── Regional Orders & Marketing Cost Chart ──
-function renderRegionOrderChart(tasks) {
+function renderRegionOrderChart(tasks, kpis) {
   const el = document.getElementById('regionRoiTable');
   if(!el) return;
+  kpis = kpis || state._lastKpis || [];
 
   const b2bData  = (() => { try { return JSON.parse(localStorage.getItem('revenue_by_region')||'{}'); } catch(e){return {};} })();
   const ecomData = (() => { try { return JSON.parse(localStorage.getItem('ecom_by_region')||'{}'); } catch(e){return {};} })();
 
+  // 매출: KR/Domestic → GLOBAL 병합
   const revByRegion = {};
   for(const r of new Set([...Object.keys(b2bData),...Object.keys(ecomData)])) {
     var _rkey = (r==='Domestic'||r==='KR') ? 'GLOBAL' : r;
@@ -4529,12 +4531,35 @@ function renderRegionOrderChart(tasks) {
     const ecom = Object.values(ecomData[r]||{}).reduce(function(s,v){return s+Number(v||0);},0);
     revByRegion[_rkey] = (revByRegion[_rkey]||0) + b2b + ecom;
   }
+
+  // 집행비 (tasks.spend): KR → GLOBAL 병합
   const spendByRegion = {};
   for(const t of tasks) {
     var _r = (t.region||'GLOBAL').toUpperCase();
-    if(_r === 'KR' || _r === 'DOMESTIC') _r = 'GLOBAL'; // KR = GLOBAL
+    if(_r === 'KR' || _r === 'DOMESTIC') _r = 'GLOBAL';
     const v = Number(t.spend||t.allocated_budget||0);
     if(v>0) spendByRegion[_r] = (spendByRegion[_r]||0) + v;
+  }
+
+  // 배분 예산 (kpi.budget_plan): 지역별 합산 (KRW)
+  const budgetByRegion = {};
+  for(const kpi of kpis) {
+    const entries = getKpiBudget(kpi);
+    entries.forEach(function(e) {
+      if(!e.amount || e.amount<=0) return;
+      var _rk = (e.region||'GLOBAL').toUpperCase();
+      if(_rk === 'KR' || _rk === 'DOMESTIC') _rk = 'GLOBAL';
+      budgetByRegion[_rk] = (budgetByRegion[_rk]||0) + Number(e.amount);
+    });
+  }
+  // budget_plan이 없으면 tasks.allocated_budget으로 fallback
+  if(Object.keys(budgetByRegion).length === 0) {
+    for(const t of tasks) {
+      var _rb = (t.region||'GLOBAL').toUpperCase();
+      if(_rb === 'KR' || _rb === 'DOMESTIC') _rb = 'GLOBAL';
+      const v = Number(t.allocated_budget||0);
+      if(v>0) budgetByRegion[_rb] = (budgetByRegion[_rb]||0) + v;
+    }
   }
 
   const _KRW_USD = 1502;
@@ -4545,75 +4570,81 @@ function renderRegionOrderChart(tasks) {
   const rCol = function(v){ return v===null?'#8a8278':v>=0?'#2a7c2a':'#c0392b'; };
 
   const rows = [];
-  for(const r of new Set([...Object.keys(revByRegion),...Object.keys(spendByRegion)])) {
+  for(const r of new Set([...Object.keys(revByRegion),...Object.keys(spendByRegion),...Object.keys(budgetByRegion)])) {
     const rev = revByRegion[r]||0;
     const spendK = spendByRegion[r]||0;
-    if(rev>0||spendK>0) rows.push({r:r, rev:rev, spendK:spendK});
+    const budgetK = budgetByRegion[r]||0;
+    if(rev>0||spendK>0||budgetK>0) rows.push({r:r, rev:rev, spendK:spendK, budgetK:budgetK});
   }
   rows.sort(function(a,b){return b.rev-a.rev;});
 
   const totalRev    = rows.reduce(function(s,d){return s+d.rev;},0);
   const totalSpendK = rows.reduce(function(s,d){return s+d.spendK;},0);
+  const totalBudgetK= rows.reduce(function(s,d){return s+d.budgetK;},0);
   const totalSpendU = totalSpendK/_KRW_USD;
   const totalRoi    = totalSpendU>0?((totalRev-totalSpendU)/totalSpendU*100):null;
 
-  var thS = 'padding:7px 10px;font-size:10px;font-weight:700;color:#4a4038;white-space:nowrap;border-bottom:2px solid #c8c4bc';
-  var tdS = 'padding:6px 10px;font-size:11px;border-bottom:1px solid #f0ede6;white-space:nowrap';
+  var thS = 'padding:6px 10px;font-size:10px;font-weight:700;color:#4a4038;white-space:nowrap;border-bottom:2px solid #c8c4bc';
+  var tdS = 'padding:5px 10px;font-size:10px;border-bottom:1px solid #f0ede6;white-space:nowrap';
 
   var h = '<table style="width:100%;border-collapse:collapse">';
   h += '<colgroup>';
-  h += '<col style="width:90px">';   // 지역
+  h += '<col style="width:80px">';   // 지역
   h += '<col>';                       // 매출 (1fr)
-  h += '<col style="width:110px">';  // 집행비
-  h += '<col style="width:90px">';   // ROI
-  h += '<col style="width:140px">';  // 예산 집행 비중 (바+%)
+  h += '<col style="width:100px">';  // HQ 예산
+  h += '<col style="width:100px">';  // 집행비
+  h += '<col style="width:80px">';   // ROI
+  h += '<col style="width:120px">';  // 비중
   h += '</colgroup>';
 
   h += '<thead><tr style="background:#e8e4dc">';
   h += '<th style="text-align:left;'+thS+'">지역</th>';
-  h += '<th style="text-align:right;'+thS+'">매출 (USD)</th>';
-  h += '<th style="text-align:right;'+thS+'">집행비 (KRW)</th>';
+  h += '<th style="text-align:right;'+thS+'">매출(USD)</th>';
+  h += '<th style="text-align:right;'+thS+'">배분예산(₩)</th>';
+  h += '<th style="text-align:right;'+thS+'">집행비(₩)</th>';
   h += '<th style="text-align:right;'+thS+'">ROI</th>';
-  h += '<th style="text-align:right;'+thS+'">예산 집행 비중</th>';
+  h += '<th style="text-align:right;'+thS+'">비중</th>';
   h += '</tr></thead><tbody>';
 
   rows.forEach(function(d, i) {
-    var spendU   = d.spendK/_KRW_USD;
-    var roi      = spendU>0?(d.rev-spendU)/spendU*100:null;
-    var spendPct = totalSpendK>0?(d.spendK/totalSpendK*100):0;
-    var color    = COLORS[i%COLORS.length];
-    var bg       = i%2===0?'#fdfcf9':'#f8f5f0';
+    var spendU    = d.spendK/_KRW_USD;
+    var roi       = spendU>0?(d.rev-spendU)/spendU*100:null;
+    var spendPct  = totalSpendK>0?(d.spendK/totalSpendK*100):0;
+    // 집행율: 집행비/배분예산
+    var execRate  = d.budgetK>0?Math.round(d.spendK/d.budgetK*100):null;
+    var color     = COLORS[i%COLORS.length];
+    var bg        = i%2===0?'#fdfcf9':'#f8f5f0';
 
     h += '<tr style="background:'+bg+'">';
     h += '<td style="'+tdS+';font-weight:700;color:#1a1714">'+d.r+'</td>';
     h += '<td style="'+tdS+';text-align:right;color:#1a6b3a;font-weight:700">'+(d.rev>0?fmtU(d.rev):'–')+'</td>';
+    // 배분 예산 (집행율 표시)
+    var budgetCell = d.budgetK>0 ? fmtK(d.budgetK) : '–';
+    var execStr    = execRate!==null ? '<br><span style="font-size:8px;color:'+(execRate>=100?'#c0392b':execRate>=80?'#c17f3a':'#5c6b4a')+'">집행 '+execRate+'%</span>' : '';
+    h += '<td style="'+tdS+';text-align:right;color:#4a4038">'+budgetCell+execStr+'</td>';
     h += '<td style="'+tdS+';text-align:right;color:#6b4a3a">'+(d.spendK>0?fmtK(d.spendK):'–')+'</td>';
     h += '<td style="'+tdS+';text-align:right;font-weight:800;color:'+rCol(roi)+'">'+fmtP(roi)+'</td>';
-    // 예산 집행 비중: 색상 점 + 바 + %
+    // 비중 바
     h += '<td style="'+tdS+';text-align:right">';
-    h += '<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">';
+    h += '<div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">';
     h += '<div style="width:8px;height:8px;border-radius:50%;background:'+color+';flex-shrink:0"></div>';
-    h += '<div style="width:60px;background:#e8e4dc;height:5px;border-radius:3px;flex-shrink:0">';
-    h += '<div style="width:'+Math.min(100,spendPct).toFixed(1)+'%;height:100%;background:'+color+';border-radius:3px"></div>';
-    h += '</div>';
-    h += '<span style="font-size:10px;color:#3d3830;font-weight:700;min-width:34px;text-align:right">'+spendPct.toFixed(1)+'%</span>';
+    h += '<div style="width:50px;background:#e8e4dc;height:4px;border-radius:2px;flex-shrink:0">';
+    h += '<div style="width:'+Math.min(100,spendPct).toFixed(1)+'%;height:100%;background:'+color+';border-radius:2px"></div></div>';
+    h += '<span style="font-size:9px;color:#3d3830;font-weight:700;min-width:28px;text-align:right">'+spendPct.toFixed(1)+'%</span>';
     h += '</div></td>';
     h += '</tr>';
   });
 
-  // 합계
   h += '<tr style="background:#e8e4dc;border-top:2px solid #c8c4bc">';
   h += '<td style="'+tdS+';font-weight:800">합계</td>';
   h += '<td style="'+tdS+';text-align:right;color:#1a6b3a;font-weight:800">'+fmtU(totalRev)+'</td>';
+  h += '<td style="'+tdS+';text-align:right;color:#4a4038;font-weight:700">'+(totalBudgetK>0?fmtK(totalBudgetK):'–')+'</td>';
   h += '<td style="'+tdS+';text-align:right;color:#6b4a3a">'+(totalSpendK>0?fmtK(totalSpendK):'–')+'</td>';
   h += '<td style="'+tdS+';text-align:right;font-weight:800;color:'+rCol(totalRoi)+'">'+fmtP(totalRoi)+'</td>';
-  h += '<td style="'+tdS+';text-align:right;font-size:10px;color:#8a8278">100%</td>';
+  h += '<td style="'+tdS+';text-align:right;font-size:9px;color:#8a8278">100%</td>';
   h += '</tr></tbody></table>';
-  h += '<div style="text-align:right;font-size:9px;color:#b0a898;margin-top:4px">4월 기준 누적 · 집행비 KRW ÷ '+_KRW_USD+'</div>';
+  h += '<div style="text-align:right;font-size:8px;color:#b0a898;margin-top:4px">4월 기준 누적 · ROI: (매출USD–집행USD)÷집행USD</div>';
   el.innerHTML = h;
-
-  // 도넛 차트도 함께 업데이트 (legendEl이 없어도 차트는 유지)
-  renderRegionBudgetDonut(tasks, []);
 }
 
 
@@ -5293,7 +5324,7 @@ async function saveBudgetPlan(kpiId) {
 
     if(msg) { msg.style.color='#4a7c59'; msg.textContent='✅ 저장 완료! 차트에 반영됩니다.'; }
     renderActivityTypeChartWithBudget(state._lastKpis||[], state._lastKpiTasks||[]);
-    renderRegionOrderChart(state._lastKpiTasks||[]);
+    renderRegionOrderChart(state._lastKpiTasks||[], state._lastKpis||[]);
     // 담당자별 업무 현황 테이블도 즉시 갱신
     renderOwnerTable(state.tasks||[], state._lastKpis||[]);
     setTimeout(()=>{ if(msg) msg.textContent=''; }, 3000);
@@ -6155,7 +6186,7 @@ async function saveSpendEdit(el) {
     if(t2) t2.spend = newVal;
 
     // 지역별 ROI 테이블 즉시 갱신
-    renderRegionOrderChart(state._lastKpiTasks||state.tasks||[]);
+    renderRegionOrderChart(state._lastKpiTasks||state.tasks||[], state._lastKpis||[]);
     renderRegionBudgetDonut(state._lastKpiTasks||state.tasks||[], state._lastKpis||[]);
 
     // 활동유형별 도넛 차트 갱신
