@@ -4524,15 +4524,17 @@ function renderRegionOrderChart(tasks) {
 
   const revByRegion = {};
   for(const r of new Set([...Object.keys(b2bData),...Object.keys(ecomData)])) {
+    var _rkey = (r==='Domestic'||r==='KR') ? 'GLOBAL' : r;
     const b2b  = Object.values(b2bData[r]||{}).reduce(function(s,v){return s+Number(v||0);},0);
     const ecom = Object.values(ecomData[r]||{}).reduce(function(s,v){return s+Number(v||0);},0);
-    revByRegion[r] = b2b + ecom;
+    revByRegion[_rkey] = (revByRegion[_rkey]||0) + b2b + ecom;
   }
   const spendByRegion = {};
   for(const t of tasks) {
-    const r = (t.region||'GLOBAL').toUpperCase();
+    var _r = (t.region||'GLOBAL').toUpperCase();
+    if(_r === 'KR' || _r === 'DOMESTIC') _r = 'GLOBAL'; // KR = GLOBAL
     const v = Number(t.spend||t.allocated_budget||0);
-    if(v>0) spendByRegion[r] = (spendByRegion[r]||0) + v;
+    if(v>0) spendByRegion[_r] = (spendByRegion[_r]||0) + v;
   }
 
   const _KRW_USD = 1502;
