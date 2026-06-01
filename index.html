@@ -1294,7 +1294,7 @@
         <button class="panel-collapse-btn" onclick="togglePanel('regionPanel',this)">−</button>
       </div>
       <div id="regionContent" class="panel-content">
-        <div style="display:grid;grid-template-columns:55% 45%;gap:16px;align-items:start;overflow:hidden">
+        <div style="display:grid;grid-template-columns:40% 60%;gap:16px;align-items:start;overflow:hidden">
           <div id="regionRoiTable" style="overflow:hidden;min-width:0"></div>
           <div>
             <div style="font-size:11px;font-weight:700;color:#4a4038;margin-bottom:8px">지역별 예산 집행</div>
@@ -4569,10 +4569,12 @@ function renderRegionOrderChart(tasks) {
   rows2.sort((a,b) => b.rev-a.rev);
 
   let html2 = '<div style="width:100%;overflow:hidden">';
-  html2 += '<table style="width:100%;border-collapse:collapse;font-size:10px;width:100%">';
+  html2 += '<table style="width:100%;border-collapse:collapse;font-size:10px;table-layout:fixed">';
+  // colgroup으로 각 컬럼 너비 고정
+  html2 += '<colgroup><col style="width:18%"><col style="width:25%"><col style="width:20%"><col style="width:18%"><col style="width:19%"></colgroup>';
   html2 += '<thead><tr style="background:#e8e4dc">';
-  ['지역','매출 (USD)','집행비','ROI','비중'].forEach(h => {
-    html2 += `<th style="padding:5px 7px;text-align:${h==='지역'?'left':'right'};font-size:9px;font-weight:700;color:#4a4038;white-space:nowrap">${h}</th>`;
+  [['지역','left'],['매출(USD)','right'],['집행비','right'],['ROI','right'],['비중','right']].forEach(([h,align]) => {
+    html2 += `<th style="padding:5px 6px;text-align:${align};font-size:9px;font-weight:700;color:#4a4038;white-space:nowrap;overflow:hidden">${h}</th>`;
   });
   html2 += '</tr></thead><tbody>';
 
@@ -4582,10 +4584,10 @@ function renderRegionOrderChart(tasks) {
     const pct    = totalRev>0 ? d.rev/totalRev*100 : 0;
     const bg     = i%2===0 ? '#fdfcf9' : '#f8f5f0';
     html2 += `<tr style="background:${bg};border-bottom:1px solid #f0ede6">`;
-    html2 += `<td style="padding:5px 7px;font-weight:700;color:#1a1714">${d.r}</td>`;
-    html2 += `<td style="padding:5px 7px;text-align:right;font-weight:700;color:#1a6b3a">${d.rev>0?fmtU(d.rev):'–'}</td>`;
-    html2 += `<td style="padding:5px 7px;text-align:right;color:#6b4a3a">${d.spend>0?fmtK(d.spend):'–'}</td>`;
-    html2 += `<td style="padding:5px 7px;text-align:right;font-weight:700;color:${rCol(roi)}">${fmtP(roi)}</td>`;
+    html2 += `<td style="padding:5px 6px;font-weight:700;color:#1a1714;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.r}</td>`;
+    html2 += `<td style="padding:5px 6px;text-align:right;font-weight:700;color:#1a6b3a;white-space:nowrap">${d.rev>0?fmtU(d.rev):'–'}</td>`;
+    html2 += `<td style="padding:5px 6px;text-align:right;color:#6b4a3a;white-space:nowrap">${d.spend>0?fmtK(d.spend):'–'}</td>`;
+    html2 += `<td style="padding:5px 6px;text-align:right;font-weight:700;color:${rCol(roi)};white-space:nowrap">${fmtP(roi)}</td>`;
     html2 += `<td style="padding:5px 7px;text-align:right">`;
     html2 += `<div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">`;
     html2 += `<div style="width:36px;background:#e8e4dc;height:3px;border-radius:3px"><div style="width:${Math.min(100,pct).toFixed(0)}%;height:100%;background:#5c6b4a;border-radius:3px"></div></div>`;
