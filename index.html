@@ -2193,6 +2193,22 @@ function renderSummary(s) {
          : '')
       + '</div>';
   };
+
+  // 매출 표시용 변수
+  const _revTotalDisp = s.revenue > 0
+    ? '$' + new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:2}).format(s.revenue)
+    : null;
+  const _thisMonthRevUSD = (() => {
+    try {
+      const rev = JSON.parse(localStorage.getItem('revenue_monthly_total')||'{}');
+      const sorted = Object.keys(rev).sort();
+      if(!sorted.length) return 0;
+      return Number(rev[sorted[sorted.length-1]]||0);
+    } catch(e){return 0;}
+  })();
+  const _thisMonthDisp = _thisMonthRevUSD > 0
+    ? '이번달 $' + new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:2}).format(_thisMonthRevUSD)
+    : null;
   let h = '<div style="display:grid;gap:8px">';
 
   // 1. 전체 진척도
@@ -2204,7 +2220,6 @@ function renderSummary(s) {
 
   // 2. 관련 오더 + Marketing Lead
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-
   h += '<div style="background:#f5f2ed;border-radius:6px;padding:7px 10px">';
   h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:2px">관련 오더</div>';
   h += '<div style="font-size:17px;font-weight:800;color:#1a1714;line-height:1">' + orderVal + '</div>';
@@ -2223,16 +2238,11 @@ function renderSummary(s) {
   var _totLead = ml.totalCh + ml.totalO2o;
   h += '<div style="background:#f5f2ed;border-radius:6px;padding:7px 10px">';
   h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">';
-  h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278">Marketing Lead</div>';
-  h += '<span style="font-size:9px;color:#8a8278">상세 분석 →</span></div>';
+  h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278">Marketing Lead</div></div>';
   h += '<div style="font-size:17px;font-weight:800;color:#1a1714;line-height:1">' + fmtNum(_totLead) + ' 건</div>';
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:5px">';
-  h += '<div style="background:#e8f0e8;border-radius:4px;padding:3px 5px"><div style="font-size:8px;color:#5c6b4a;font-weight:700">📧 이메일 리드</div>';
-  h += '<div style="font-size:13px;font-weight:800;color:#5c6b4a">' + fmtNum(ml.totalCh) + '</div>';
-  h += '<div style="font-size:9px;color:#8a8278">이번 ' + fmtNum(_thisCh) + '</div></div>';
-  h += '<div style="background:#fff8e8;border-radius:4px;padding:3px 5px"><div style="font-size:8px;color:#7a6010;font-weight:700">🤝 O2O 리드</div>';
-  h += '<div style="font-size:13px;font-weight:800;color:#7a6010">' + fmtNum(ml.totalO2o) + '</div>';
-  h += '<div style="font-size:9px;color:#8a8278">이번 ' + fmtNum(_thisO2o) + '</div></div>';
+  h += '<div style="background:#e8f0e8;border-radius:4px;padding:3px 5px"><div style="font-size:8px;color:#5c6b4a;font-weight:700">📧 이메일 리드</div><div style="font-size:13px;font-weight:800;color:#5c6b4a">' + fmtNum(ml.totalCh) + '</div><div style="font-size:9px;color:#8a8278">이번 ' + fmtNum(_thisCh) + '</div></div>';
+  h += '<div style="background:#fff8e8;border-radius:4px;padding:3px 5px"><div style="font-size:8px;color:#7a6010;font-weight:700">🤝 O2O 리드</div><div style="font-size:13px;font-weight:800;color:#7a6010">' + fmtNum(ml.totalO2o) + '</div><div style="font-size:9px;color:#8a8278">이번 ' + fmtNum(_thisO2o) + '</div></div>';
   h += '</div></div>';
   h += '</div>';
 
