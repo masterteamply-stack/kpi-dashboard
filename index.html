@@ -2270,26 +2270,19 @@ function renderSummary(s) {
   h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8278">Choice Kit 오더</div>';
   h += '<a href="https://masterteamply-stack.github.io/choicekit-dashboard/" target="_blank" style="font-size:9px;background:#f0ede6;border:1px solid #dedad2;border-radius:3px;padding:1px 6px;color:#6b6259;text-decoration:none">상세 분석 →</a>';
   h += '</div>';
+  // Choice Kit 달성률: marketing.csv 합산 목표 $9,199,141
+  var _CK_TARGET_USD = 9199141;
   var _ckRate = null, _ckCol = '#8a8278';
   (function(){
     var total = state.choiceKitOrder && state.choiceKitOrder.total ? state.choiceKitOrder.total : 0;
     if(!total) return;
-    var manualTgt = parseFloat(localStorage.getItem('ck_order_target_usd')||'0');
-    if(manualTgt > 0) { _ckRate = Math.round(total/manualTgt*100); }
-    else {
-      var k2 = (state._lastKpis||[]).find(function(kk){
-        return ((kk.kpi_key||'').toLowerCase().includes('choice')||(kk.title||'').toLowerCase().includes('choice'))
-          && ((kk.unit||'').includes('$')||(kk.unit||'').toUpperCase().includes('USD'));
-      });
-      var tgt2 = k2 ? Number(k2.q2_target||k2.q1_target||0) : 0;
-      if(tgt2 > 0 && total/tgt2 < 50) _ckRate = Math.round(total/tgt2*100);
-    }
-    if(_ckRate!==null) _ckCol = _ckRate>=100?'#2a7c2a':_ckRate>=70?'#c17f3a':'#c0392b';
+    _ckRate = Math.round(total/_CK_TARGET_USD*100);
+    _ckCol = _ckRate>=100?'#2a7c2a':_ckRate>=70?'#c17f3a':'#c0392b';
   })()
   h += '<div style="display:flex;align-items:baseline;gap:8px">';
   h += '<div style="font-size:17px;font-weight:800;color:#1a1714;line-height:1">' + orderVal + '</div>';
   if(_ckRate!==null) h += '<span style="font-size:11px;font-weight:700;color:'+_ckCol+'">' + _ckRate + '%</span>';
-  else h += '<button onclick="setCkTarget()" style="font-size:9px;background:#f0ede6;border:1px solid #dedad2;border-radius:3px;padding:1px 6px;cursor:pointer;color:#6b6259">목표설정</button>';
+
   h += '</div>';
   h += '<div style="font-size:10px;color:#8a8278;margin-top:1px">' + (state.choiceKitOrder.count ? fmtNum(state.choiceKitOrder.count)+'건' : '로딩중') + ' · USD</div>';
   if(_revTotalDisp) {
@@ -6538,16 +6531,12 @@ function renderRegionOrderBarChart() {
 }
 
 
-function setCkTarget() {
-  var cur = localStorage.getItem('ck_order_target_usd')||'';
-  var val = prompt('Choice Kit 연간 목표 금액 (USD)\n예: 500000 = $500K', cur);
-  if(val === null) return;
-  var num = parseFloat(String(val).replace(/[^0-9.]/g,''));
-  if(num > 0) {
-    localStorage.setItem('ck_order_target_usd', String(num));
-    renderSummary(computeSummary(state.tasks||[], state._lastKpis||[]));
-  }
-}
+
+// Choice Kit 지역별 오더 목표 (marketing.csv 합산, $USD)
+var CK_TARGET_BY_REGION = {
+  ASIA: 6000000, NA: 1185141, CIS: 1000000,
+  MENA: 420000, GLOBAL: 320000, LATAM: 200000, OCEANIA: 74000
+};
 
 // ── 14. Init ───────────────────────────────────────────────
 (async function init() {
