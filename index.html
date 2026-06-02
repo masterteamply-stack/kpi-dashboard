@@ -4893,12 +4893,15 @@ function renderRegionOrderChart(tasks, kpis) {
   h+='<th style="text-align:right;'+thS+'">매출(USD)</th>';
   h+='<th style="text-align:right;'+thS+'">집행비(₩)</th>';
   h+='<th style="text-align:right;'+thS+'">ROI</th>';
+
+  h+='<th style="text-align:right;'+thS+'">집행비중</th>';
   h+='<th style="text-align:right;'+thS+'">CK Order($)</th>';
   h+='<th style="text-align:right;'+thS+'">CK 마케팅예산(₩)</th>';
   h+='<th style="text-align:right;'+thS+'">CK 집행비(₩)</th>';
   h+='<th style="text-align:right;'+thS+'">Promo ROI</th>';
   h+='</tr></thead><tbody>';
 
+  var _totSpKAll=rows.reduce(function(s,d){return s+d.spK;},0);
   rows.forEach(function(d,i){
     var spU=d.spK/_KRW_USD;
     var roi=spU>0?(d.rev-spU)/spU*100:null;
@@ -4910,6 +4913,8 @@ function renderRegionOrderChart(tasks, kpis) {
     h+='<td style="'+tdS+';text-align:right;color:#1a6b3a;font-weight:700">'+(d.rev>0?fmtU(d.rev):'–')+'</td>';
     h+='<td style="'+tdS+';text-align:right;color:#6b4a3a">'+(d.spK>0?fmtK(d.spK):'–')+'</td>';
     h+='<td style="'+tdS+';text-align:right;font-weight:700;color:'+rCol(roi)+'">'+fmtP(roi)+'</td>';
+    var spRatio=(_totSpKAll>0&&d.spK>0)?Math.round(d.spK/_totSpKAll*100):null;
+    h+='<td style="'+tdS+';text-align:right;color:#4a5a6b">'+(spRatio!==null?spRatio+'%':'–')+'</td>';
     h+='<td style="'+tdS+';text-align:right;color:#4a6b7c;font-weight:700">'+(d.ckA>0?fmtU(d.ckA):'–')+'</td>';
     h+='<td style="'+tdS+';text-align:right;color:#6b4a7c">'+(d.ckB>0?fmtK(d.ckB):'–')+'</td>';
     h+='<td style="'+tdS+';text-align:right;color:#7c5a3a">'+(d.ckSp>0?fmtK(d.ckSp):'–')+'</td>';
@@ -4922,6 +4927,7 @@ function renderRegionOrderChart(tasks, kpis) {
   h+='<td style="'+tdS+';text-align:right;color:#1a6b3a;font-weight:800">'+fmtU(totRev)+'</td>';
   h+='<td style="'+tdS+';text-align:right;color:#6b4a3a">'+(totSpK>0?fmtK(totSpK):'–')+'</td>';
   h+='<td style="'+tdS+';text-align:right;font-weight:800;color:'+rCol(totRoi)+'">'+fmtP(totRoi)+'</td>';
+  h+='<td style="'+tdS+';text-align:right;color:#4a5a6b">100%</td>';
   h+='<td style="'+tdS+';text-align:right;color:#4a6b7c;font-weight:800">'+(totCkA>0?fmtU(totCkA):'–')+'</td>';
   h+='<td style="'+tdS+';text-align:right;color:#6b4a7c">'+(totCkB>0?fmtK(totCkB):'–')+'</td>';
   h+='<td style="'+tdS+';text-align:right;color:#7c5a3a">'+(totCkSp>0?fmtK(totCkSp):'–')+'</td>';
