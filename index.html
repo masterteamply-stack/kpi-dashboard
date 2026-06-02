@@ -4845,6 +4845,7 @@ function renderRegionOrderChart(tasks, kpis) {
 
   // Choice Kit 마케팅 집행 예산 (BizRewards/choice 관련 task)
   const ckBudByRegion = {};
+  const ckSpendByRegion = {};
   for(const t of tasks) {
     const kpi = kpis.find(function(k){return k.id===t.kpi_id;});
     const isCk = (t.task_type||'').toLowerCase().includes('biz') ||
@@ -4867,7 +4868,8 @@ function renderRegionOrderChart(tasks, kpis) {
   const rows=[];
   for(const r of allR){
     const rev=revByRegion[r]||0,spK=spendByRegion[r]||0,ckA=ckByRegion[r]||0,ckB=ckBudByRegion[r]||0;
-    if(rev>0||spK>0||ckA>0||ckB>0) rows.push({r,rev,spK,ckA,ckB});
+    const ckSp=ckSpendByRegion[r]||0;
+    if(rev>0||spK>0||ckA>0||ckB>0||ckSp>0) rows.push({r,rev,spK,ckA,ckB,ckSp});
   }
   rows.sort(function(a,b){return b.rev-a.rev;});
 
@@ -4875,6 +4877,7 @@ function renderRegionOrderChart(tasks, kpis) {
   const totSpK=rows.reduce(function(s,d){return s+d.spK;},0);
   const totCkA=rows.reduce(function(s,d){return s+d.ckA;},0);
   const totCkB=rows.reduce(function(s,d){return s+d.ckB;},0);
+  const totCkSp=rows.reduce(function(s,d){return s+(d.ckSp||0);},0);
   const totSpU=totSpK/_KRW_USD;
   const totRoi=totSpU>0?(totRev-totSpU)/totSpU*100:null;
   const totCkBU=totCkB/_KRW_USD;
@@ -4908,6 +4911,7 @@ function renderRegionOrderChart(tasks, kpis) {
     h+='<td style="'+tdS+';text-align:right;font-weight:700;color:'+rCol(roi)+'">'+fmtP(roi)+'</td>';
     h+='<td style="'+tdS+';text-align:right;color:#4a6b7c;font-weight:700">'+(d.ckA>0?fmtU(d.ckA):'–')+'</td>';
     h+='<td style="'+tdS+';text-align:right;color:#6b4a7c">'+(d.ckB>0?fmtK(d.ckB):'–')+'</td>';
+    h+='<td style="'+tdS+';text-align:right;color:#7c5a3a">'+(d.ckSp>0?fmtK(d.ckSp):'–')+'</td>';
     h+='<td style="'+tdS+';text-align:right;font-weight:700;color:'+rCol(pRoi)+'">'+fmtP(pRoi)+'</td>';
     h+='</tr>';
   });
@@ -4919,6 +4923,7 @@ function renderRegionOrderChart(tasks, kpis) {
   h+='<td style="'+tdS+';text-align:right;font-weight:800;color:'+rCol(totRoi)+'">'+fmtP(totRoi)+'</td>';
   h+='<td style="'+tdS+';text-align:right;color:#4a6b7c;font-weight:800">'+(totCkA>0?fmtU(totCkA):'–')+'</td>';
   h+='<td style="'+tdS+';text-align:right;color:#6b4a7c">'+(totCkB>0?fmtK(totCkB):'–')+'</td>';
+  h+='<td style="'+tdS+';text-align:right;color:#7c5a3a">'+(totCkSp>0?fmtK(totCkSp):'–')+'</td>';
   h+='<td style="'+tdS+';text-align:right;font-weight:800;color:'+rCol(totPromoRoi)+'">'+fmtP(totPromoRoi)+'</td>';
   h+='</tr></tbody></table>';
   h+='<div style="text-align:right;font-size:8px;color:#b0a898;margin-top:4px">4월 기준 · ROI=(매출−집행)/집행 · KRW÷1,502 · CK: choicekit-dashboard</div>';
