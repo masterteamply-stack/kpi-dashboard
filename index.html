@@ -4720,147 +4720,104 @@ function renderRegionOrderChart(tasks, kpis) {
   const b2bData  = (() => { try { return JSON.parse(localStorage.getItem('revenue_by_region')||'{}'); } catch(e){return {};} })();
   const ecomData = (() => { try { return JSON.parse(localStorage.getItem('ecom_by_region')||'{}'); } catch(e){return {};} })();
 
-  // 매출: KR/Domestic → GLOBAL 병합
   const revByRegion = {};
   for(const r of new Set([...Object.keys(b2bData),...Object.keys(ecomData)])) {
-    var _rkey = (r==='Domestic'||r==='KR') ? 'GLOBAL' : r;
+    var _rk = (r==='Domestic'||r==='KR')?'GLOBAL':r;
     const b2b  = Object.values(b2bData[r]||{}).reduce(function(s,v){return s+Number(v||0);},0);
     const ecom = Object.values(ecomData[r]||{}).reduce(function(s,v){return s+Number(v||0);},0);
-    revByRegion[_rkey] = (revByRegion[_rkey]||0) + b2b + ecom;
+    revByRegion[_rk] = (revByRegion[_rk]||0)+b2b+ecom;
   }
 
-  // 집행비 (tasks.spend 합산, KRW): KR → GLOBAL
   const spendByRegion = {};
-  var totalTaskSpend = 0;
   for(const t of tasks) {
-    var _r = (t.region||'GLOBAL').toUpperCase();
-    if(_r === 'KR' || _r === 'DOMESTIC') _r = 'GLOBAL';
-    const v = Number(t.spend||0);
-    totalTaskSpend += v;
-    if(v>0) spendByRegion[_r] = (spendByRegion[_r]||0) + v;
+    var _r=(t.region||'GLOBAL').toUpperCase();
+    if(_r==='KR'||_r==='DOMESTIC') _r='GLOBAL';
+    const v=Number(t.spend||t.allocated_budget||0);
+    if(v>0) spendByRegion[_r]=(spendByRegion[_r]||0)+v;
   }
 
-  // 배분 예산 (kpi.budget_plan): 지역별 합산 (KRW)
-  // budget_plan이 없거나 지역별 배분 없으면 tasks.allocated_budget으로 fallback
-  const budgetByRegion = {};
-  var hasBudgetPlan = false;
-  for(const kpi of kpis) {
-    const entries = getKpiBudget(kpi);
-    for(const e of entries) {
-      if(!e.amount || e.amount<=0) continue;
-      var _rk = (e.region||'GLOBAL').toUpperCase();
-      if(_rk === 'KR' || _rk === 'DOMESTIC') _rk = 'GLOBAL';
-      budgetByRegion[_rk] = (budgetByRegion[_rk]||0) + Number(e.amount);
-      hasBudgetPlan = true;
-    }
-  }
-  // fallback: tasks.allocated_budget
-  if(!hasBudgetPlan) {
-    for(const t of tasks) {
-      var _rb = (t.region||'GLOBAL').toUpperCase();
-      if(_rb === 'KR' || _rb === 'DOMESTIC') _rb = 'GLOBAL';
-      const v = Number(t.allocated_budget||0);
-      if(v>0) budgetByRegion[_rb] = (budgetByRegion[_rb]||0) + v;
-    }
+  // Choice Kit 지역별 오더 금액
+  const ckByRegion = (state.choiceKitOrder&&state.choiceKitOrder.byRegion) ? state.choiceKitOrder.byRegion : {};
+
+  // Choice Kit 마케팅 집행 예산 (BizRewards/choice 관련 task)
+  const ckBudByRegion = {};
+  for(const t of tasks) {
+    const kpi = kpis.find(function(k){return k.id===t.kpi_id;});
+    const isCk = (t.task_type||'').toLowerCase().includes('biz') ||
+                 (t.task_type||'').toLowerCase().includes('choice') ||
+                 (kpi&&((kpi.kpi_key||'').toLowerCase().includes('choice')||(kpi.title||'').toLowerCase().includes('choice')));
+    if(!isCk) continue;
+    var _rb=(t.region||'GLOBAL').toUpperCase();
+    if(_rb==='KR'||_rb==='DOMESTIC') _rb='GLOBAL';
+    const bv=Number(t.spend||t.allocated_budget||0);
+    if(bv>0) ckBudByRegion[_rb]=(ckBudByRegion[_rb]||0)+bv;
   }
 
-  // ── 디버그: 실제 데이터 확인 ──
-  console.log('[ROI] 집행비 합계 ₩'+totalTaskSpend.toLocaleString());
-  console.log('[ROI] 지역별 집행비:', JSON.stringify(spendByRegion));
-  console.log('[ROI] 지역별 배분예산:', JSON.stringify(budgetByRegion));
+  const _KRW_USD=1502;
+  const fmtU=function(v){return v>=1000000?'$'+(v/1000000).toFixed(2)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':v>0?'$'+Math.round(v):'–';};
+  const fmtK=function(v){return v>=100000000?'₩'+(v/100000000).toFixed(1)+'억':v>=10000?'₩'+(v/10000).toFixed(0)+'만':v>0?'₩'+v.toLocaleString():'–';};
+  const fmtP=function(v){return v===null?'–':(v>=0?'+':'')+v.toFixed(0)+'%';};
+  const rCol=function(v){return v===null?'#8a8278':v>=0?'#2a7c2a':'#c0392b';};
 
-  const _KRW_USD = 1502;
-  const COLORS   = ['#5c6b4a','#4a6b7c','#c17f3a','#8a5a3a','#6b4a7c','#3a7c6b','#7c4a5a','#4a7c5c','#7c7c3a','#4a547c','#6b3a3a','#3a4a7c'];
-  const fmtU = function(v){ return v>=1000000?'$'+(v/1000000).toFixed(2)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':v>0?'$'+Math.round(v):'–'; };
-  const fmtK = function(v){ return v>=100000000?'₩'+(v/100000000).toFixed(1)+'억':v>=10000?'₩'+(v/10000).toFixed(0)+'만':v>0?'₩'+v.toLocaleString():'–'; };
-  const fmtP = function(v){ return v===null?'–':(v>=0?'+':'')+v.toFixed(0)+'%'; };
-  const rCol = function(v){ return v===null?'#8a8278':v>=0?'#2a7c2a':'#c0392b'; };
-
-  const rows = [];
-  for(const r of new Set([...Object.keys(revByRegion),...Object.keys(spendByRegion),...Object.keys(budgetByRegion)])) {
-    const rev = revByRegion[r]||0;
-    const spendK = spendByRegion[r]||0;
-    const budgetK = budgetByRegion[r]||0;
-    if(rev>0||spendK>0||budgetK>0) rows.push({r:r, rev:rev, spendK:spendK, budgetK:budgetK});
+  const allR=new Set([...Object.keys(revByRegion),...Object.keys(spendByRegion),...Object.keys(ckByRegion),...Object.keys(ckBudByRegion)]);
+  const rows=[];
+  for(const r of allR){
+    const rev=revByRegion[r]||0,spK=spendByRegion[r]||0,ckA=ckByRegion[r]||0,ckB=ckBudByRegion[r]||0;
+    if(rev>0||spK>0||ckA>0||ckB>0) rows.push({r,rev,spK,ckA,ckB});
   }
   rows.sort(function(a,b){return b.rev-a.rev;});
 
-  const totalRev    = rows.reduce(function(s,d){return s+d.rev;},0);
-  const totalSpendK = rows.reduce(function(s,d){return s+d.spendK;},0);
-  const totalBudgetK= rows.reduce(function(s,d){return s+d.budgetK;},0);
-  const totalSpendU = totalSpendK/_KRW_USD;
-  const totalRoi    = totalSpendU>0?((totalRev-totalSpendU)/totalSpendU*100):null;
+  const totRev=rows.reduce(function(s,d){return s+d.rev;},0);
+  const totSpK=rows.reduce(function(s,d){return s+d.spK;},0);
+  const totCkA=rows.reduce(function(s,d){return s+d.ckA;},0);
+  const totCkB=rows.reduce(function(s,d){return s+d.ckB;},0);
+  const totSpU=totSpK/_KRW_USD;
+  const totRoi=totSpU>0?(totRev-totSpU)/totSpU*100:null;
+  const totCkBU=totCkB/_KRW_USD;
+  const totPromoRoi=totCkBU>0?(totCkA-totCkBU)/totCkBU*100:null;
 
-  var thS = 'padding:6px 10px;font-size:10px;font-weight:700;color:#4a4038;white-space:nowrap;border-bottom:2px solid #c8c4bc;background:#e8e4dc';
-  var tdS = 'padding:5px 10px;font-size:10px;border-bottom:1px solid #f0ede6;white-space:nowrap;vertical-align:middle';
+  var thS='padding:5px 7px;font-size:9px;font-weight:700;color:#4a4038;white-space:nowrap;border-bottom:2px solid #c8c4bc;background:#e8e4dc';
+  var tdS='padding:4px 7px;font-size:10px;border-bottom:1px solid #f0ede6;white-space:nowrap;vertical-align:middle';
 
-  var h = '<table style="width:100%;border-collapse:collapse">';
-  h += '<colgroup>';
-  h += '<col style="width:75px">';
-  h += '<col>';
-  h += '<col style="width:100px">';
-  h += '<col style="width:105px">';
-  h += '<col style="width:80px">';
-  h += '<col style="width:110px">';
-  h += '</colgroup>';
-  h += '<thead><tr>';
-  h += '<th style="text-align:left;'+thS+'">지역</th>';
-  h += '<th style="text-align:right;'+thS+'">매출(USD)</th>';
-  h += '<th style="text-align:right;'+thS+'">배분예산(₩)</th>';
-  h += '<th style="text-align:right;'+thS+'">집행비(₩)</th>';
-  h += '<th style="text-align:right;'+thS+'">ROI</th>';
-  h += '<th style="text-align:right;'+thS+'">집행비중</th>';
-  h += '</tr></thead><tbody>';
+  var h='<table style="width:100%;border-collapse:collapse">';
+  h+='<colgroup><col style="width:65px"><col><col style="width:90px"><col style="width:68px"><col style="width:95px"><col style="width:100px"><col style="width:75px"></colgroup>';
+  h+='<thead><tr>';
+  h+='<th style="text-align:left;'+thS+'">지역</th>';
+  h+='<th style="text-align:right;'+thS+'">매출(USD)</th>';
+  h+='<th style="text-align:right;'+thS+'">집행비(₩)</th>';
+  h+='<th style="text-align:right;'+thS+'">ROI</th>';
+  h+='<th style="text-align:right;'+thS+'">CK Order($)</th>';
+  h+='<th style="text-align:right;'+thS+'">CK 마케팅예산(₩)</th>';
+  h+='<th style="text-align:right;'+thS+'">Promo ROI</th>';
+  h+='</tr></thead><tbody>';
 
-  rows.forEach(function(d, i) {
-    var spendU   = d.spendK/_KRW_USD;
-    var roi      = spendU>0?(d.rev-spendU)/spendU*100:null;
-    var spendPct = totalSpendK>0?(d.spendK/totalSpendK*100):0;
-    var color    = COLORS[i%COLORS.length];
-    var bg       = i%2===0?'#fdfcf9':'#f8f5f0';
-
-    // 집행율: 배분예산이 설정된 경우만 표시
-    var execStr = '';
-    if(d.budgetK > 0 && d.spendK > 0) {
-      var execRate = Math.round(d.spendK/d.budgetK*100);
-      var eCol = execRate>100?'#c0392b':execRate>=80?'#c17f3a':'#2a7c2a';
-      var eWarning = execRate>100?' ⚠':'';
-      execStr = '<br><span style="font-size:8px;color:'+eCol+';font-weight:700">집행 '+execRate+'%'+eWarning+'</span>';
-    }
-
-    h += '<tr style="background:'+bg+'">';
-    h += '<td style="'+tdS+';font-weight:700;color:#1a1714">'+d.r+'</td>';
-    h += '<td style="'+tdS+';text-align:right;color:#1a6b3a;font-weight:700">'+(d.rev>0?fmtU(d.rev):'–')+'</td>';
-    // 배분예산: 미설정이면 회색으로 "미설정"
-    var budgetDisp = d.budgetK>0?fmtK(d.budgetK):'<span style="color:#b0a898;font-size:9px">미설정</span>';
-    h += '<td style="'+tdS+';text-align:right;color:#4a4038">'+budgetDisp+execStr+'</td>';
-    h += '<td style="'+tdS+';text-align:right;color:#6b4a3a">'+(d.spendK>0?fmtK(d.spendK):'–')+'</td>';
-    h += '<td style="'+tdS+';text-align:right;font-weight:800;color:'+rCol(roi)+'">'+fmtP(roi)+'</td>';
-    h += '<td style="'+tdS+';text-align:right">';
-    h += '<div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">';
-    h += '<div style="width:8px;height:8px;border-radius:50%;background:'+color+';flex-shrink:0"></div>';
-    h += '<div style="width:45px;background:#e8e4dc;height:4px;border-radius:2px;flex-shrink:0">';
-    h += '<div style="width:'+Math.min(100,spendPct).toFixed(1)+'%;height:100%;background:'+color+';border-radius:2px"></div></div>';
-    h += '<span style="font-size:9px;color:#3d3830;font-weight:700;min-width:30px;text-align:right">'+spendPct.toFixed(1)+'%</span>';
-    h += '</div></td></tr>';
+  rows.forEach(function(d,i){
+    var spU=d.spK/_KRW_USD;
+    var roi=spU>0?(d.rev-spU)/spU*100:null;
+    var ckBU=d.ckB/_KRW_USD;
+    var pRoi=ckBU>0?(d.ckA-ckBU)/ckBU*100:null;
+    var bg=i%2===0?'#fdfcf9':'#f8f5f0';
+    h+='<tr style="background:'+bg+'">';
+    h+='<td style="'+tdS+';font-weight:700;color:#1a1714">'+d.r+'</td>';
+    h+='<td style="'+tdS+';text-align:right;color:#1a6b3a;font-weight:700">'+(d.rev>0?fmtU(d.rev):'–')+'</td>';
+    h+='<td style="'+tdS+';text-align:right;color:#6b4a3a">'+(d.spK>0?fmtK(d.spK):'–')+'</td>';
+    h+='<td style="'+tdS+';text-align:right;font-weight:700;color:'+rCol(roi)+'">'+fmtP(roi)+'</td>';
+    h+='<td style="'+tdS+';text-align:right;color:#4a6b7c;font-weight:700">'+(d.ckA>0?fmtU(d.ckA):'–')+'</td>';
+    h+='<td style="'+tdS+';text-align:right;color:#6b4a7c">'+(d.ckB>0?fmtK(d.ckB):'–')+'</td>';
+    h+='<td style="'+tdS+';text-align:right;font-weight:700;color:'+rCol(pRoi)+'">'+fmtP(pRoi)+'</td>';
+    h+='</tr>';
   });
 
-  // 합계
-  var totalExecStr = '';
-  if(totalBudgetK>0 && totalSpendK>0) {
-    var totalExecRate = Math.round(totalSpendK/totalBudgetK*100);
-    var tCol = totalExecRate>100?'#c0392b':totalExecRate>=80?'#c17f3a':'#2a7c2a';
-    totalExecStr = '<br><span style="font-size:8px;color:'+tCol+';font-weight:700">'+totalExecRate+'%'+(totalExecRate>100?' ⚠':'')+'</span>';
-  }
-  h += '<tr style="background:#e8e4dc;border-top:2px solid #c8c4bc">';
-  h += '<td style="'+tdS+';font-weight:800">합계</td>';
-  h += '<td style="'+tdS+';text-align:right;color:#1a6b3a;font-weight:800">'+fmtU(totalRev)+'</td>';
-  h += '<td style="'+tdS+';text-align:right;color:#4a4038;font-weight:700">'+(totalBudgetK>0?fmtK(totalBudgetK):'<span style="color:#b0a898;font-size:9px">미설정</span>')+totalExecStr+'</td>';
-  h += '<td style="'+tdS+';text-align:right;color:#6b4a3a;font-weight:700">'+(totalSpendK>0?fmtK(totalSpendK):'–')+'</td>';
-  h += '<td style="'+tdS+';text-align:right;font-weight:800;color:'+rCol(totalRoi)+'">'+fmtP(totalRoi)+'</td>';
-  h += '<td style="'+tdS+';text-align:right;color:#8a8278">100%</td>';
-  h += '</tr></tbody></table>';
-  h += '<div style="text-align:right;font-size:8px;color:#b0a898;margin-top:4px">4월 기준 · ROI = (매출USD−집행USD)÷집행USD · 집행비KRW÷1,502</div>';
+  h+='<tr style="background:#e8e4dc;border-top:2px solid #c8c4bc">';
+  h+='<td style="'+tdS+';font-weight:800">합계</td>';
+  h+='<td style="'+tdS+';text-align:right;color:#1a6b3a;font-weight:800">'+fmtU(totRev)+'</td>';
+  h+='<td style="'+tdS+';text-align:right;color:#6b4a3a">'+(totSpK>0?fmtK(totSpK):'–')+'</td>';
+  h+='<td style="'+tdS+';text-align:right;font-weight:800;color:'+rCol(totRoi)+'">'+fmtP(totRoi)+'</td>';
+  h+='<td style="'+tdS+';text-align:right;color:#4a6b7c;font-weight:800">'+(totCkA>0?fmtU(totCkA):'–')+'</td>';
+  h+='<td style="'+tdS+';text-align:right;color:#6b4a7c">'+(totCkB>0?fmtK(totCkB):'–')+'</td>';
+  h+='<td style="'+tdS+';text-align:right;font-weight:800;color:'+rCol(totPromoRoi)+'">'+fmtP(totPromoRoi)+'</td>';
+  h+='</tr></tbody></table>';
+  h+='<div style="text-align:right;font-size:8px;color:#b0a898;margin-top:4px">4월 기준 · ROI=(매출−집행)/집행 · KRW÷1,502 · CK: choicekit-dashboard</div>';
   el.innerHTML = h;
 }
 
@@ -5704,18 +5661,21 @@ async function fetchChoiceKitOrders() {
     let totalAmount = 0;
     let count = 0;
     const monthly = {};
-    const dateIdx = headers.findIndex(h => h === 'order date' || h === 'order_date');
+    const byRegion = {};
+    const dateIdx   = headers.findIndex(h => h === 'order date' || h === 'order_date');
+    const regionIdx = headers.findIndex(h => h === 'region' || h === 'area' || h === 'country');
     for(let i = 1; i < lines.length; i++) {
       const cols = lines[i].split(',');
       const amt = parseFloat((cols[amtIdx]||'').replace(/,/g,''));
       if(!isNaN(amt) && amt > 0) {
         totalAmount += amt;
         count++;
-        // 월별 집계
         if(dateIdx >= 0) {
-          const dt = (cols[dateIdx]||'').trim().slice(0,7); // YYYY-MM
+          const dt = (cols[dateIdx]||'').trim().slice(0,7);
           if(dt) monthly[dt] = (monthly[dt]||0) + amt;
         }
+        const rgn = regionIdx>=0?(cols[regionIdx]||'').trim().toUpperCase():'GLOBAL';
+        byRegion[rgn||'GLOBAL'] = (byRegion[rgn||'GLOBAL']||0)+amt;
       }
     }
 
@@ -5723,6 +5683,7 @@ async function fetchChoiceKitOrders() {
       total: totalAmount,
       count,
       monthly,
+      byRegion,
       lastUpdated: new Date().toLocaleTimeString('ko-KR')
     };
 
