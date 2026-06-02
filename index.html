@@ -3527,43 +3527,50 @@ function renderDkpiSheetBody(kpiKey) {
 
 
   if(kpiKey === 'channel_discriber') {
-    const saved = (() => { try { return JSON.parse(localStorage.getItem('channel_discriber_val')||'{}'); } catch(e){return {};} })();
-    tbody.innerHTML = '<tr><td style="padding:8px 10px;font-size:11px;font-weight:700;color:#8a8278">총 팔로워</td>'
-      + '<td colspan="12" style="padding:4px 8px"><input type="number" min="0" id="cdSingleInput" value="'+((saved.total)||'')+'"'
-      + ' style="width:140px;border:1px solid #e0dbd2;border-radius:3px;padding:4px 8px;font-size:13px;font-weight:700" placeholder="총 팔로워 수" /></td></tr>';
-    return;
-  }
-
-  if(kpiKey === 'region_sub') {
-    const saved = (() => { try { return JSON.parse(localStorage.getItem('region_sub_detail')||'{}'); } catch(e){return {};} })();
-    const regions = Object.keys(saved).length ? Object.keys(saved)
-      : ['GLOBAL','MENA','EUROPE','NA','LATAM','ASIA','TH','RUS','MX','CIS','IN','BR'];
-    const hdr = '<tr style="background:#e8e4dc">'
-      + '<th style="padding:5px 10px;font-size:10px;text-align:left">지역</th>'
-      + '<th style="padding:5px 8px;font-size:10px;text-align:right">합계</th>'
-      + moLabels.map(m=>'<th style="padding:5px 4px;font-size:10px;text-align:right">'+m+'</th>').join('')
+    // 지역별 구독자 통합 테이블 (구독자 + 지역별 합산)
+    var REGIONS = ['GLOBAL','MENA','EUROPE','NA','LATAM','ASIA','TH','RUS','MX','CIS','IN','BR'];
+    var rsd = (function(){ try{ return JSON.parse(localStorage.getItem('region_sub_detail')||'{}'); }catch(e){return {};} })();
+    var hdr2 = '<tr style="background:#e8e4dc">'
+      + '<th style="padding:5px 10px;font-size:10px;text-align:left;min-width:70px">지역</th>'
+      + '<th style="padding:5px 8px;font-size:10px;text-align:right;min-width:70px">합계</th>'
+      + moLabels.map(function(m){ return '<th style="padding:5px 4px;font-size:10px;text-align:right;min-width:54px">'+m+'</th>'; }).join('')
       + '</tr>';
-    const dataRows = regions.map(r => {
-      const total = saved[r]?.total || '';
-      const cells = months.map(mm => {
-        const key = '2026-'+mm;
-        const v = saved[r]?.monthly?.[key]!=null ? saved[r].monthly[key] : '';
-        return '<td style="padding:2px 3px;text-align:right">'
-          +'<input type="number" min="0" data-region="'+r+'" data-month="'+key+'" class="regionSubInput" value="'+(v||'')+'"'
-          +' style="width:58px;text-align:right;border:1px solid #e0dbd2;border-radius:2px;padding:2px 3px;font-size:10px"/></td>';
+    var grandT = 0;
+    var moTotals = months.map(function(){ return 0; });
+    var rows2 = REGIONS.map(function(region) {
+      var rData = (rsd[region]&&rsd[region].monthly) ? rsd[region].monthly : {};
+      var rTot  = rsd[region]&&rsd[region].total ? Number(rsd[region].total) : 0;
+      var rowSum = rTot || months.reduce(function(s,mo){ return s+Number(rData['2026-'+mo]||0); }, 0);
+      grandT += rowSum;
+      var cells = months.map(function(mo,mi) {
+        var key = '2026-'+mo;
+        var v = rData[key]||'';
+        moTotals[mi] += Number(v||0);
+        return '<td style="padding:2px 4px">'
+          + '<input type="number" min="0" class="regionSubMonthly"'
+          + ' data-region="'+region+'" data-month="'+key+'"'
+          + ' value="'+(v||'')+'"'
+          + ' style="width:50px;text-align:right;border:1px solid #dedad2;border-radius:3px;padding:2px 3px;font-size:10px">'
+          + '</td>';
       }).join('');
       return '<tr style="border-bottom:1px solid #f0ede6">'
-        +'<td style="padding:5px 10px;font-size:11px;font-weight:700;white-space:nowrap">'+r+'</td>'
-        +'<td style="padding:2px 6px;text-align:right">'
-        +'<input type="number" min="0" data-region="'+r+'" data-type="total" class="regionSubTotal" value="'+(total||'')+'"'
-        +' style="width:78px;text-align:right;border:1px solid #d4cec5;border-radius:2px;padding:2px 4px;font-size:11px;font-weight:700"/></td>'
-        + cells + '</tr>';
+        + '<td style="padding:4px 10px;font-size:11px;font-weight:700;color:#1a1714">'+region+'</td>'
+        + '<td style="padding:4px 8px;text-align:right">'
+        + '<input type="number" min="0" class="regionSubTotal" data-region="'+region+'"'
+        + ' value="'+(rowSum||'')+'"'
+        + ' style="width:64px;text-align:right;border:1px solid #dedad2;border-radius:3px;padding:2px 4px;font-size:10px;font-weight:700;color:#4a6b7c">'
+        + '</td>' + cells + '</tr>';
     }).join('');
-    tbody.innerHTML = hdr + dataRows;
+    var totalRow2 = '<tr style="background:#f0ede6;border-top:2px solid #c8c4bc">'
+      + '<td style="padding:5px 10px;font-size:10px;font-weight:800">합계</td>'
+      + '<td style="padding:5px 8px;text-align:right;font-size:11px;font-weight:800;color:#2a7c2a">'+grandT.toLocaleString()+'</td>'
+      + moTotals.map(function(t){ return '<td style="padding:5px 4px;text-align:right;font-size:10px;color:#4a4038">'+(t>0?t.toLocaleString():'')+'</td>'; }).join('')
+      + '</tr>';
+    tbody.innerHTML = hdr2 + rows2 + totalRow2;
     return;
   }
 
-  // ── 권역별 매출 인풋 ──
+    // ── 권역별 매출 인풋 ──
   if(kpiKey === 'revenue') {
     const saved = (() => { try { return JSON.parse(localStorage.getItem('revenue_by_region')||'{}'); } catch(e){return {};} })();
     const regions = ['US','CA','UK','DE','GLOBAL','MENA','EUROPE','NA','LATAM','ASIA','TH','RUS','MX','CIS','IN','BR'];
@@ -3628,7 +3635,7 @@ function saveDkpiSheet() {
     const cs = computeSummary(state.tasks||[], state._lastKpis||[]);
     renderSummary(cs);
 
-  } else if(kpiKey === 'region_sub') {
+  } else if(kpiKey === 'region_sub_DISABLED') { // merged into channel_discriber
     const saved = {};
     document.querySelectorAll('#dkpiSheetBody .regionSubTotal').forEach(inp => {
       const r=inp.dataset.region; if(!r) return;
