@@ -2192,14 +2192,8 @@ function renderSummary(s) {
 
     var isSub = (kpiKey === 'channel_discriber');
 
-    // 전년 대비 성장률 (구독자 전용)
-    var yoyRate = null;
-    if(isSub && lastMo && lastAct > 0) {
-      var lyKey = String(parseInt(lastMo.split('-')[0])-1)+'-'+lastMo.split('-')[1];
-      var lyRow = d2[lyKey]||{};
-      var lyAct = Number(lyRow.actual||lyRow.result||0);
-      if(lyAct > 0) yoyRate = Math.round((lastAct-lyAct)/lyAct*100);
-    }
+    // 전월 대비 성장률 (구독자 전용 상단 뱃지)
+    var momRate = (isSub && prevAct>0 && lastAct>0) ? Math.round((lastAct-prevAct)/prevAct*100) : null;
 
     // 목표 달성률 (일반 카드용)
     var allRate = (!isSub && allAct>0 && allTgt>0) ? Math.round(allAct/allTgt*100) : null;
