@@ -2949,7 +2949,7 @@ function renderKpiGauge(kpi, taskList) {
   const byQ = { q1:0, q2:0, q3:0, q4:0 };
   for(const t of taskList) {
     const q = parseQuarterKey(t.quarter) || curQ;
-    byQ[q] += Number(t.progress||0);
+    byQ[q] += Number(t._progressRaw!=null ? t._progressRaw : t.progress||0);
   }
 
   let displayQ = curQ;
@@ -3021,6 +3021,62 @@ async function saveTaskSelectEdit(el) {
   } catch(e) { console.error('saveTaskSelectEdit:',e); }
 }
 
+
+function _syncAfterTaskChange(task, changedFields) {
+  if(!task) return;
+  changedFields = changedFields || [];
+  // 4개 캐시 동기화
+  ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k) {
+    var t2 = (state[k]||[]).find(function(t){ return t.id === task.id; });
+    if(t2) Object.assign(t2, task);
+  });
+  // KPI 게이지 재렌더
+  if(changedFields.indexOf('progress') >= 0 || changedFields.indexOf('status') >= 0) {
+    var kpi = (state._lastKpis||[]).find(function(k){ return k.id === task.kpi_id; });
+    var ts  = (state._lastKpiTasks||[]).filter(function(t){ return t.kpi_id === task.kpi_id; });
+    var gEl = document.querySelector('.kpi-progress-wrap[data-kpi="'+task.kpi_id+'"]');
+    if(gEl && kpi) gEl.innerHTML = renderKpiGauge(kpi, ts);
+  }
+  // 인라인 셀 업데이트
+  document.querySelectorAll('[data-task-id="'+task.id+'"]').forEach(function(el) {
+    var field = el.dataset.field;
+    if(!field || el.getAttribute('contenteditable') !== 'true') return;
+    if(field === 'progress') el.textContent = task.progress != null ? String(task._progressRaw != null ? task._progressRaw : task.progress) : '';
+    else if(field === 'title') el.textContent = task.title || '';
+    else if(field === 'spend') el.textContent = task.spend > 0 ? fmtKRW(task.spend) : String.fromCharCode(8361)+'0';
+    else if(field === 'allocated_budget') el.textContent = task.allocated_budget > 0 ? fmtKRW(task.allocated_budget) : String.fromCharCode(8361)+'0';
+  });
+  document.querySelectorAll('select[data-task-id="'+task.id+'"]').forEach(function(sel) {
+    if(task.status && sel.value !== task.status) sel.value = task.status;
+  });
+  // 드로어 폼 갱신
+  if(state.drawer && state.drawer.open && state.drawer.taskId === task.id) {
+    var pEl = document.getElementById('de_progress');
+    var sEl2 = document.getElementById('de_spend');
+    var bEl = document.getElementById('de_budget');
+    var tEl2 = document.getElementById('de_title');
+    var stEl = document.getElementById('de_status');
+    if(pEl && changedFields.indexOf('progress') >= 0) pEl.value = task._progressRaw != null ? task._progressRaw : (task.progress || 0);
+    if(sEl2 && changedFields.indexOf('spend') >= 0) sEl2.value = task.spend || 0;
+    if(bEl && changedFields.indexOf('allocated_budget') >= 0) bEl.value = task.allocated_budget || 0;
+    if(tEl2 && changedFields.indexOf('title') >= 0) tEl2.value = task.title || '';
+    if(stEl && changedFields.indexOf('status') >= 0) stEl.value = task.status || 'todo';
+  }
+  // 예산/집행 변경 시
+  var budgetChanged = changedFields.some(function(f){ return f==='spend'||f==='allocated_budget'; });
+  if(budgetChanged) {
+    var allT = state._lastKpiTasks || state.tasks || [];
+    var allK = state._lastKpis || [];
+    renderRegionOrderChart(allT, allK);
+    if(typeof renderActivityTypeChartWithBudget === 'function') renderActivityTypeChartWithBudget(allK, allT);
+    if(typeof renderRegionBudgetDonut === 'function') renderRegionBudgetDonut(allT, allK);
+  }
+  // summary + KPI 카드
+  var cs = computeSummary(state.tasks || [], state._lastKpis || []);
+  if(typeof renderKPICards === 'function') renderKPICards(cs);
+  renderSummary(cs);
+}
+
 async function saveTaskCellEdit(el) {
   const taskId = el.dataset.taskId;
   const field  = el.dataset.field;
@@ -3041,14 +3097,8 @@ async function saveTaskCellEdit(el) {
     const {error} = await state.sb.from('tasks').update(updates).eq('id', taskId);
     if(error) throw error;
     task[field] = dbVal;
-    const t2=(state.tasks||[]).find(t=>t.id===taskId); if(t2) t2[field]=dbVal;
     el.style.color='#3a7c3a'; setTimeout(()=>{el.style.color='';},1200);
-    if(field==='progress'||field==='status'){
-      const kpi=(state._lastKpis||[]).find(k=>k.id===task.kpi_id);
-      const ts=(state._lastKpiTasks||[]).filter(t=>t.kpi_id===task.kpi_id);
-      const gEl=document.querySelector('.kpi-progress-wrap[data-kpi="'+task.kpi_id+'"]');
-      if(gEl&&kpi) gEl.innerHTML=renderKpiGauge(kpi,ts);
-    }
+    _syncAfterTaskChange(task, [field]);
   } catch(e) {
     console.error('saveTaskCellEdit:',field,e.message||e);
     alert('저장 실패: '+((e.message||'')));
@@ -4401,7 +4451,9 @@ async function saveDrawerEdit(taskId) {
     }
 
     if(btn) { btn.textContent='✅ 저장됨'; setTimeout(()=>{ btn.textContent='저장'; },1500); }
-    await refreshDashboard();
+    Object.assign(task, updates);
+    _syncAfterTaskChange(task, Object.keys(updates));
+    refreshDashboard();
 
   } catch(e) {
     if(btn) btn.textContent='❌ 실패';
@@ -6339,17 +6391,8 @@ async function saveBudgetEdit(el) {
     if(error) throw error;
 
     task.allocated_budget = newVal;
-    const t2 = (state._lastKpiTasks||[]).find(t=>t.id===taskId);
-    if(t2) t2.allocated_budget = newVal;
-
-    // 활동유형별 차트 갱신 (budget_plan 기반이지만 task 예산도 표시)
-    renderActivityTypeChartWithBudget(state._lastKpis||[], state._lastKpiTasks||state.tasks||[]);
-    // KPI 카드 갱신
-    const cs = computeSummary(state.tasks||[], state._lastKpis||[]);
-    renderKPICards(cs); renderSummary(cs);
-
-    el.style.color = '#3a7c3a';
-    setTimeout(() => { el.style.color = ''; }, 1200);
+    el.style.color = '#3a7c3a'; setTimeout(() => { el.style.color = ''; }, 1200);
+    _syncAfterTaskChange(task, ['allocated_budget']);
   } catch(e) {
     console.error('budget save error:', e);
     el.style.color = 'var(--red)';
@@ -6378,27 +6421,9 @@ async function saveSpendEdit(el) {
       .eq('id', taskId);
     if(error) throw error;
 
-    // 메모리 업데이트
     task.spend = newVal;
-    // _lastKpiTasks에도 반영
-    const t2 = (state._lastKpiTasks||[]).find(t=>t.id===taskId);
-    if(t2) t2.spend = newVal;
-
-    // 지역별 ROI 테이블 즉시 갱신
-    renderRegionOrderChart(state._lastKpiTasks||state.tasks||[], state._lastKpis||[]);
-    renderRegionBudgetDonut(state._lastKpiTasks||state.tasks||[], state._lastKpis||[]);
-
-    // 활동유형별 도넛 차트 갱신
-    renderActivityTypeChartWithBudget(state._lastKpis||[], state._lastKpiTasks||state.tasks||[]);
-
-    // KPI 카드 ROI 갱신
-    const cs = computeSummary(state.tasks||[], state._lastKpis||[]);
-    renderKPICards(cs);
-    renderSummary(cs);
-
-    // 저장 확인 애니메이션
-    el.style.color = '#3a7c3a';
-    setTimeout(() => { el.style.color = ''; }, 1200);
+    el.style.color = '#3a7c3a'; setTimeout(() => { el.style.color = ''; }, 1200);
+    _syncAfterTaskChange(task, ['spend']);
 
   } catch(e) {
     console.error('spend save error:', e);
