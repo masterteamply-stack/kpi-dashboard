@@ -5633,8 +5633,21 @@ function refreshOwnerFilterOptions() {
 
 // ── ChoiceKit 관련 오더 실시간 데이터 ──
 async function fetchChoiceKitOrders() {
+  // 1. localStorage 캐시 즉시 적용 → 화면 먼저 표시
   try {
-    // orders.csv는 EUC-KR(CP949) 인코딩
+    const cached = localStorage.getItem('ck_order_cache');
+    if(cached) {
+      const cData = JSON.parse(cached);
+      state.choiceKitOrder = cData;
+      renderSummary(computeSummary(state.tasks||[], state._lastKpis||[]));
+      renderRegionOrderChart(state._lastKpiTasks||state.tasks||[], state._lastKpis||[]);
+      renderRegionOrderBarChart();
+      updateOrderMiniChart();
+    }
+  } catch(e) {}
+
+  // 2. 백그라운드에서 최신 데이터 fetch
+  try {
     const res = await fetch(
       'https://raw.githubusercontent.com/masterteamply-stack/choicekit-dashboard/main/orders.csv',
       { cache: 'no-cache' }
@@ -5642,58 +5655,56 @@ async function fetchChoiceKitOrders() {
     if(!res.ok) throw new Error('fetch failed: ' + res.status);
 
     const buf = await res.arrayBuffer();
-    // TextDecoder로 EUC-KR 디코딩
     let text;
-    try {
-      text = new TextDecoder('euc-kr').decode(buf);
-    } catch(e) {
-      text = new TextDecoder('utf-8').decode(buf);
-    }
+    try { text = new TextDecoder('euc-kr').decode(buf); }
+    catch(e) { text = new TextDecoder('utf-8').decode(buf); }
 
-    // CSV 파싱 (헤더 행 + 데이터 행)
     const lines = text.split('\n').map(l=>l.replace('\r','')).filter(l => l.trim());
     if(lines.length < 2) throw new Error('CSV empty');
 
-    // 헤더에서 amount 컬럼 인덱스 찾기
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-    const amtIdx = headers.findIndex(h => h === 'amount');
-    const curIdx = headers.findIndex(h => h === 'currency');
+    const headers  = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const amtIdx   = headers.findIndex(h => h === 'amount');
+    const curIdx   = headers.findIndex(h => h === 'currency');
+    const dateIdx  = headers.findIndex(h => h === 'order date' || h === 'order_date');
+    const regionIdx= headers.findIndex(h => h === 'region' || h === 'area' || h === 'country');
     if(amtIdx < 0) throw new Error('amount column not found');
 
-    let totalAmount = 0;
-    let count = 0;
-    const monthly = {};
-    const byRegion = {};
-    const dateIdx   = headers.findIndex(h => h === 'order date' || h === 'order_date');
-    const regionIdx = headers.findIndex(h => h === 'region' || h === 'area' || h === 'country');
+    let totalAmount = 0, count = 0;
+    const monthly = {}, byRegion = {};
     for(let i = 1; i < lines.length; i++) {
       const cols = lines[i].split(',');
-      const amt = parseFloat((cols[amtIdx]||'').replace(/,/g,''));
+      const amt  = parseFloat((cols[amtIdx]||'').replace(/,/g,''));
       if(!isNaN(amt) && amt > 0) {
-        totalAmount += amt;
-        count++;
+        totalAmount += amt; count++;
         if(dateIdx >= 0) {
           const dt = (cols[dateIdx]||'').trim().slice(0,7);
           if(dt) monthly[dt] = (monthly[dt]||0) + amt;
         }
         const rgn = regionIdx>=0?(cols[regionIdx]||'').trim().toUpperCase():'GLOBAL';
-        byRegion[rgn||'GLOBAL'] = (byRegion[rgn||'GLOBAL']||0)+amt;
+        byRegion[rgn||'GLOBAL'] = (byRegion[rgn||'GLOBAL']||0) + amt;
       }
     }
 
-    state.choiceKitOrder = {
-      total: totalAmount,
-      count,
-      monthly,
-      byRegion,
+    const newData = {
+      total: totalAmount, count, monthly, byRegion,
       lastUpdated: new Date().toLocaleTimeString('ko-KR')
     };
+    state.choiceKitOrder = newData;
 
-    // 미니 차트 업데이트
+    // 3. 캐시 저장 (다음 로드 때 즉시 사용)
+    try { localStorage.setItem('ck_order_cache', JSON.stringify(newData)); } catch(e) {}
+
+    // 4. 화면 갱신
+    renderSummary(computeSummary(state.tasks||[], state._lastKpis||[]));
+    renderRegionOrderChart(state._lastKpiTasks||state.tasks||[], state._lastKpis||[]);
+    renderRegionOrderBarChart();
     updateOrderMiniChart();
+
   } catch(e) {
     console.warn('ChoiceKit orders fetch error:', e.message);
-    state.choiceKitOrder = { total: null, count: null, lastUpdated: null };
+    if(!state.choiceKitOrder.total) {
+      state.choiceKitOrder = { total: null, count: null, lastUpdated: null };
+    }
     updateOrderMiniChart();
   }
 }
