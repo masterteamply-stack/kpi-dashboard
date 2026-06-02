@@ -4887,7 +4887,7 @@ function renderRegionOrderChart(tasks, kpis) {
   const totSpU=totSpK/_KRW_USD;
   const totRoi=totSpU>0?(totRev-totSpU)/totSpU*100:null;
   const totCkBU=totCkB/_KRW_USD;
-  const totPromoRoi=totCkBU>0?(totCkA-totCkBU)/totCkBU*100:null;
+  const totPromoRoi=totCkA>0?(totCkA-totCkBU)/totCkA*100:null;
 
   var _thB='padding:4px 5px;font-size:9px;font-weight:700;color:#4a4038;white-space:nowrap;border-bottom:2px solid #c8c4bc';
   var thS =_thB+';background:#e8e4dc;text-align:right';
@@ -4908,7 +4908,7 @@ function renderRegionOrderChart(tasks, kpis) {
   h+='<th style="text-align:right;'+thS+'">CK Order($)</th>';
   h+='<th style="text-align:right;'+thS+'">CK 마케팅예산(₩)</th>';
   h+='<th style="text-align:right;'+thS+'">CK 집행비(₩)</th>';
-  h+='<th style="text-align:right;'+thS+'">Promo ROI</th>';
+  h+='<th style="text-align:right;'+thS+'">CK ROI</th>';
   h+='</tr></thead><tbody>';
 
   var _totSpKAll=rows.reduce(function(s,d){return s+d.spK;},0);
@@ -4916,7 +4916,7 @@ function renderRegionOrderChart(tasks, kpis) {
     var spU=d.spK/_KRW_USD;
     var roi=spU>0?(d.rev-spU)/spU*100:null;
     var ckBU=d.ckB/_KRW_USD;
-    var pRoi=ckBU>0?(d.ckA-ckBU)/ckBU*100:null;
+    var pRoi=d.ckA>0?(d.ckA-ckBU)/d.ckA*100:null;
     var bg=i%2===0?'#fdfcf9':'#f8f5f0';
     h+='<tr style="background:'+bg+'">';
     h+='<td style="'+tdS+';font-weight:700;color:#1a1714">'+d.r+'</td>';
