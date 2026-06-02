@@ -2266,8 +2266,17 @@ function renderSummary(s) {
   // 2. 관련 오더 + Marketing Lead
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
   h += '<div style="background:#f5f2ed;border-radius:6px;padding:7px 10px">';
-  h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:2px">관련 오더</div>';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">';
+  h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8278">Choice Kit 오더</div>';
+  h += '<a href="https://masterteamply-stack.github.io/choicekit-dashboard/" target="_blank" style="font-size:9px;background:#f0ede6;border:1px solid #dedad2;border-radius:3px;padding:1px 6px;color:#6b6259;text-decoration:none">상세 분석 →</a>';
+  h += '</div>';
+  var _ckTarget = (() => { var kpis=state._lastKpis||[]; var k=kpis.find(function(k){return (k.kpi_key||'').toLowerCase().includes('choice')||(k.title||'').toLowerCase().includes('choice');}); return k?Number(k.q2_target||k.q1_target||0):0; })();
+  var _ckRate = (_ckTarget>0&&state.choiceKitOrder.total)?Math.round(state.choiceKitOrder.total/_ckTarget*100):null;
+  var _ckCol = _ckRate===null?'#8a8278':_ckRate>=100?'#2a7c2a':_ckRate>=70?'#c17f3a':'#c0392b';
+  h += '<div style="display:flex;align-items:baseline;gap:8px">';
   h += '<div style="font-size:17px;font-weight:800;color:#1a1714;line-height:1">' + orderVal + '</div>';
+  if(_ckRate!==null) h += '<span style="font-size:11px;font-weight:700;color:'+_ckCol+'">' + _ckRate + '%</span>';
+  h += '</div>';
   h += '<div style="font-size:10px;color:#8a8278;margin-top:1px">' + (state.choiceKitOrder.count ? fmtNum(state.choiceKitOrder.count)+'건' : '로딩중') + ' · USD</div>';
   if(_revTotalDisp) {
     h += '<div style="margin-top:5px;padding-top:5px;border-top:1px solid #e8e4dc;display:flex;align-items:center;justify-content:space-between">';
