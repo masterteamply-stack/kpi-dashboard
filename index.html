@@ -1841,7 +1841,11 @@ async function hydrateFilters() {
   const { data, error } = await state.sb.from("tasks").select("quarter,region").order("quarter");
   if(error) throw error;
   const qs=[...new Set((data||[]).map(r=>r.quarter).filter(Boolean))];
-  const rs=[...new Set((data||[]).map(r=>r.region).filter(Boolean))];
+  var _rsDB=[...new Set((data||[]).map(r=>r.region).filter(Boolean))];
+  try{var _rsRev=Object.keys(JSON.parse(localStorage.getItem('revenue_by_region')||'{}'));}catch(e){var _rsRev=[];}
+  var _rsStd=['ASIA','CIS','EUROPE','GLOBAL','LATAM','MENA','NA','RUS'];
+  var rs=[...new Set([..._rsDB,..._rsRev,..._rsStd].map(function(r){return r.trim().toUpperCase();}).filter(Boolean))].sort();
+  const rs2=rs;
   if(el.quarterFilter) el.quarterFilter.innerHTML = `<option value="all">전체 분기</option>`+qs.map(q=>`<option value="${esc(q)}">${esc(q)}</option>`).join("");
   if(el.regionFilter) el.regionFilter.innerHTML  = `<option value="all">전체 지역</option>` +rs.map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join("");
   if(el.quarterFilter) el.quarterFilter.value = state.filters.quarter;
@@ -4871,6 +4875,8 @@ function renderRegionOrderChart(tasks, kpis) {
     const ckSp=ckSpendByRegion[r]||0;
     if(rev>0||spK>0||ckA>0||ckB>0||ckSp>0) rows.push({r,rev,spK,ckA,ckB,ckSp});
   }
+  var _rf=(state.filters&&state.filters.region&&state.filters.region!=='all')?state.filters.region.toUpperCase():null;
+  if(_rf) rows=rows.filter(function(d){return d.r.toUpperCase()===_rf;});
   rows.sort(function(a,b){return b.rev-a.rev;});
 
   const totRev=rows.reduce(function(s,d){return s+d.rev;},0);
@@ -6504,7 +6510,7 @@ function applyFilters() {
 
   const filterFn = function(t) {
     if(state.filters.quarter !== 'all' && t.quarter !== state.filters.quarter) return false;
-    if(state.filters.region  !== 'all' && t.region  !== state.filters.region)  return false;
+    if(state.filters.region!=='all' && (t.region||'').toUpperCase()!==state.filters.region.toUpperCase()) return false;
     if(state.filters.owner   !== 'all') {
       const ownerName = (t.owners?.name || t.owner_name || '');
       if(ownerName !== state.filters.owner) return false;
@@ -6580,7 +6586,16 @@ function renderRegionOrderBarChart() {
   var tEl = document.getElementById('regionOrderTotal');
   var sEl = document.getElementById('regionOrderSub');
   if(!ctx) return;
-  var monthly  = (state.choiceKitOrder&&state.choiceKitOrder.monthly) ? state.choiceKitOrder.monthly : {};
+  var _rfBar=(state.filters&&state.filters.region&&state.filters.region!=='all')?state.filters.region.toUpperCase():null;
+  var monthly=(state.choiceKitOrder&&state.choiceKitOrder.monthly)?state.choiceKitOrder.monthly:{};
+  if(_rfBar&&state.choiceKitOrder&&state.choiceKitOrder.byRegion){
+    var _byR=state.choiceKitOrder.byRegion;
+    var _totBR=Object.values(_byR).reduce(function(s,v){return s+v;},0);
+    var _ratio=_totBR>0?((_byR[_rfBar]||0)/_totBR):0;
+    var _mf={};
+    Object.keys(monthly).forEach(function(k){_mf[k]=Math.round((monthly[k]||0)*_ratio);});
+    monthly=_mf;
+  }
   var byRegion = (state.choiceKitOrder&&state.choiceKitOrder.byRegion)? state.choiceKitOrder.byRegion: {};
   var ms = Object.keys(monthly).sort();
   if(!ms.length) { if(tEl) tEl.textContent='--'; return; }
