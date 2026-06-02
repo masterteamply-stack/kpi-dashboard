@@ -2069,7 +2069,7 @@ function computeMarketingLeads() {
     ...Object.keys(o2oMonthly)
   ])].sort();
 
-  return { channelTotal, o2oTotal, total: channelTotal + o2oTotal, channelMonthly, o2oMonthly, allMonths };
+  return { channelTotal, o2oTotal, totalCh: channelTotal, totalO2o: o2oTotal, total: channelTotal + o2oTotal, channelMonthly, o2oMonthly, allMonths };
 }
 
 function toggleLeadDetail() {
