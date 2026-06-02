@@ -1364,7 +1364,7 @@
         <!-- 지역별 구독자 증가 추이 -->
         <div class="digital-kpi-card" id="regionSubCard">
           <div class="digital-kpi-name">
-            <span>📡 Followers <small style="font-size:11px;font-weight:500;color:#8a8278">(채널 구독자)</small></span>
+            <span>📡 Subscribers <small style="font-size:11px;font-weight:500;color:#8a8278">(채널 구독자)</small></span>
             <div style="display:flex;gap:4px">
               <button id="regViewDonut" class="toggle-btn active" style="font-size:10px;padding:3px 7px" onclick="switchRegionView('donut')">포션</button>
               <button id="regViewBar" class="toggle-btn" style="font-size:10px;padding:3px 7px" onclick="switchRegionView('bar')">추이↔</button>
@@ -2269,7 +2269,9 @@ function renderSummary(s) {
   var _totLead = ml.totalCh + ml.totalO2o;
   h += '<div style="background:#f5f2ed;border-radius:6px;padding:7px 10px">';
   h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">';
-  h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278">Marketing Lead</div></div>';
+  h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278">Marketing Lead</div>';
+  h += '<button onclick="document.getElementById(\'webLeadSection\')?.scrollIntoView({behavior:\'smooth\'})" style="font-size:9px;background:#f0ede6;border:1px solid #dedad2;border-radius:3px;padding:1px 6px;cursor:pointer;color:#6b6259">상세 분석 →</button>';
+  h += '</div>';
   h += '<div style="font-size:17px;font-weight:800;color:#1a1714;line-height:1">' + fmtNum(_totLead) + ' 건</div>';
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:5px">';
   h += '<div style="background:#e8f0e8;border-radius:4px;padding:3px 5px"><div style="font-size:8px;color:#5c6b4a;font-weight:700">📧 이메일 리드</div><div style="font-size:13px;font-weight:800;color:#5c6b4a">' + fmtNum(ml.totalCh) + '</div><div style="font-size:9px;color:#8a8278">이번 ' + fmtNum(_thisCh) + '</div></div>';
@@ -2284,7 +2286,7 @@ function renderSummary(s) {
   h += '</div>';
 
   // 4. Channel 구독자
-  h += richCard('Channel 구독자', 'channel_discriber', '#3a6b5a', discVal);
+  h += richCard('Channel Subscribers', 'channel_discriber', '#3a6b5a', discVal);
 
   // 5. 완료율 · 지연 · ROI
   h += '<div style="font-size:11px;color:#6b6259;line-height:1.8;padding-top:2px">';
@@ -5786,7 +5788,7 @@ async function fetchWebLeadData() {
 function editChannelDiscriber() {
   const cur = state.channelDiscriber && state.channelDiscriber.manual != null
     ? state.channelDiscriber.manual : '';
-  const val = prompt('총 팔로워 수를 입력하세요 (bi.ctr.co.kr 기준):', cur);
+  const val = prompt('총 구독자 수를 입력하세요 (bi.ctr.co.kr 기준):', cur);
   if(val === null) return;
   const num = parseInt(String(val).replace(/[^0-9]/g,''));
   if(isNaN(num)) { alert('숫자를 입력해주세요.'); return; }
