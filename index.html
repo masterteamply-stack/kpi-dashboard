@@ -1294,7 +1294,17 @@
         <button class="panel-collapse-btn" onclick="togglePanel('regionPanel',this)">−</button>
       </div>
       <div id="regionContent" class="panel-content">
-        <div id="regionRoiTable" style="width:100%"></div>
+        <div id="regionRoiTable" style="width:100%;margin-bottom:16px"></div>
+        <div style="padding-top:12px;border-top:1px solid #f0ede6">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:10px;font-weight:700;color:#4a4038">월별 마케팅 프로모션 관련 오더 추이</div>
+            <div style="display:flex;align-items:baseline;gap:6px">
+              <div id="regionOrderTotal" style="font-size:13px;font-weight:800;color:#1a1714">–</div>
+              <div id="regionOrderSub" style="font-size:9px;color:#8a8278"></div>
+            </div>
+          </div>
+          <canvas id="regionOrderChart" height="70" style="width:100%;display:block"></canvas>
+        </div>
       </div>
     </div>
   </section>
@@ -6472,6 +6482,42 @@ function setKpiAgg(kpiId, val) {
     if(gaugeEl) gaugeEl.innerHTML = renderKpiGauge(kpi, tasks);
     else renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||[]);
   }
+}
+
+
+function renderRegionOrderBarChart() {
+  var ctx = document.getElementById('regionOrderChart');
+  var tEl = document.getElementById('regionOrderTotal');
+  var sEl = document.getElementById('regionOrderSub');
+  if(!ctx) return;
+  var monthly = (state.choiceKitOrder&&state.choiceKitOrder.monthly)?state.choiceKitOrder.monthly:{};
+  var ms = Object.keys(monthly).sort();
+  if(!ms.length) { if(tEl) tEl.textContent='–'; return; }
+  var labels = ms.map(function(m){return parseInt(m.split('-')[1])+'월';});
+  var values = ms.map(function(m){return monthly[m]||0;});
+  var total  = values.reduce(function(s,v){return s+v;},0);
+  var cnt    = state.choiceKitOrder.count||0;
+  if(tEl) tEl.textContent='$'+new Intl.NumberFormat('en-US').format(Math.round(total));
+  if(sEl) sEl.textContent=new Intl.NumberFormat('ko-KR').format(cnt)+'건 · USD';
+  var fmtU=function(v){return v>=1000000?'$'+(v/1000000).toFixed(1)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':v>0?'$'+Math.round(v):'';}
+  var lp={id:'roLbl',afterDatasetsDraw:function(chart){
+    var c2=chart.ctx; c2.save();
+    c2.font='bold 9px sans-serif'; c2.textAlign='center'; c2.textBaseline='bottom'; c2.fillStyle='#3d3830';
+    chart.getDatasetMeta(0).data.forEach(function(bar,i){
+      var val=chart.data.datasets[0].data[i]; if(!val) return;
+      c2.fillText(fmtU(val),bar.x,bar.y-2);
+    }); c2.restore();
+  }};
+  if(window._regionOrderChart){try{window._regionOrderChart.destroy();}catch(e){}}
+  window._regionOrderChart=new Chart(ctx,{
+    type:'bar',
+    data:{labels:labels,datasets:[{data:values,
+      backgroundColor:values.map(function(v,i){return i===values.length-1?'rgba(92,107,74,.85)':'rgba(92,107,74,.35)';}),
+      borderRadius:3,barPercentage:0.6}]},
+    plugins:[lp],
+    options:{responsive:true,layout:{padding:{top:18}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return '$'+new Intl.NumberFormat('en-US').format(Math.round(c.parsed.y));}}}},      scales:{x:{ticks:{color:'#8a8278',font:{size:9}},grid:{display:false}},y:{display:false,beginAtZero:true}}}
+  });
 }
 
 // ── 14. Init ───────────────────────────────────────────────
