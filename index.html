@@ -3017,7 +3017,13 @@ async function saveTaskSelectEdit(el) {
     const {error} = await state.sb.from('tasks').update({[field]:newVal,updated_at:new Date().toISOString()}).eq('id',taskId);
     if(error) throw error;
     task[field]=newVal;
-    const t2=(state.tasks||[]).find(t=>t.id===taskId); if(t2) t2[field]=newVal;
+    if(field==='owner_id'){
+      var ow2=(state.owners||[]).find(function(o){return o.id===newVal;});
+      if(ow2) task.owners={name:ow2.name,team:ow2.team||''};
+      if(task.kpi_id) await _syncOwnerToKpi(task.kpi_id,newVal);
+    }
+    _syncAfterTaskChange(task,[field]);
+    renderOwnerTable(state.tasks||[],state._lastKpis||[]);
   } catch(e) { console.error('saveTaskSelectEdit:',e); }
 }
 
@@ -3071,10 +3077,44 @@ function _syncAfterTaskChange(task, changedFields) {
     if(typeof renderActivityTypeChartWithBudget === 'function') renderActivityTypeChartWithBudget(allK, allT);
     if(typeof renderRegionBudgetDonut === 'function') renderRegionBudgetDonut(allT, allK);
   }
+  // owner/status/progress 변경 시 담당자 테이블 갱신
+  if(changedFields.some(function(f){return f==='owner_id'||f==='status'||f==='progress';}))
+    if(typeof renderOwnerTable==='function') renderOwnerTable(state.tasks||[],state._lastKpis||[]);
   // summary + KPI 카드
   var cs = computeSummary(state.tasks || [], state._lastKpis || []);
   if(typeof renderKPICards === 'function') renderKPICards(cs);
   renderSummary(cs);
+}
+
+
+function _getOwnerName(ownerIdOrName) {
+  var o = (state.owners||[]).find(function(o){ return o.id===ownerIdOrName||o.name===ownerIdOrName; });
+  return o ? o.name : ownerIdOrName;
+}
+async function _syncOwnerToKpi(kpiId, ownerIdOrName) {
+  if(!kpiId||!ownerIdOrName) return;
+  var kpi=(state._lastKpis||[]).find(function(k){return k.id===kpiId;});
+  if(!kpi) return;
+  var nm=_getOwnerName(ownerIdOrName);
+  if(!nm) return;
+  var cur=(kpi.owners||'').split(',').map(function(n){return n.trim();}).filter(Boolean);
+  if(cur.indexOf(nm)>=0) return;
+  cur.push(nm);
+  await _saveKpiOwners(kpiId,cur.join(', '),kpi);
+}
+async function _recalcKpiOwners(kpiId) {
+  if(!kpiId) return;
+  var kpi=(state._lastKpis||[]).find(function(k){return k.id===kpiId;});
+  if(!kpi) return;
+  var ts=(state._lastKpiTasks||state.tasks||[]).filter(function(t){return t.kpi_id===kpiId;});
+  var names=new Set();
+  ts.forEach(function(t){
+    var nm=t.owners&&t.owners.name?t.owners.name:_getOwnerName(t.owner_id);
+    if(nm) names.add(nm);
+  });
+  if(!names.size) return;
+  var nw=Array.from(names).join(', ');
+  if(kpi.owners!==nw) await _saveKpiOwners(kpiId,nw,kpi);
 }
 
 async function saveTaskCellEdit(el) {
@@ -4424,7 +4464,10 @@ async function saveDrawerEdit(taskId) {
   const ownerName = document.getElementById('de_owner')?.value;
   if(ownerName) {
     const ow = (state.owners||[]).find(o=>o.name===ownerName);
-    if(ow) updates.owner_id = ow.id;
+    if(ow){
+      updates.owner_id = ow.id;
+      if(task) task.owners = {name:ow.name,team:ow.team||''};
+    }
   }
 
   const btn = document.querySelector('#drawerTabEdit .btn-primary');
