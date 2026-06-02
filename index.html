@@ -2209,8 +2209,8 @@ function renderSummary(s) {
 
     // 상단 뱃지
     var topBadge = isSub
-      ? (momRate!==null
-          ? '<span style="font-size:11px;font-weight:700;color:'+(momRate>=0?'#2a7c2a':'#c0392b')+'">'+(momRate>=0?'+':'')+momRate+'% MoM</span>'
+      ? (diff!==null
+          ? '<span style="font-size:11px;font-weight:700;color:'+dc+'">'+dStr+'</span>'
           : '<span style="font-size:10px;color:#b0a898">–</span>')
       : (allRate!==null
           ? '<span style="font-size:11px;font-weight:700;color:'+arc+'">'+allRate+'%</span>'
