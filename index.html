@@ -2167,22 +2167,22 @@ function renderSummary(s) {
     var d2  = getDkpiMonthly(kpiKey);
     var ms  = Object.keys(d2).sort();
 
-    // actual 집계 (key: actual 또는 result 둘 다 지원)
     var allAct = ms.reduce(function(s,k){
-      var row = d2[k]||{};
-      return s + Number(row.actual||row.result||0);
+      var row = d2[k]||{}; return s + Number(row.actual||row.result||0);
     }, 0);
     var allTgt = ms.reduce(function(s,k){
       return s + Number((d2[k]||{}).target||0);
     }, 0);
 
-    // 이달 (actual > 0 인 마지막 월)
+    // 가장 최근 실적 월 (없으면 마지막 입력 월 fallback)
     var lastMo = null;
     for(var i=ms.length-1; i>=0; i--) {
       var row = d2[ms[i]]||{};
       if(Number(row.actual||row.result||0) > 0) { lastMo = ms[i]; break; }
     }
-    var prevMo  = lastMo&&ms.indexOf(lastMo)>0 ? ms[ms.indexOf(lastMo)-1] : null;
+    if(!lastMo && ms.length > 0) lastMo = ms[ms.length-1];
+
+    var prevMo  = lastMo && ms.indexOf(lastMo)>0 ? ms[ms.indexOf(lastMo)-1] : null;
     var lastRow = lastMo ? (d2[lastMo]||{}) : {};
     var prevRow = prevMo ? (d2[prevMo]||{}) : {};
     var lastAct = Number(lastRow.actual||lastRow.result||0);
@@ -2190,38 +2190,57 @@ function renderSummary(s) {
     var prevAct = Number(prevRow.actual||prevRow.result||0);
     var moNum   = lastMo ? parseInt(lastMo.split('-')[1]) : 0;
 
-    // 달성률: actual 데이터가 있을 때만
-    var allRate = (allAct>0 && allTgt>0) ? Math.round(allAct/allTgt*100) : null;
-    var moRate  = (lastAct>0 && lastTgt>0) ? Math.round(lastAct/lastTgt*100) : null;
+    var isSub = (kpiKey === 'channel_discriber');
 
-    // 등락
+    // 전년 대비 성장률 (구독자 전용)
+    var yoyRate = null;
+    if(isSub && lastMo && lastAct > 0) {
+      var lyKey = String(parseInt(lastMo.split('-')[0])-1)+'-'+lastMo.split('-')[1];
+      var lyRow = d2[lyKey]||{};
+      var lyAct = Number(lyRow.actual||lyRow.result||0);
+      if(lyAct > 0) yoyRate = Math.round((lastAct-lyAct)/lyAct*100);
+    }
+
+    // 목표 달성률 (일반 카드용)
+    var allRate = (!isSub && allAct>0 && allTgt>0) ? Math.round(allAct/allTgt*100) : null;
+    var arc = allRate===null?'#8a8278':allRate>=100?'#2a7c2a':allRate>=70?'#c17f3a':'#c0392b';
+
+    // 전월 대비 등락
     var diff  = (prevAct>0 && lastAct>0) ? lastAct-prevAct : null;
     var diffP = prevAct>0 ? Math.round((lastAct-prevAct)/prevAct*100) : null;
     var dc    = diff===null?'#8a8278':diff>=0?'#2a7c2a':'#c0392b';
-    var dStr  = diff===null ? '' : (diff>=0?'▲':'▼')+fN(Math.abs(diff))+'('+(diffP>=0?'+':'')+diffP+'%)';
+    var dStr  = diff===null ? '' : (diff>=0?'\u25b2':'\u25bc')+fN(Math.abs(diff))+'('+(diffP>=0?'+':'')+diffP+'%)';
 
-    // 색상
-    var arc = allRate===null?'#8a8278':allRate>=100?'#2a7c2a':allRate>=70?'#c17f3a':'#c0392b';
+    var disp = allAct>0 ? fN(allAct) : (fallbackVal!=null ? fN(fallbackVal) : '\u2013');
 
-    // 표시값: actual 누적이 있으면 우선, 없으면 fallback
-    var disp = allAct>0 ? fN(allAct) : (fallbackVal!=null ? fN(fallbackVal) : '–');
+    // 상단 뱃지
+    var topBadge = isSub
+      ? (yoyRate!==null ? '<span style="font-size:11px;font-weight:700;color:'+(yoyRate>=0?'#2a7c2a':'#c0392b')+'">'+(yoyRate>=0?'+':'')+yoyRate+'% YoY</span>'
+                        : '<span style="font-size:10px;color:#b0a898">\u2013</span>')
+      : (allRate!==null ? '<span style="font-size:11px;font-weight:700;color:'+arc+'">'+allRate+'%</span>' : '');
+
+    // 하단 줄
+    var moRate = (!isSub && lastAct>0 && lastTgt>0) ? Math.round(lastAct/lastTgt*100) : null;
+    var moArc  = moRate===null?'#8a8278':moRate>=100?'#2a7c2a':moRate>=70?'#c17f3a':'#c0392b';
+    var moLabel = moNum ? moNum+'\uc6d4 '+fN(lastAct)+(lastAct===0?' (\uc9c0\ub09c\ub2ec\uae30\uc900)':'') : '';
+    var bottomLine = moNum
+      ? '<div style="font-size:10px;color:#6b6259;display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
+        + '<span style="font-weight:600">'+moLabel+'</span>'
+        + (!isSub && moRate!==null ? '<span style="font-size:9px;color:'+moArc+'">/ \ubaa9\ud45c '+moRate+'%</span>' : '')
+        + (dStr ? '<span style="font-size:9px;color:'+dc+'">'+dStr+'</span>' : '')
+        + '</div>'
+      : '';
 
     return '<div style="background:#f5f2ed;border-radius:6px;padding:8px 10px">'
       + '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:3px">'+label+'</div>'
       + '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:3px">'
       +   '<span style="font-size:17px;font-weight:800;color:'+(color||'#1a1714')+';line-height:1">'+disp+'</span>'
-      +   (allRate!==null ? '<span style="font-size:11px;font-weight:700;color:'+arc+'">'+allRate+'%</span>' : '')
+      +   topBadge
       + '</div>'
-      + (moNum&&lastAct>0
-          ? '<div style="font-size:10px;color:#6b6259;display:flex;align-items:center;gap:5px">'
-          +   '<span>'+moNum+'월 '+fN(lastAct)
-          +   (moRate!==null?' <span style="font-size:9px;color:'+arc+'">/ 목표'+moRate+'%</span>':'')
-          +   '</span>'
-          +   (dStr ? '<span style="font-size:9px;color:'+dc+'">'+dStr+'</span>' : '')
-          + '</div>'
-          : '')
+      + bottomLine
       + '</div>';
   };
+
 
   // 매출 표시용 변수
   const _revTotalDisp = s.revenue > 0
