@@ -2180,15 +2180,17 @@ function renderSummary(s) {
     var dStr   = diff===null?'':(diff>=0?'\u25b2':'\u25bc')+fN(Math.abs(diff))+'('+(diffP>=0?'+':'')+diffP+'%)';
     var disp   = allAct>0?fN(allAct):(fallbackVal!==null?fN(fallbackVal):'\u2013');
     return '<div style="background:#f5f2ed;border-radius:6px;padding:8px 10px">'
-      + '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:2px">'+label+'</div>'
-      + '<div style="font-size:17px;font-weight:800;color:'+(color||'#1a1714')+';line-height:1">'+disp+'</div>'
-      + (allRate!==null?'<div style="font-size:9px;font-weight:700;color:'+arc+';margin-top:2px">\ub204\uc801 '+allRate+'% / \ubaa9\ud45c '+fN(allTgt)+'</div>':'')
-      + '<div style="border-top:1px solid #e8e4dc;margin:5px 0 3px"></div>'
-      + (moNum?'<div style="font-size:10px;color:#4a4038;font-weight:700">'+moNum+'\uc6d4 '+fN(lastAct)+'</div>':'')
-      + '<div style="display:flex;align-items:center;gap:5px;margin-top:1px">'
-      + (moRate!==null?'<span style="font-size:9px;font-weight:700;color:'+mrc+'">\uc6d4\ubaa9\ud45c '+moRate+'%</span>':'')
-      + (dStr?'<span style="font-size:9px;color:'+dc+'">'+dStr+'</span>':'')
+      + '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:3px">'+label+'</div>'
+      + '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:3px">'
+      +   '<span style="font-size:17px;font-weight:800;color:'+(color||'#1a1714')+';line-height:1">'+disp+'</span>'
+      +   (allRate!==null ? '<span style="font-size:11px;font-weight:700;color:'+arc+'">'+allRate+'%</span>' : '')
       + '</div>'
+      + (moNum&&lastAct>0 ?
+           '<div style="font-size:10px;color:#6b6259;display:flex;align-items:center;gap:5px">'
+         + '<span>'+moNum+'\uc6d4 '+fN(lastAct)+'</span>'
+         + (dStr ? '<span style="font-size:9px;color:'+dc+'">'+dStr+'</span>' : '')
+         + '</div>'
+         : '')
       + '</div>';
   };
   let h = '<div style="display:grid;gap:8px">';
