@@ -2105,7 +2105,7 @@ function renderSummary(s) {
       const data = getDkpiMonthly(kpiKey);
       const months = Object.keys(data).sort().reverse();
       for(const mo of months) {
-        const v = data[mo]?.result;
+        const v = data[mo]?.actual ?? data[mo]?.result;
         if(v != null && !isNaN(Number(v))) return Number(v);
       }
     } catch(e) {}
@@ -2159,38 +2159,69 @@ function renderSummary(s) {
 
   // richCard: 누적 + 달성률 + 이달 + 월달성률 + 등락
   const richCard = function(label, kpiKey, color, fallbackVal) {
-    var fN = function(v){ return v>=1000000?(v/1000000).toFixed(2)+'M':v>=1000?(v/1000).toFixed(0)+'K':String(Math.round(v||0)); };
-    var d2 = getDkpiMonthly(kpiKey);
-    var ms = Object.keys(d2).sort();
-    var allAct = ms.reduce(function(s,k){return s+Number(d2[k]&&d2[k].actual||0);},0);
-    var allTgt = ms.reduce(function(s,k){return s+Number(d2[k]&&d2[k].target||0);},0);
-    var lastMo = ms.length?ms[ms.length-1]:null;
-    var prevMo = ms.length>1?ms[ms.length-2]:null;
-    var lastAct= lastMo?Number(d2[lastMo]&&d2[lastMo].actual||0):0;
-    var lastTgt= lastMo?Number(d2[lastMo]&&d2[lastMo].target||0):0;
-    var prevAct= prevMo?Number(d2[prevMo]&&d2[prevMo].actual||0):0;
-    var moNum  = lastMo?parseInt(lastMo.split('-')[1]):0;
-    var allRate= allTgt>0?Math.round(allAct/allTgt*100):null;
-    var moRate = lastTgt>0?Math.round(lastAct/lastTgt*100):null;
-    var diff   = prevAct>0?lastAct-prevAct:null;
-    var diffP  = prevAct>0?Math.round((lastAct-prevAct)/prevAct*100):null;
-    var arc    = allRate===null?'#8a8278':allRate>=100?'#2a7c2a':allRate>=70?'#c17f3a':'#c0392b';
-    var mrc    = moRate===null?'#8a8278':moRate>=100?'#2a7c2a':moRate>=70?'#c17f3a':'#c0392b';
-    var dc     = diff===null?'#8a8278':diff>=0?'#2a7c2a':'#c0392b';
-    var dStr   = diff===null?'':(diff>=0?'\u25b2':'\u25bc')+fN(Math.abs(diff))+'('+(diffP>=0?'+':'')+diffP+'%)';
-    var disp   = allAct>0?fN(allAct):(fallbackVal!==null?fN(fallbackVal):'\u2013');
+    var fN = function(v){
+      if(!v||isNaN(v)) return '0';
+      v = Number(v);
+      return v>=1000000?(v/1000000).toFixed(2)+'M':v>=1000?(v/1000).toFixed(0)+'K':String(Math.round(v));
+    };
+    var d2  = getDkpiMonthly(kpiKey);
+    var ms  = Object.keys(d2).sort();
+
+    // actual 집계 (key: actual 또는 result 둘 다 지원)
+    var allAct = ms.reduce(function(s,k){
+      var row = d2[k]||{};
+      return s + Number(row.actual||row.result||0);
+    }, 0);
+    var allTgt = ms.reduce(function(s,k){
+      return s + Number((d2[k]||{}).target||0);
+    }, 0);
+
+    // 이달 (actual > 0 인 마지막 월)
+    var lastMo = null;
+    for(var i=ms.length-1; i>=0; i--) {
+      var row = d2[ms[i]]||{};
+      if(Number(row.actual||row.result||0) > 0) { lastMo = ms[i]; break; }
+    }
+    var prevMo  = lastMo&&ms.indexOf(lastMo)>0 ? ms[ms.indexOf(lastMo)-1] : null;
+    var lastRow = lastMo ? (d2[lastMo]||{}) : {};
+    var prevRow = prevMo ? (d2[prevMo]||{}) : {};
+    var lastAct = Number(lastRow.actual||lastRow.result||0);
+    var lastTgt = Number(lastRow.target||0);
+    var prevAct = Number(prevRow.actual||prevRow.result||0);
+    var moNum   = lastMo ? parseInt(lastMo.split('-')[1]) : 0;
+
+    // 달성률: actual 데이터가 있을 때만
+    var allRate = (allAct>0 && allTgt>0) ? Math.round(allAct/allTgt*100) : null;
+    var moRate  = (lastAct>0 && lastTgt>0) ? Math.round(lastAct/lastTgt*100) : null;
+
+    // 등락
+    var diff  = (prevAct>0 && lastAct>0) ? lastAct-prevAct : null;
+    var diffP = prevAct>0 ? Math.round((lastAct-prevAct)/prevAct*100) : null;
+    var dc    = diff===null?'#8a8278':diff>=0?'#2a7c2a':'#c0392b';
+    var dStr  = diff===null ? '' : (diff>=0?'▲':'▼')+fN(Math.abs(diff))+'('+(diffP>=0?'+':'')+diffP+'%)';
+
+    // 색상
+    var arc = allRate===null?'#8a8278':allRate>=100?'#2a7c2a':allRate>=70?'#c17f3a':'#c0392b';
+
+    // 표시값: actual 누적이 있으면 우선, 없으면 fallback
+    var disp = allAct>0 ? fN(allAct) : (fallbackVal!=null ? fN(fallbackVal) : '–');
+
     return '<div style="background:#f5f2ed;border-radius:6px;padding:8px 10px">'
       + '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:3px">'+label+'</div>'
       + '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:3px">'
       +   '<span style="font-size:17px;font-weight:800;color:'+(color||'#1a1714')+';line-height:1">'+disp+'</span>'
       +   (allRate!==null ? '<span style="font-size:11px;font-weight:700;color:'+arc+'">'+allRate+'%</span>' : '')
       + '</div>'
-      + (moNum&&lastAct>0 ?
-           '<div style="font-size:10px;color:#6b6259;display:flex;align-items:center;gap:5px">'
-         + '<span>'+moNum+'\uc6d4 '+fN(lastAct)+'</span>'
-         + (dStr ? '<span style="font-size:9px;color:'+dc+'">'+dStr+'</span>' : '')
-         + '</div>'
-         : '')
+      + (moNum&&lastAct>0
+          ? '<div style="font-size:10px;color:#6b6259;display:flex;align-items:center;gap:5px">'
+          +   '<span>'+moNum+'월 '+fN(lastAct)
+          +   (moRate!==null?' <span style="font-size:9px;color:'+arc+'">/ 목표'+moRate+'%</span>':'')
+          +   '</span>'
+          +   (dStr ? '<span style="font-size:9px;color:'+dc+'">'+dStr+'</span>' : '')
+          + '</div>'
+          : (fallbackVal!=null&&allAct===0
+              ? '<div style="font-size:9px;color:#b0a898">디지털KPI 탭에서 실적 입력</div>'
+              : ''))
       + '</div>';
   };
 
