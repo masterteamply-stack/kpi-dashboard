@@ -2974,6 +2974,57 @@ function renderKpiGauge(kpi, taskList) {
 
 // ── KPI 상세 모달 ──
 
+
+
+async function saveTaskSelectEdit(el) {
+  const taskId = el.dataset.taskId;
+  const field  = el.dataset.field;
+  const newVal = el.value;
+  const task = (state._lastKpiTasks||[]).find(t=>t.id===taskId)||(state.tasks||[]).find(t=>t.id===taskId);
+  if(!task) return;
+  try {
+    const {error} = await state.sb.from('tasks').update({[field]:newVal,updated_at:new Date().toISOString()}).eq('id',taskId);
+    if(error) throw error;
+    task[field]=newVal;
+    const t2=(state.tasks||[]).find(t=>t.id===taskId); if(t2) t2[field]=newVal;
+  } catch(e) { console.error('saveTaskSelectEdit:',e); }
+}
+
+async function saveTaskCellEdit(el) {
+  const taskId = el.dataset.taskId;
+  const field  = el.dataset.field;
+  const dtype  = el.dataset.type || 'text';
+  let   newVal = el.textContent.trim();
+  if(dtype === 'number') {
+    newVal = parseFloat(newVal.replace(/[^0-9.-]/g,'')) || 0;
+  }
+  const task = (state._lastKpiTasks||[]).find(t=>t.id===taskId)
+             || (state.tasks||[]).find(t=>t.id===taskId);
+  if(!task) { return; }
+  // progress: DB 체크 제약 (0~100) 클램핑
+  const dbVal = field==='progress' ? Math.max(0, Math.min(100, newVal)) : newVal;
+  // 메모리엔 실제값
+  if(field==='progress') task._progressRaw = newVal;
+  const updates = {}; updates[field] = dbVal; updates.updated_at = new Date().toISOString();
+  try {
+    const {error} = await state.sb.from('tasks').update(updates).eq('id', taskId);
+    if(error) throw error;
+    task[field] = dbVal;
+    const t2=(state.tasks||[]).find(t=>t.id===taskId); if(t2) t2[field]=dbVal;
+    el.style.color='#3a7c3a'; setTimeout(()=>{el.style.color='';},1200);
+    if(field==='progress'||field==='status'){
+      const kpi=(state._lastKpis||[]).find(k=>k.id===task.kpi_id);
+      const ts=(state._lastKpiTasks||[]).filter(t=>t.kpi_id===task.kpi_id);
+      const gEl=document.querySelector('.kpi-progress-wrap[data-kpi="'+task.kpi_id+'"]');
+      if(gEl&&kpi) gEl.innerHTML=renderKpiGauge(kpi,ts);
+    }
+  } catch(e) {
+    console.error('saveTaskCellEdit:',field,e.message||e);
+    alert('저장 실패: '+((e.message||'')));
+    el.style.color='var(--red)'; setTimeout(()=>{el.style.color='';},1500);
+  }
+}
+
 function handleCellKeydown(event, el) {
   if(event.key==='Enter'){event.preventDefault();el.blur();}
   if(event.key==='Escape'){el.textContent=el.dataset.orig;el.blur();}
@@ -4284,7 +4335,7 @@ async function saveDrawerEdit(taskId) {
     priority: document.getElementById('de_priority')?.value,
     due_date: document.getElementById('de_due')?.value || null,
     notes:    document.getElementById('de_notes')?.value.trim(),
-    progress: parseFloat(document.getElementById('de_progress')?.value)||0,
+    progress: Math.max(0,Math.min(100,parseFloat(document.getElementById('de_progress')?.value)||0)),
     spend:    parseFloat(document.getElementById('de_spend')?.value)||0,
     allocated_budget: parseFloat(document.getElementById('de_budget')?.value)||0,
     updated_at: new Date().toISOString(),
