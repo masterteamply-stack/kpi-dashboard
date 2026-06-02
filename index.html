@@ -2157,6 +2157,40 @@ function renderSummary(s) {
     + (sub ? '<div style="font-size:10px;color:#8a8278;margin-top:2px">' + sub + '</div>' : '')
     + '</div>';
 
+  // richCard: 누적 + 달성률 + 이달 + 월달성률 + 등락
+  const richCard = function(label, kpiKey, color, fallbackVal) {
+    var fN = function(v){ return v>=1000000?(v/1000000).toFixed(2)+'M':v>=1000?(v/1000).toFixed(0)+'K':String(Math.round(v||0)); };
+    var d2 = getDkpiMonthly(kpiKey);
+    var ms = Object.keys(d2).sort();
+    var allAct = ms.reduce(function(s,k){return s+Number(d2[k]&&d2[k].actual||0);},0);
+    var allTgt = ms.reduce(function(s,k){return s+Number(d2[k]&&d2[k].target||0);},0);
+    var lastMo = ms.length?ms[ms.length-1]:null;
+    var prevMo = ms.length>1?ms[ms.length-2]:null;
+    var lastAct= lastMo?Number(d2[lastMo]&&d2[lastMo].actual||0):0;
+    var lastTgt= lastMo?Number(d2[lastMo]&&d2[lastMo].target||0):0;
+    var prevAct= prevMo?Number(d2[prevMo]&&d2[prevMo].actual||0):0;
+    var moNum  = lastMo?parseInt(lastMo.split('-')[1]):0;
+    var allRate= allTgt>0?Math.round(allAct/allTgt*100):null;
+    var moRate = lastTgt>0?Math.round(lastAct/lastTgt*100):null;
+    var diff   = prevAct>0?lastAct-prevAct:null;
+    var diffP  = prevAct>0?Math.round((lastAct-prevAct)/prevAct*100):null;
+    var arc    = allRate===null?'#8a8278':allRate>=100?'#2a7c2a':allRate>=70?'#c17f3a':'#c0392b';
+    var mrc    = moRate===null?'#8a8278':moRate>=100?'#2a7c2a':moRate>=70?'#c17f3a':'#c0392b';
+    var dc     = diff===null?'#8a8278':diff>=0?'#2a7c2a':'#c0392b';
+    var dStr   = diff===null?'':(diff>=0?'\u25b2':'\u25bc')+fN(Math.abs(diff))+'('+(diffP>=0?'+':'')+diffP+'%)';
+    var disp   = allAct>0?fN(allAct):(fallbackVal!==null?fN(fallbackVal):'\u2013');
+    return '<div style="background:#f5f2ed;border-radius:6px;padding:8px 10px">'
+      + '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:2px">'+label+'</div>'
+      + '<div style="font-size:17px;font-weight:800;color:'+(color||'#1a1714')+';line-height:1">'+disp+'</div>'
+      + (allRate!==null?'<div style="font-size:9px;font-weight:700;color:'+arc+';margin-top:2px">\ub204\uc801 '+allRate+'% / \ubaa9\ud45c '+fN(allTgt)+'</div>':'')
+      + '<div style="border-top:1px solid #e8e4dc;margin:5px 0 3px"></div>'
+      + (moNum?'<div style="font-size:10px;color:#4a4038;font-weight:700">'+moNum+'\uc6d4 '+fN(lastAct)+'</div>':'')
+      + '<div style="display:flex;align-items:center;gap:5px;margin-top:1px">'
+      + (moRate!==null?'<span style="font-size:9px;font-weight:700;color:'+mrc+'">\uc6d4\ubaa9\ud45c '+moRate+'%</span>':'')
+      + (dStr?'<span style="font-size:9px;color:'+dc+'">'+dStr+'</span>':'')
+      + '</div>'
+      + '</div>';
+  };
   let h = '<div style="display:grid;gap:8px">';
 
   // 진척도
@@ -2239,8 +2273,8 @@ function renderSummary(s) {
     if(rate!==null) parts.push('달성 '+rate+'%');
     return parts.join(' · ');
   };
-  h += miniCard('Engagement', engVal !== null ? fmtNum(engVal) : '–', _mkSub('B2D-10', engVal)||'데이터 입력 필요', '#4a6b7c');
-  h += miniCard('Click', clkVal !== null ? fmtNum(clkVal) : '–', _mkSub('B2D-11', clkVal)||'데이터 입력 필요', '#7a6010');
+  h += richCard('Engagement', 'B2D-10', '#4a6b7c', engVal);
+  h += richCard('Click', 'B2D-11', '#7a6010', clkVal);
   h += '</div>';
 
   // Channel Discriber
