@@ -1303,7 +1303,7 @@
               <div id="regionOrderSub" style="font-size:9px;color:#8a8278"></div>
             </div>
           </div>
-          <canvas id="regionOrderChart" height="70" style="width:100%;display:block"></canvas>
+          <canvas id="regionOrderChart" height="90" style="width:100%;display:block"></canvas>
         </div>
       </div>
     </div>
@@ -1331,7 +1331,7 @@
           <!-- 우: 월별/분기별 추이 -->
           <div>
             <div style="font-size:10px;font-weight:700;color:#8a8278;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">활동 추이 (건수 · 비용)</div>
-            <canvas id="activityTrendChart" height="120" style="width:100%"></canvas>
+            <canvas id="activityTrendChart" height="80" style="width:100%"></canvas>
             <!-- 관련 오더 미니 추이 -->
             
         </div>
@@ -6500,33 +6500,78 @@ function renderRegionOrderBarChart() {
   var tEl = document.getElementById('regionOrderTotal');
   var sEl = document.getElementById('regionOrderSub');
   if(!ctx) return;
-  var monthly = (state.choiceKitOrder&&state.choiceKitOrder.monthly)?state.choiceKitOrder.monthly:{};
+  var monthly  = (state.choiceKitOrder&&state.choiceKitOrder.monthly) ? state.choiceKitOrder.monthly : {};
+  var byRegion = (state.choiceKitOrder&&state.choiceKitOrder.byRegion)? state.choiceKitOrder.byRegion: {};
   var ms = Object.keys(monthly).sort();
-  if(!ms.length) { if(tEl) tEl.textContent='–'; return; }
-  var labels = ms.map(function(m){return parseInt(m.split('-')[1])+'월';});
-  var values = ms.map(function(m){return monthly[m]||0;});
-  var total  = values.reduce(function(s,v){return s+v;},0);
+  if(!ms.length) { if(tEl) tEl.textContent='--'; return; }
+  var labels = ms.map(function(m2){ return parseInt(m2.split('-')[1])+'월'; });
+  var total  = ms.reduce(function(s,k){return s+(monthly[k]||0);},0);
   var cnt    = state.choiceKitOrder.count||0;
   if(tEl) tEl.textContent='$'+new Intl.NumberFormat('en-US').format(Math.round(total));
   if(sEl) sEl.textContent=new Intl.NumberFormat('ko-KR').format(cnt)+'건 · USD';
-  var fmtU=function(v){return v>=1000000?'$'+(v/1000000).toFixed(1)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':v>0?'$'+Math.round(v):'';}
-  var lp={id:'roLbl',afterDatasetsDraw:function(chart){
-    var c2=chart.ctx; c2.save();
-    c2.font='bold 9px sans-serif'; c2.textAlign='center'; c2.textBaseline='bottom'; c2.fillStyle='#3d3830';
-    chart.getDatasetMeta(0).data.forEach(function(bar,i){
-      var val=chart.data.datasets[0].data[i]; if(!val) return;
-      c2.fillText(fmtU(val),bar.x,bar.y-2);
-    }); c2.restore();
-  }};
+  var RC = {
+    ASIA:'rgba(74,107,124,.8)', NA:'rgba(92,107,74,.8)',
+    CIS:'rgba(180,100,60,.8)', MENA:'rgba(140,90,160,.8)',
+    GLOBAL:'rgba(60,110,80,.8)', LATAM:'rgba(190,140,50,.8)',
+    OCEANIA:'rgba(80,130,160,.8)'
+  };
+  var regions = Object.keys(byRegion).filter(function(r){return byRegion[r]>0;});
+  regions.sort(function(a,b){return byRegion[b]-byRegion[a];});
+  var regionDS = regions.map(function(r) {
+    var ratio = total>0 ? byRegion[r]/total : 0;
+    return {
+      label: r,
+      data: ms.map(function(mo){ return Math.round((monthly[mo]||0)*ratio); }),
+      backgroundColor: RC[r]||'rgba(100,100,100,.8)',
+      stack: 'orders',
+      borderRadius: 2,
+      barPercentage: 0.65,
+      order: 1
+    };
+  });
+  var runSum=0;
+  var cumDS = {
+    type:'line', label:'누적', yAxisID:'yCum',
+    data: ms.map(function(mo){ runSum+=(monthly[mo]||0); return runSum; }),
+    borderColor:'rgba(40,60,40,.7)', backgroundColor:'transparent',
+    borderWidth:1.5, pointRadius:3, pointBackgroundColor:'rgba(40,60,40,.8)',
+    tension:0.3, order:0
+  };
+  var fmtU=function(v){return v>=1000000?'$'+(v/1000000).toFixed(1)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+Math.round(v);};
+  var lp = {
+    id:'roLbl',
+    afterDatasetsDraw: function(chart) {
+      var c2=chart.ctx; c2.save();
+      c2.font='bold 8px sans-serif'; c2.textAlign='center'; c2.textBaseline='bottom'; c2.fillStyle='#3d3830';
+      var n = regions.length;
+      if(!n) return;
+      chart.getDatasetMeta(0).data.forEach(function(bar,i) {
+        var sum=regions.reduce(function(s,r,di){ return s+(chart.data.datasets[di].data[i]||0); },0);
+        if(sum>0) c2.fillText(fmtU(sum), bar.x, bar.y-2);
+      });
+      c2.restore();
+    }
+  };
   if(window._regionOrderChart){try{window._regionOrderChart.destroy();}catch(e){}}
   window._regionOrderChart=new Chart(ctx,{
     type:'bar',
-    data:{labels:labels,datasets:[{data:values,
-      backgroundColor:values.map(function(v,i){return i===values.length-1?'rgba(92,107,74,.85)':'rgba(92,107,74,.35)';}),
-      borderRadius:3,barPercentage:0.6}]},
+    data:{labels:labels, datasets:regionDS.concat([cumDS])},
     plugins:[lp],
-    options:{responsive:true,layout:{padding:{top:18}},
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return '$'+new Intl.NumberFormat('en-US').format(Math.round(c.parsed.y));}}}},      scales:{x:{ticks:{color:'#8a8278',font:{size:9}},grid:{display:false}},y:{display:false,beginAtZero:true}}}
+    options:{
+      responsive:true,
+      layout:{padding:{top:16}},
+      plugins:{
+        legend:{display:true,position:'bottom',labels:{boxWidth:9,font:{size:8},padding:5,color:'#6b6259'}},
+        tooltip:{callbacks:{label:function(c){
+          return c.dataset.type==='line'?'누적 '+fmtU(c.parsed.y):c.dataset.label+' '+fmtU(c.parsed.y);
+        }}}
+      },
+      scales:{
+        x:{stacked:true,ticks:{color:'#8a8278',font:{size:9}},grid:{display:false}},
+        y:{stacked:true,display:false,beginAtZero:true},
+        yCum:{type:'linear',position:'right',display:false,beginAtZero:true,grid:{display:false}}
+      }
+    }
   });
 }
 
