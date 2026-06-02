@@ -1247,6 +1247,7 @@
 
   <!-- Toolbar -->
   <section class="toolbar">
+    <span id="filterBadge" style="font-size:10px;color:#4a6b7c;font-weight:700;padding:2px 8px;background:#e8f0e8;border-radius:4px;display:none"></span>
     <select id="quarterFilter" class="control" onchange="applyFilters()"><option value="all">전체 분기</option></select>
     <select id="regionFilter"  class="control" onchange="applyFilters()"><option value="all">전체 지역</option></select>
     <select id="ownerFilter"   class="control" onchange="applyFilters()"><option value="all">전체 담당자</option></select>
@@ -1843,7 +1844,7 @@ async function hydrateFilters() {
   const qs=[...new Set((data||[]).map(r=>r.quarter).filter(Boolean))];
   var _rsDB=[...new Set((data||[]).map(r=>r.region).filter(Boolean))];
   try{var _rsRev=Object.keys(JSON.parse(localStorage.getItem('revenue_by_region')||'{}'));}catch(e){var _rsRev=[];}
-  var _rsStd=['ASIA','CIS','EUROPE','GLOBAL','LATAM','MENA','NA','RUS'];
+  var _rsStd=['ASIA','CIS','EUROPE','GLOBAL','KOREA','LATAM','MENA','NA','OCEANIA','RUS'];
   var rs=[...new Set([..._rsDB,..._rsRev,..._rsStd].map(function(r){return r.trim().toUpperCase();}).filter(Boolean))].sort();
   const rs2=rs;
   if(el.quarterFilter) el.quarterFilter.innerHTML = `<option value="all">전체 분기</option>`+qs.map(q=>`<option value="${esc(q)}">${esc(q)}</option>`).join("");
@@ -3675,6 +3676,16 @@ function switchDkpiView(mode) {
   }
   renderDigitalKpiCharts(state._lastKpis||[], state._lastKpiTasks||[]);
   renderRegionSubChart();
+  renderRegionOrderBarChart();
+  var _b2=document.getElementById('filterBadge');
+  if(_b2){
+    var _pp=[];
+    if(state.filters.region!=='all') _pp.push('지역:'+state.filters.region);
+    if(state.filters.owner!=='all') _pp.push('담당:'+state.filters.owner);
+    if(state.filters.quarter!=='all') _pp.push(state.filters.quarter);
+    _b2.textContent=_pp.length?'[ '+_pp.join(' | ')+' ]':'';
+    _b2.style.display=_pp.length?'inline':'none';
+  }
 }
 
 // ── 디지털 KPI 월별 localStorage 헬퍼 ──
@@ -4838,8 +4849,8 @@ function renderRegionOrderChart(tasks, kpis) {
 
   const spendByRegion = {};
   for(const t of tasks) {
-    var _r=(t.region||'GLOBAL').toUpperCase();
-    if(_r==='KR'||_r==='DOMESTIC') _r='GLOBAL';
+    var _r=((t.region||'').trim().toUpperCase()||'GLOBAL');
+    if(_r==='KR'||_r==='DOMESTIC') _r='KOREA';
     const v=Number(t.spend||t.allocated_budget||0);
     if(v>0) spendByRegion[_r]=(spendByRegion[_r]||0)+v;
   }
@@ -4856,8 +4867,8 @@ function renderRegionOrderChart(tasks, kpis) {
                  (t.task_type||'').toLowerCase().includes('choice') ||
                  (kpi&&((kpi.kpi_key||'').toLowerCase().includes('choice')||(kpi.title||'').toLowerCase().includes('choice')));
     if(!isCk) continue;
-    var _rb=(t.region||'GLOBAL').toUpperCase();
-    if(_rb==='KR'||_rb==='DOMESTIC') _rb='GLOBAL';
+    var _rb=((t.region||'').trim().toUpperCase()||'GLOBAL');
+    if(_rb==='KR'||_rb==='DOMESTIC') _rb='KOREA';
     const bv=Number(t.spend||t.allocated_budget||0);
     if(bv>0) ckBudByRegion[_rb]=(ckBudByRegion[_rb]||0)+bv;
   }
@@ -6514,10 +6525,14 @@ function applyFilters() {
 
   const filterFn = function(t) {
     if(state.filters.quarter !== 'all' && t.quarter !== state.filters.quarter) return false;
-    if(state.filters.region!=='all' && (t.region||'').toUpperCase()!==state.filters.region.toUpperCase()) return false;
-    if(state.filters.owner   !== 'all') {
-      const ownerName = (t.owners?.name || t.owner_name || '');
-      if(ownerName !== state.filters.owner) return false;
+    if(state.filters.region !== 'all') {
+      var _tr=((t.region||'').trim().toUpperCase()||'GLOBAL');
+      if(_tr !== state.filters.region.toUpperCase()) return false;
+    }
+    if(state.filters.owner !== 'all') {
+      var _on=(t.owners&&t.owners.name)?t.owners.name:(t.owner_name||'');
+      if(!_on&&t.owner_id){var _ow=(state.owners||[]).find(function(o){return o.id===t.owner_id;});if(_ow)_on=_ow.name;}
+      if(_on !== state.filters.owner) return false;
     }
     return true;
   };
