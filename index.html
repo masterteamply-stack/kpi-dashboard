@@ -2195,50 +2195,61 @@ function renderSummary(s) {
   };
   let h = '<div style="display:grid;gap:8px">';
 
-  // 진척도
+  // 1. 전체 진척도
   h += '<div>';
   h += '<div style="font-size:10px;color:#8a8278;margin-bottom:4px;font-weight:500">전체 평균 진척도</div>';
-  h += '<div style="font-family:var(--font-display);font-size:24px;font-weight:800;line-height:1">' + fmtPct(s.avgProg) + '</div>';
-  h += '<div class="progress-shell" style="margin-top:5px"><div class="progress-bar" style="width:' + Math.min(100,s.avgProg) + '%"></div></div>';
+  h += '<div style="font-family:var(--font-display);font-size:24px;font-weight:800;color:#1a1714;line-height:1">' + fmtPct(s.avgProg) + '</div>';
+  h += '<div class="progress-shell" style="margin-top:5px"><div class="progress-bar" style="width:' + Math.min(100,s.avgProg||0) + '%"></div></div>';
   h += '</div>';
 
-  // 관련 오더 + Marketing Lead
+  // 2. 관련 오더 + Marketing Lead
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-  // 관련 오더 + 매출 참고
-  const _revTotalDisp   = s.revenue > 0 ? '$'+new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:1}).format(s.revenue) : '';
-  const _thisMonthDisp  = s.thisMonthRev > 0 ? '이달 $'+new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:1}).format(s.thisMonthRev) : '';
-  // 관련 오더 카드
+
   h += '<div style="background:#f5f2ed;border-radius:6px;padding:7px 10px">';
   h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:2px">관련 오더</div>';
   h += '<div style="font-size:17px;font-weight:800;color:#1a1714;line-height:1">' + orderVal + '</div>';
-  h += '<div style="font-size:10px;color:#8a8278;margin-top:1px">' + (state.choiceKitOrder.count ? fmtNum(state.choiceKitOrder.count)+'건' : '로딩중') + '</div>';
-  // 매출 참고 (구분선 아래)
+  h += '<div style="font-size:10px;color:#8a8278;margin-top:1px">' + (state.choiceKitOrder.count ? fmtNum(state.choiceKitOrder.count)+'건' : '로딩중') + ' · USD</div>';
   if(_revTotalDisp) {
-    h += '<div style="margin-top:6px;padding-top:6px;border-top:1px solid #e8e4dc">';
-    h += '<div style="display:flex;align-items:center;justify-content:space-between">';
-    h += '<div>';
-    h += '<div style="font-size:9px;color:#8a8278;font-weight:600">매출 (B2B)</div>';
+    h += '<div style="margin-top:5px;padding-top:5px;border-top:1px solid #e8e4dc;display:flex;align-items:center;justify-content:space-between">';
+    h += '<div><div style="font-size:9px;color:#8a8278;font-weight:600">매출 (B2B)</div>';
     h += '<div style="font-size:13px;font-weight:800;color:#3a6b3a">' + _revTotalDisp + '</div>';
-    h += (_thisMonthDisp ? '<div style="font-size:9px;color:#5c6b4a">' + _thisMonthDisp + '</div>' : '');
-    h += '</div>';
-    h += '<button onclick="openRevenueInput()" title="매출 데이터 입력" '
-       + 'style="background:none;border:1px solid #b8ccaa;border-radius:4px;'
-       + 'padding:3px 7px;font-size:11px;cursor:pointer;color:#5c6b4a;font-family:var(--font-body)">';
-    h += '✏️</button>';
-    h += '</div></div>';
+    if(_thisMonthDisp) h += '<div style="font-size:9px;color:#5c6b4a">' + _thisMonthDisp + '</div>';
+    h += '</div><button onclick="openRevenueInput()" style="background:none;border:1px solid #b8ccaa;border-radius:4px;padding:3px 7px;font-size:11px;cursor:pointer;color:#5c6b4a">✏️</button></div>';
   }
   h += '</div>';
-  // Marketing Lead 카드: 총 누적 + 이달 WebLead/O2O
-  const thisChMo   = ml.channelMonthly[thisKey] ? (ml.channelMonthly[thisKey].total||0) : 0;
-  const thisO2OMo  = ml.o2oMonthly[thisKey] || 0;
-  
+
+  var _thisCh  = ml.channelMonthly[thisKey] ? (ml.channelMonthly[thisKey].total||0) : 0;
+  var _thisO2o = ml.o2oMonthly[thisKey] || 0;
+  var _totLead = ml.totalCh + ml.totalO2o;
+  h += '<div style="background:#f5f2ed;border-radius:6px;padding:7px 10px">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">';
+  h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278">Marketing Lead</div>';
+  h += '<span style="font-size:9px;color:#8a8278">상세 분석 →</span></div>';
+  h += '<div style="font-size:17px;font-weight:800;color:#1a1714;line-height:1">' + fmtNum(_totLead) + ' 건</div>';
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:5px">';
+  h += '<div style="background:#e8f0e8;border-radius:4px;padding:3px 5px"><div style="font-size:8px;color:#5c6b4a;font-weight:700">📧 이메일 리드</div>';
+  h += '<div style="font-size:13px;font-weight:800;color:#5c6b4a">' + fmtNum(ml.totalCh) + '</div>';
+  h += '<div style="font-size:9px;color:#8a8278">이번 ' + fmtNum(_thisCh) + '</div></div>';
+  h += '<div style="background:#fff8e8;border-radius:4px;padding:3px 5px"><div style="font-size:8px;color:#7a6010;font-weight:700">🤝 O2O 리드</div>';
+  h += '<div style="font-size:13px;font-weight:800;color:#7a6010">' + fmtNum(ml.totalO2o) + '</div>';
+  h += '<div style="font-size:9px;color:#8a8278">이번 ' + fmtNum(_thisO2o) + '</div></div>';
+  h += '</div></div>';
+  h += '</div>';
+
+  // 3. Engagement + Click
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+  h += richCard('Engagement', 'B2D-10', '#4a6b7c', engVal);
+  h += richCard('Click', 'B2D-11', '#7a6010', clkVal);
+  h += '</div>';
+
+  // 4. Channel 구독자
   h += richCard('Channel 구독자', 'channel_discriber', '#3a6b5a', discVal);
 
-  // 완료율/지연/ROI
+  // 5. 완료율 · 지연 · ROI
   h += '<div style="font-size:11px;color:#6b6259;line-height:1.8;padding-top:2px">';
-  h += '완료율 <strong style="color:var(--green)">' + fmtPct(s.compRate) + '</strong> · ';
-  h += '지연 <strong style="color:var(--red)">' + fmtNum(s.delayed) + '건</strong> · ';
-  h += 'ROI <strong style="color:var(--primary)">' + fmtPct(s.roi) + '</strong>';
+  h += '완료율 <strong style="color:var(--green)">' + fmtPct(s.compRate) + '</strong>';
+  h += ' · 지연 <strong style="color:var(--red)">' + s.delayed + '건</strong>';
+  h += ' · ROI <strong style="color:var(--primary)">' + fmtPct(s.roi) + '</strong>';
   h += '</div>';
 
   h += '</div>';
