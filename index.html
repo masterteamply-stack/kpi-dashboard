@@ -3036,6 +3036,8 @@ async function saveTaskSelectEdit(el) {
 function _syncAfterTaskChange(task, changedFields) {
   if(!task) return;
   changedFields = changedFields || [];
+  var _ae=typeof document!=='undefined'?document.activeElement:null;
+  var _isEditing=_ae&&(_ae.contentEditable==='true'||_ae.tagName==='INPUT'||_ae.tagName==='SELECT');
   // 4개 캐시 동기화
   ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k) {
     var t2 = (state[k]||[]).find(function(t){ return t.id === task.id; });
@@ -3082,13 +3084,19 @@ function _syncAfterTaskChange(task, changedFields) {
     if(typeof renderActivityTypeChartWithBudget === 'function') renderActivityTypeChartWithBudget(allK, allT);
     if(typeof renderRegionBudgetDonut === 'function') renderRegionBudgetDonut(allT, allK);
   }
-  // owner/status/progress 변경 시 담당자 테이블 갱신
-  if(changedFields.some(function(f){return f==='owner_id'||f==='status'||f==='progress';}))
-    if(typeof renderOwnerTable==='function') renderOwnerTable(state.tasks||[],state._lastKpis||[]);
-  // summary + KPI 카드
-  var cs = computeSummary(state.tasks || [], state._lastKpis || []);
-  if(typeof renderKPICards === 'function') renderKPICards(cs);
-  renderSummary(cs);
+  if(!_isEditing) {
+    if(changedFields.some(function(f){return f==='owner_id'||f==='status'||f==='progress';}))
+      if(typeof renderOwnerTable==='function') renderOwnerTable(state.tasks||[],state._lastKpis||[]);
+    var cs=computeSummary(state.tasks||[],state._lastKpis||[]);
+    if(typeof renderKPICards==='function') renderKPICards(cs);
+    renderSummary(cs);
+  } else {
+    setTimeout(function(){
+      var cs2=computeSummary(state.tasks||[],state._lastKpis||[]);
+      if(typeof renderKPICards==='function') renderKPICards(cs2);
+      renderSummary(cs2);
+    },400);
+  }
 }
 
 
