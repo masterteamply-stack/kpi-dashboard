@@ -5781,18 +5781,24 @@ async function fetchChoiceKitOrders() {
     const cached = localStorage.getItem('ck_order_cache');
     if(cached) {
       const cData = JSON.parse(cached);
-      state.choiceKitOrder = cData;
-      renderSummary(computeSummary(state.tasks||[], state._lastKpis||[]));
-      renderRegionOrderChart(state._lastKpiTasks||state.tasks||[], state._lastKpis||[]);
-      renderRegionOrderBarChart();
-      updateOrderMiniChart();
+      const _today = new Date().toISOString().slice(0,10);
+      if(!cData._cacheDate || cData._cacheDate !== _today) {
+        localStorage.removeItem('ck_order_cache');
+      } else {
+        state.choiceKitOrder = cData;
+        renderSummary(computeSummary(state.tasks||[], state._lastKpis||[]));
+        renderRegionOrderChart(state._lastKpiTasks||state.tasks||[], state._lastKpis||[]);
+        renderRegionOrderBarChart();
+        updateOrderMiniChart();
+      }
     }
   } catch(e) {}
 
   // 2. 백그라운드에서 최신 데이터 fetch
   try {
+    const _ckDay = new Date().toISOString().slice(0,10);
     const res = await fetch(
-      'https://raw.githubusercontent.com/masterteamply-stack/choicekit-dashboard/main/orders.csv',
+      'https://raw.githubusercontent.com/masterteamply-stack/choicekit-dashboard/main/orders.csv?v='+_ckDay,
       { cache: 'no-cache' }
     );
     if(!res.ok) throw new Error('fetch failed: ' + res.status);
@@ -5835,7 +5841,8 @@ async function fetchChoiceKitOrders() {
     state.choiceKitOrder = newData;
 
     // 3. 캐시 저장 (다음 로드 때 즉시 사용)
-    try { localStorage.setItem('ck_order_cache', JSON.stringify(newData)); } catch(e) {}
+    try { newData._cacheDate = new Date().toISOString().slice(0,10);
+      localStorage.setItem('ck_order_cache', JSON.stringify(newData)); } catch(e) {}
 
     // 4. 화면 갱신
     renderSummary(computeSummary(state.tasks||[], state._lastKpis||[]));
