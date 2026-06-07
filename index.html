@@ -5776,61 +5776,53 @@ function refreshOwnerFilterOptions() {
 
 // ── ChoiceKit 관련 오더 실시간 데이터 ──
 async function fetchChoiceKitOrders() {
-  // 1. 캐시 즉시 표시 (UX)
   try {
     const cached = localStorage.getItem('ck_order_cache');
     if(cached) {
       const cData = JSON.parse(cached);
-      if(cData && cData.total) { state.choiceKitOrder = cData; renderSummary(computeSummary(state.tasks||[], state._lastKpis||[])); renderRegionOrderChart(state._lastKpiTasks||state.tasks||[], state._lastKpis||[]); renderRegionOrderBarChart(); updateOrderMiniChart(); }
+      if(cData&&cData.total){state.choiceKitOrder=cData;renderSummary(computeSummary(state.tasks||[],state._lastKpis||[]));renderRegionOrderChart(state._lastKpiTasks||state.tasks||[],state._lastKpis||[]);renderRegionOrderBarChart();updateOrderMiniChart();}
     }
-  } catch(e2) {}
+  } catch(_e0){}
 
-  // 2. 항상 최신 fetch (Date.now()로 CDN 캐시 완전 우회)
   try {
-    const _bust = Date.now();
-    const res = await fetch(
-      'https://raw.githubusercontent.com/masterteamply-stack/choicekit-dashboard/main/orders.csv?t='+_bust,
-      { cache: 'no-store' }
-    );
-    if(!res.ok) throw new Error('fetch failed: ' + res.status);
-    const buf = await res.arrayBuffer();
-    let text;
-    try { text = new TextDecoder('utf-8').decode(buf); } catch(e3) { text = new TextDecoder('euc-kr').decode(buf); }
-    if(text.charCodeAt(0)===0xFEFF) text=text.slice(1);
-
-    const lines = text.split('\n').map(l=>l.replace('\r','')).filter(l=>l.trim());
-    if(lines.length < 2) throw new Error('CSV empty');
-    const headers = lines[0].split(',').map(h=>h.trim().toLowerCase());
-    const amtIdx  = headers.findIndex(h=>h==='amount');
-    const dateIdx = headers.findIndex(h=>h==='order date'||h==='order_date');
-    const regIdx  = headers.findIndex(h=>h==='region');
-    if(amtIdx<0) throw new Error('amount column not found');
-
-    let totalAmount=0, count=0;
-    const monthly={}, byRegion={};
-    for(let i=1; i<lines.length; i++) {
-      const cols=lines[i].split(',');
-      const amt=parseFloat((cols[amtIdx]||'').replace(/[,\s]/g,''));
-      if(!isNaN(amt)&&amt>0) {
-        totalAmount+=amt; count++;
-        if(dateIdx>=0){const dt=(cols[dateIdx]||'').trim().slice(0,7);if(dt)monthly[dt]=(monthly[dt]||0)+amt;}
-        const rgn=regIdx>=0?(cols[regIdx]||'').trim().toUpperCase():'GLOBAL';
-        byRegion[rgn||'GLOBAL']=(byRegion[rgn||'GLOBAL']||0)+amt;
+    // GitHub API: CDN 우회, 항상 최신 파일 반환
+    const _url = 'https://api.github.com/repos/masterteamply-stack/choicekit-dashboard/contents/orders.csv';
+    const _res = await fetch(_url,{cache:'no-store',headers:{'Accept':'application/vnd.github.raw+json','Cache-Control':'no-cache'}});
+    if(!_res.ok) throw new Error('API '+_res.status);
+    const _buf = await _res.arrayBuffer();
+    let _txt;
+    try{_txt=new TextDecoder('utf-8').decode(_buf);}catch(_e){_txt=new TextDecoder('euc-kr').decode(_buf);}
+    if(_txt.charCodeAt(0)===0xFEFF) _txt=_txt.slice(1);
+    const _lines=_txt.split('\n').map(l=>l.replace('\r','')).filter(l=>l.trim());
+    if(_lines.length<2) throw new Error('empty');
+    const _hdrs=_lines[0].split(',').map(h=>h.trim().toLowerCase());
+    const _ai=_hdrs.findIndex(h=>h==='amount');
+    const _di=_hdrs.findIndex(h=>h==='order date'||h==='order_date');
+    const _ri=_hdrs.findIndex(h=>h==='region');
+    if(_ai<0) throw new Error('no amount col');
+    let _tot=0,_cnt=0;
+    const _mo={},_br={};
+    for(let _i=1;_i<_lines.length;_i++){
+      const _c=_lines[_i].split(',');
+      const _a=parseFloat((_c[_ai]||'').replace(/[,\s]/g,''));
+      if(!isNaN(_a)&&_a>0){
+        _tot+=_a;_cnt++;
+        if(_di>=0){const _d=(_c[_di]||'').trim().slice(0,7);if(_d)_mo[_d]=(_mo[_d]||0)+_a;}
+        const _r=_ri>=0?(_c[_ri]||'').trim().toUpperCase():'GLOBAL';
+        _br[_r||'GLOBAL']=(_br[_r||'GLOBAL']||0)+_a;
       }
     }
-
-    const newData={total:totalAmount,count,monthly,byRegion,lastUpdated:new Date().toLocaleTimeString('ko-KR'),_cacheDate:new Date().toISOString().slice(0,10)};
-    state.choiceKitOrder=newData;
-    try{localStorage.setItem('ck_order_cache',JSON.stringify(newData));}catch(e4){}
+    const _nd={total:_tot,count:_cnt,monthly:_mo,byRegion:_br,lastUpdated:new Date().toLocaleTimeString('ko-KR'),_cacheDate:new Date().toISOString().slice(0,10)};
+    state.choiceKitOrder=_nd;
+    try{localStorage.setItem('ck_order_cache',JSON.stringify(_nd));}catch(_e2){}
     renderSummary(computeSummary(state.tasks||[],state._lastKpis||[]));
     renderRegionOrderChart(state._lastKpiTasks||state.tasks||[],state._lastKpis||[]);
     renderRegionOrderBarChart();
     updateOrderMiniChart();
-    console.log('[CK] Loaded: $'+Math.round(totalAmount).toLocaleString()+' ('+count+' rows)');
-
-  } catch(err) {
-    console.warn('[CK] fetch error:', err.message);
-    if(!state.choiceKitOrder||!state.choiceKitOrder.total){state.choiceKitOrder={total:null,count:null,lastUpdated:null};}
+    console.log('[CK] API loaded: $'+Math.round(_tot).toLocaleString()+' ('+_cnt+' rows)');
+  } catch(_err){
+    console.warn('[CK] error:',_err.message);
+    if(!state.choiceKitOrder||!state.choiceKitOrder.total)state.choiceKitOrder={total:null,count:null,lastUpdated:null};
     updateOrderMiniChart();
   }
 }
