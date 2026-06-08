@@ -2075,12 +2075,55 @@ function computeMarketingLeads() {
   const channelTotal = state.webLead.total || 0;
   const channelMonthly = state.webLead.data || {}; // { "2026-04": { total: 37 } }
 
-  // O2O -> localStorage o2o_lead_data
+  // O2O -> localStorage o2o_lead_data + tasks.leads 병합
   var _o2oLS=(function(){try{return JSON.parse(localStorage.getItem('o2o_lead_data')||'{}');}catch(e){return {};}})();
   const tasks = state.tasks || [];
-  const o2oTotal=_o2oLS.total||tasks.reduce(function(s,t){return s+Number(t.leads||0);},0);
+
+  // tasks에서 O2O 관련 태스크 leads 월별 집계
+  // due_date 우선, 없으면 started_at, 없으면 quarter 기반으로 월 결정
+  var _taskMo={};
+  var _taskTotal=0;
+  tasks.forEach(function(t){
+    var leads=Number(t.leads||0);
+    if(leads<=0) return;
+    _taskTotal+=leads;
+    // 월 결정: due_date > started_at > quarter 순서
+    var mo=null;
+    if(t.due_date && t.due_date.length>=7) mo=t.due_date.slice(0,7);
+    else if(t.started_at && t.started_at.length>=7) mo=t.started_at.slice(0,7);
+    else if(t.quarter) {
+      // quarter 예: "q1", "q2", "q3", "q4" → 현재 연도 기준 월 배정
+      var yr=new Date().getFullYear();
+      var qmap={q1:'01',q2:'04',q3:'07',q4:'10'};
+      var qk=(t.quarter||'').toLowerCase().replace(/[^q1-4]/g,'').slice(0,2);
+      if(qmap[qk]) mo=yr+'-'+qmap[qk];
+    }
+    if(!mo) return;
+    _taskMo[mo]=(_taskMo[mo]||0)+leads;
+  });
+
+  // localStorage 우선, 없으면 tasks 데이터 사용
+  // 단, localStorage.monthly가 있으면 tasks와 병합 (더 큰 값 사용)
   var _o2oMo={};
-  if(_o2oLS.monthly){_o2oMo=_o2oLS.monthly;}else{tasks.forEach(function(t){if(Number(t.leads||0)<=0)return;var mo=t.started_at?t.started_at.slice(0,7):null;if(!mo)return;_o2oMo[mo]=(_o2oMo[mo]||0)+Number(t.leads||0);});}
+  if(_o2oLS.monthly) {
+    // localStorage와 tasks 모두 병합 (중복 방지: 같은 월은 큰 값)
+    var allMoKeys=[...new Set([...Object.keys(_o2oLS.monthly),...Object.keys(_taskMo)])];
+    allMoKeys.forEach(function(m){
+      var lsV=_o2oLS.monthly[m]||0;
+      var tkV=_taskMo[m]||0;
+      // localStorage 데이터가 있으면 우선 사용, tasks는 보완
+      _o2oMo[m]=lsV>0?lsV:tkV;
+    });
+  } else {
+    _o2oMo=_taskMo;
+  }
+
+  // 총합: localStorage.total이 있으면 우선, 없으면 tasks 합산
+  var o2oTotal=_o2oLS.total||_taskTotal;
+  // localStorage monthly 합산과 비교해 더 큰 값 사용
+  var _moSum=Object.values(_o2oMo).reduce(function(s,v){return s+v;},0);
+  if(_moSum>o2oTotal) o2oTotal=_moSum;
+
   const o2oMonthly=_o2oMo;
   const o2oByRegion=_o2oLS.byRegion||{};
   const o2oDetail=_o2oLS.detail||[];
@@ -2333,8 +2376,40 @@ function renderSummary(s) {
   h += '<button onclick="showO2ODetail()" style="font-size:8px;background:#fff0c0;border:1px solid #e6c84a;border-radius:3px;padding:1px 6px;color:#7a6010;cursor:pointer">지역별 →</button>';
   h += '</div>';
   var _o2oAch=ml.totalO2o>0?Math.round(ml.totalO2o/7259*100):0;
+  // O2O 월별 미니 바 차트 (최근 4개월) + 이번달 타깃
+  var _o2oNow=new Date();
+  var _o2oMoList=[];
+  for(var _oi=3;_oi>=0;_oi--){
+    var _od=new Date(_o2oNow.getFullYear(),_o2oNow.getMonth()-_oi,1);
+    _o2oMoList.push(_od.getFullYear()+'-'+String(_od.getMonth()+1).padStart(2,'0'));
+  }
+  var _o2oMoData=ml.o2oMonthly||{};
+  var _o2oMaxMo=Math.max.apply(null,_o2oMoList.map(function(m){return _o2oMoData[m]||0;}));
+  if(_o2oMaxMo<=0) _o2oMaxMo=1;
+  // 분기 월별 타깃 (연간 7259 / 12 ≈ 605 per month, 분기 타깃 있으면 /3)
+  var _o2oCurQ=(function(){var cm=_o2oNow.getMonth();return cm<3?'q1':cm<6?'q2':cm<9?'q3':'q4';})();
+  var _o2oKpi=(state._lastKpis||[]).find(function(k){return k.kpi_key==='B2D-04';});
+  var _o2oQT=_o2oKpi?(parseFloat((_o2oKpi[_o2oCurQ+'_target']||'').replace(/,/g,''))||null):null;
+  var _o2oMonthT=_o2oQT?Math.round(_o2oQT/3):Math.round(7259/12);
+  var _o2oMiniBar='<div style="display:flex;align-items:flex-end;gap:3px;height:22px;margin-top:4px">';
+  _o2oMoList.forEach(function(m){
+    var v=_o2oMoData[m]||0;
+    var h=Math.max(2,Math.round(v/_o2oMaxMo*16));
+    var isCur=m===(_o2oNow.getFullYear()+'-'+String(_o2oNow.getMonth()+1).padStart(2,'0'));
+    var pct=_o2oMonthT>0?Math.round(v/_o2oMonthT*100):0;
+    _o2oMiniBar+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px" title="'+m+': '+v+'명 (월타깃대비 '+pct+'%)">'
+      +'<div style="width:100%;height:'+h+'px;background:'+(isCur?'#b8962e':'#e0c97a')+';border-radius:1px 1px 0 0;position:relative">'
+      +(isCur&&pct>0?'<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);font-size:6px;color:#7a6010;white-space:nowrap;font-weight:700">'+pct+'%</div>':'')
+      +'</div>'
+      +'<div style="font-size:6px;color:#a89f94;white-space:nowrap">'+m.slice(5)+'</div>'
+      +'</div>';
+  });
+  _o2oMiniBar+='</div>';
   h += '<div style="font-size:13px;font-weight:800;color:#7a6010">' + fmtNum(ml.totalO2o) + '<span style="font-size:9px;font-weight:400;color:#8a8278"> 명</span> <span style="font-size:10px;font-weight:700;color:#3a7c3a">'+_o2oAch+'%</span></div>';
   h += '<div style="font-size:9px;color:#8a8278">목표 7,259 · 이번달 <b style="color:#7a6010">' + fmtNum(_thisO2o) + '</b>명</div>';
+  // 진척 게이지
+  h += '<div style="margin-top:4px;background:#ffe8a0;border-radius:2px;height:4px;overflow:hidden"><div style="height:100%;width:'+Math.min(100,_o2oAch)+'%;background:'+((_o2oAch>=80)?'#5c9c3a':(_o2oAch>=50)?'#b8962e':'#c0633a')+';border-radius:2px;transition:width .4s"></div></div>';
+  h += _o2oMiniBar;
   h += '</div>';
   h += '</div></div>';
   h += '</div>';
@@ -3124,7 +3199,7 @@ function renderKpiGauge(kpi, taskList) {
   var curMo=new Date().getMonth();
   var curQ=curMo<3?'q1':curMo<6?'q2':curMo<9?'q3':'q4';
 
-  // ── B2D-04: O2O 마케팅 리드 연계 KPI → o2o_lead_data 연동 ──
+  // ── B2D-04: O2O 마케팅 리드 연계 KPI → o2o_lead_data + tasks.leads 연동 ──
   if(kpi.kpi_key==='B2D-04') {
     var _ml=computeMarketingLeads();
     var _o2oTotal=_ml.totalO2o||0;
@@ -3133,7 +3208,7 @@ function renderKpiGauge(kpi, taskList) {
     var _achv=_annT>0?Math.round(_o2oTotal/_annT*100):0;
     var _cc=_achv>=80?'':_achv>=50?'warn':'danger';
     var _bw=Math.min(100,_achv);
-    // 월별 바 차트 (최근 6개월)
+    // 월별 바 차트 (최근 6개월) + 월별 타깃 라인
     var _now=new Date();
     var _months=[];
     for(var _mi=5;_mi>=0;_mi--){
@@ -3141,19 +3216,40 @@ function renderKpiGauge(kpi, taskList) {
       _months.push(_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0'));
     }
     var _moData=_ml.o2oMonthly||{};
-    var _maxMo=Math.max.apply(null,_months.map(function(m){return _moData[m]||0;}));
+    // 분기별 타깃을 월별로 분배
+    var _moTargets={};
+    ['q1','q2','q3','q4'].forEach(function(q){
+      var qt=parseN(kpi[q+'_target'])||0;
+      var mPerQ={q1:['01','02','03'],q2:['04','05','06'],q3:['07','08','09'],q4:['10','11','12']};
+      var yr=_now.getFullYear();
+      (mPerQ[q]||[]).forEach(function(mm){
+        _moTargets[yr+'-'+mm]=Math.round(qt/3);
+      });
+    });
+    var _maxMo=Math.max.apply(null,_months.map(function(m){return Math.max(_moData[m]||0, _moTargets[m]||0);}));
     if(_maxMo<=0) _maxMo=1;
-    var _barHtml='<div style="display:flex;align-items:flex-end;gap:2px;height:28px;margin-top:5px">';
+    var _barHtml='<div style="display:flex;align-items:flex-end;gap:2px;height:36px;margin-top:5px;padding-top:8px;position:relative">';
     _months.forEach(function(m){
       var v=_moData[m]||0;
-      var h=Math.max(2,Math.round(v/_maxMo*22));
+      var tgt=_moTargets[m]||0;
+      var barH=Math.max(2,Math.round(v/_maxMo*26));
+      var tgtH=tgt>0?Math.max(2,Math.round(tgt/_maxMo*26)):0;
       var isThis=m===(_now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0'));
-      _barHtml+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px">'
-        +'<div title="'+m+': '+v+'명" style="width:100%;height:'+h+'px;background:'+(isThis?'#7a6010':'#d4bc6a')+';border-radius:1px 1px 0 0"></div>'
+      var mAchv=tgt>0?Math.round(v/tgt*100):null;
+      var barColor=isThis?'#b8962e':(mAchv!==null?(mAchv>=80?'#5c9c3a':mAchv>=50?'#d4bc6a':'#c0634a'):'#d4bc6a');
+      _barHtml+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;position:relative">';
+      // 타깃 라인
+      if(tgtH>0){
+        _barHtml+='<div title="'+m+' 목표: '+tgt+'명" style="position:absolute;bottom:'+(tgtH+2)+'px;left:0;right:0;height:1px;background:#c09020;opacity:0.5;border-top:1px dashed #c09020"></div>';
+      }
+      _barHtml+='<div title="'+m+': '+v+'명'+(mAchv!==null?' (목표대비 '+mAchv+'%)'  :'')+'" style="width:100%;height:'+barH+'px;background:'+barColor+';border-radius:1px 1px 0 0"></div>'
         +'<div style="font-size:7px;color:#8a8278;white-space:nowrap">'+m.slice(5)+'</div>'
         +'</div>';
     });
     _barHtml+='</div>';
+    // tasks.leads 연동 여부 표시
+    var _taskLeads=(state.tasks||[]).reduce(function(s,t){return s+Number(t.leads||0);},0);
+    var _srcLabel=_taskLeads>0?'<span style="font-size:8px;color:#5c6b4a;background:#e8f0e0;border-radius:3px;padding:1px 4px;margin-left:4px">태스크 연동</span>':'';
     var _qDetail='';
     if(_curQT&&_curQT>0){
       var _qAchv=Math.round(_o2oTotal/_curQT*100);
@@ -3162,6 +3258,7 @@ function renderKpiGauge(kpi, taskList) {
     return '<div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px">'
       +'<span class="kpi-gauge-pct">'+_achv+'%</span>'
       +'<span style="font-size:9px;color:#7a6010;font-weight:600">🤝 O2O 리드</span>'
+      +_srcLabel
       +'</div>'
       +'<div class="kpi-gauge-outer"><div class="kpi-gauge-bar '+_cc+'" style="width:'+_bw+'%"></div></div>'
       +'<div style="font-size:10px;color:#6b6259;margin-top:3px">'
@@ -3169,7 +3266,8 @@ function renderKpiGauge(kpi, taskList) {
         +'<span style="color:#8a8278"> / 연간목표 '+fmtV(_annT)+'명</span>'
       +'</div>'
       +_qDetail
-      +_barHtml;
+      +_barHtml
+      +'<div style="font-size:7px;color:#a89f94;margin-top:2px">점선=월별목표 · 색상: 녹색≥80% / 노란색≥50% / 빨간색&lt;50%</div>';
   }
 
   // 연간 목표
