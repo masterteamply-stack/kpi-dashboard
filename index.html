@@ -5898,55 +5898,95 @@ function refreshOwnerFilterOptions() {
 
 // ── ChoiceKit 관련 오더 실시간 데이터 ──
 async function fetchChoiceKitOrders() {
+  // 캐시 즉시 표시 (UX - 이전 데이터 먼저 보여주기)
   try {
-    const cached = localStorage.getItem('ck_order_cache');
-    if(cached) {
-      const cData = JSON.parse(cached);
-      if(cData&&cData.total){state.choiceKitOrder=cData;renderSummary(computeSummary(state.tasks||[],state._lastKpis||[]));renderRegionOrderChart(state._lastKpiTasks||state.tasks||[],state._lastKpis||[]);renderRegionOrderBarChart();updateOrderMiniChart();}
+    var _ck=JSON.parse(localStorage.getItem('ck_order_cache')||'{}');
+    if(_ck&&_ck.total>0){
+      state.choiceKitOrder=_ck;
+      renderSummary(computeSummary(state.tasks||[],state._lastKpis||[]));
+      renderRegionOrderChart(state._lastKpiTasks||state.tasks||[],state._lastKpis||[]);
+      renderRegionOrderBarChart();
+      updateOrderMiniChart();
     }
   } catch(_e0){}
 
-  try {
-    // GitHub API: CDN 우회, 항상 최신 파일 반환
-    const _url = 'https://api.github.com/repos/masterteamply-stack/choicekit-dashboard/contents/orders.csv';
-    const _res = await fetch(_url,{cache:'no-store',headers:{'Accept':'application/vnd.github.raw+json','Cache-Control':'no-cache'}});
-    if(!_res.ok) throw new Error('API '+_res.status);
-    const _buf = await _res.arrayBuffer();
-    let _txt;
+  // 파싱 함수
+  async function _parse(res) {
+    var _buf=await res.arrayBuffer();
+    var _txt;
     try{_txt=new TextDecoder('utf-8').decode(_buf);}catch(_e){_txt=new TextDecoder('euc-kr').decode(_buf);}
     if(_txt.charCodeAt(0)===0xFEFF) _txt=_txt.slice(1);
-    const _lines=_txt.split('\n').map(l=>l.replace('\r','')).filter(l=>l.trim());
-    if(_lines.length<2) throw new Error('empty');
-    const _hdrs=_lines[0].split(',').map(h=>h.trim().toLowerCase());
-    const _ai=_hdrs.findIndex(h=>h==='amount');
-    const _di=_hdrs.findIndex(h=>h==='order date'||h==='order_date');
-    const _ri=_hdrs.findIndex(h=>h==='region');
-    if(_ai<0) throw new Error('no amount col');
-    let _tot=0,_cnt=0;
-    const _mo={},_br={};
-    for(let _i=1;_i<_lines.length;_i++){
-      const _c=_lines[_i].split(',');
-      const _a=parseFloat((_c[_ai]||'').replace(/[,\s]/g,''));
-      if(!isNaN(_a)&&_a>0){
-        _tot+=_a;_cnt++;
-        if(_di>=0){const _d=(_c[_di]||'').trim().slice(0,7);if(_d)_mo[_d]=(_mo[_d]||0)+_a;}
-        const _r=_ri>=0?(_c[_ri]||'').trim().toUpperCase():'GLOBAL';
-        _br[_r||'GLOBAL']=(_br[_r||'GLOBAL']||0)+_a;
-      }
+    // GitHub API JSON 응답(base64) 처리
+    if(_txt.trimStart().startsWith('{')) {
+      try {
+        var _j=JSON.parse(_txt);
+        if(_j.encoding==='base64'&&_j.content){
+          var _b64=_j.content.replace(/\n/g,'');
+          var _bin=atob(_b64);
+          var _bytes=new Uint8Array(_bin.length);
+          for(var _bi=0;_bi<_bin.length;_bi++) _bytes[_bi]=_bin.charCodeAt(_bi);
+          try{_txt=new TextDecoder('utf-8').decode(_bytes);}catch(_e){_txt=new TextDecoder('euc-kr').decode(_bytes);}
+          if(_txt.charCodeAt(0)===0xFEFF) _txt=_txt.slice(1);
+        }
+      } catch(_je){}
     }
-    const _nd={total:_tot,count:_cnt,monthly:_mo,byRegion:_br,lastUpdated:new Date().toLocaleTimeString('ko-KR'),_cacheDate:new Date().toISOString().slice(0,10)};
-    state.choiceKitOrder=_nd;
-    try{localStorage.setItem('ck_order_cache',JSON.stringify(_nd));}catch(_e2){}
-    renderSummary(computeSummary(state.tasks||[],state._lastKpis||[]));
-    renderRegionOrderChart(state._lastKpiTasks||state.tasks||[],state._lastKpis||[]);
-    renderRegionOrderBarChart();
-    updateOrderMiniChart();
-    console.log('[CK] API loaded: $'+Math.round(_tot).toLocaleString()+' ('+_cnt+' rows)');
-  } catch(_err){
-    console.warn('[CK] error:',_err.message);
-    if(!state.choiceKitOrder||!state.choiceKitOrder.total)state.choiceKitOrder={total:null,count:null,lastUpdated:null};
-    updateOrderMiniChart();
+    return _txt;
   }
+
+  // fetch URL 목록 (raw.githubusercontent 우선)
+  var _ts=Date.now();
+  var _URLS=[
+    'https://raw.githubusercontent.com/masterteamply-stack/choicekit-dashboard/main/orders.csv?t='+_ts,
+    'https://api.github.com/repos/masterteamply-stack/choicekit-dashboard/contents/orders.csv'
+  ];
+
+  for(var _ui=0;_ui<_URLS.length;_ui++) {
+    var _url=_URLS[_ui];
+    try {
+      var _opts=_url.indexOf('api.github.com')>=0
+        ?{cache:'no-store',headers:{'Accept':'application/vnd.github.raw+json','Cache-Control':'no-cache'}}
+        :{cache:'no-store'};
+      var _res=await fetch(_url,_opts);
+      if(!_res.ok){console.warn('[CK] '+_res.status+' from '+_url.split('/')[2]);continue;}
+      var _txt=await _parse(_res);
+      var _lines=_txt.split('\n').map(function(l){return l.replace('\r','');}).filter(function(l){return l.trim();});
+      if(_lines.length<2){console.warn('[CK] CSV empty');continue;}
+      var _hdrs=_lines[0].split(',').map(function(h){return h.trim().toLowerCase();});
+      var _ai=_hdrs.findIndex(function(h){return h==='amount';});
+      var _di=_hdrs.findIndex(function(h){return h==='order date'||h==='order_date';});
+      var _ri=_hdrs.findIndex(function(h){return h==='region';});
+      if(_ai<0){console.warn('[CK] no amount col, hdrs:',_hdrs.slice(0,6));continue;}
+      var _tot=0,_cnt=0;
+      var _mo={},_br={};
+      for(var _i=1;_i<_lines.length;_i++){
+        var _c=_lines[_i].split(',');
+        var _a=parseFloat((_c[_ai]||'').replace(/[,\s]/g,''));
+        if(!isNaN(_a)&&_a>0){
+          _tot+=_a;_cnt++;
+          if(_di>=0){var _dd=(_c[_di]||'').trim().slice(0,7);if(_dd)_mo[_dd]=(_mo[_dd]||0)+_a;}
+          var _r=_ri>=0?(_c[_ri]||'').trim().toUpperCase():'GLOBAL';
+          _br[_r||'GLOBAL']=(_br[_r||'GLOBAL']||0)+_a;
+        }
+      }
+      var _nd={total:_tot,count:_cnt,monthly:_mo,byRegion:_br,
+        lastUpdated:new Date().toLocaleTimeString('ko-KR'),
+        _cacheDate:new Date().toISOString().slice(0,10),
+        _src:_url.split('/')[2]};
+      state.choiceKitOrder=_nd;
+      try{localStorage.setItem('ck_order_cache',JSON.stringify(_nd));}catch(_e2){}
+      renderSummary(computeSummary(state.tasks||[],state._lastKpis||[]));
+      renderRegionOrderChart(state._lastKpiTasks||state.tasks||[],state._lastKpis||[]);
+      renderRegionOrderBarChart();
+      updateOrderMiniChart();
+      console.log('[CK] Loaded from '+_nd._src+': $'+Math.round(_tot).toLocaleString()+' ('+_cnt+' rows)');
+      return;
+    } catch(_err){
+      console.warn('[CK] err '+_url.split('/')[2]+':',_err.message);
+    }
+  }
+  console.error('[CK] All URLs failed');
+  if(!state.choiceKitOrder||!state.choiceKitOrder.total) state.choiceKitOrder={total:null,count:null,lastUpdated:null};
+  updateOrderMiniChart();
 }
 
 function updateOrderMiniChart() {
@@ -6816,6 +6856,8 @@ var CK_TARGET_BY_REGION = {
   
   // -- O2O Lead (CTR Tech Seminar 2026) --
   (function(){try{localStorage.setItem('o2o_lead_data','{"total":2036,"monthly":{"2026-01":198,"2026-02":35,"2026-03":740,"2026-04":284,"2026-05":729,"2026-06":50},"byRegion":{"RUS":1265,"LATAM":660,"ASIA":96,"MENA":15},"detail":[{"date":"2026-01-10","region":"ASIA","country":"Thailand","lead":8},{"date":"2026-01-22","region":"RUS","country":"Russia","lead":132},{"date":"2026-01-29","region":"RUS","country":"Russia","lead":58},{"date":"2026-02-06","region":"MENA","country":"UAE","lead":15},{"date":"2026-02-12","region":"LATAM","country":"Venezuela","lead":20},{"date":"2026-03-04","region":"LATAM","country":"Guatemala","lead":50},{"date":"2026-03-05","region":"LATAM","country":"Chile","lead":35},{"date":"2026-03-05","region":"RUS","country":"Russia","lead":144},{"date":"2026-03-10","region":"RUS","country":"Russia","lead":88},{"date":"2026-03-16","region":"LATAM","country":"Bolivia","lead":100},{"date":"2026-03-17","region":"LATAM","country":"Bolivia","lead":60},{"date":"2026-03-18","region":"LATAM","country":"Guatemala","lead":41},{"date":"2026-03-19","region":"RUS","country":"Russia","lead":137},{"date":"2026-03-24","region":"RUS","country":"Russia","lead":77},{"date":"2026-03-30","region":"ASIA","country":"Thailand","lead":8},{"date":"2026-04-07","region":"RUS","country":"Russia","lead":47},{"date":"2026-04-08","region":"LATAM","country":"Colombia","lead":1},{"date":"2026-04-08","region":"LATAM","country":"Argentina","lead":30},{"date":"2026-04-13","region":"ASIA","country":"Philippines","lead":50},{"date":"2026-04-15","region":"ASIA","country":"Philippines","lead":30},{"date":"2026-04-21","region":"RUS","country":"Russia","lead":126},{"date":"2026-05-05","region":"LATAM","country":"Uruguay","lead":51},{"date":"2026-05-12","region":"LATAM","country":"Guatemala","lead":2},{"date":"2026-05-12","region":"RUS","country":"Russia","lead":142},{"date":"2026-05-13","region":"LATAM","country":"Chile","lead":150},{"date":"2026-05-14","region":"RUS","country":"Russia","lead":39},{"date":"2026-05-19","region":"RUS","country":"Russia","lead":137},{"date":"2026-05-21","region":"RUS","country":"Russia","lead":88},{"date":"2026-05-28","region":"LATAM","country":"Argentina","lead":120},{"date":"2026-06-02","region":"RUS","country":"Russia","lead":50}]}');}catch(e){}})();
+  
+  (function(){ try { var _ck=JSON.parse(localStorage.getItem('ck_order_cache')||'{}'); if(!_ck._cacheDate||!_ck.total||_ck.total<500000){localStorage.removeItem('ck_order_cache');} }catch(e){} })();
   // ── 14. Init ───────────────────────────────────────────────
 (async function init() {
   const url=window.__SUPABASE_URL__, key=window.__SUPABASE_ANON_KEY__;
