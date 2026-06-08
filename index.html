@@ -2694,7 +2694,7 @@ function renderKPIAccordion(kpis, tasks) {
             >${(v=>v>0?(v>=1000000?(v/1000000).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'K':String(v)):'0')(Number(t._progressRaw!=null?t._progressRaw:t.progress)||0)}</span>
             </div>
         </td>
-        <td onclick="event.stopPropagation()"><select class="cell-select" data-task-id="${t.id}" data-field="task_type" onchange="saveTaskSelectEdit(this)" style="font-size:10px;padding:2px 4px;max-width:90px;background:#fdfcf9;border:1px solid #e0dbd2;border-radius:3px;color:#3d5228;font-weight:600;cursor:pointer;outline:none"><option value="">-</option>${getMktgTypes().map(tp=>`<option value="${esc(tp)}"${tp===t.task_type?' selected':''} style="color:#1a1714">${esc(tp)}</option>`).join('')}</select></td>
+        <td onclick="event.stopPropagation()"><select class="cell-select" data-task-id="${t.id}" data-field="task_type" onchange="saveTaskSelectEdit(this)" style="font-size:10px;padding:2px 4px;max-width:90px;background:#fdfcf9;border:1px solid #e0dbd2;border-radius:3px;color:#3d5228;font-weight:600;cursor:pointer;outline:none"><option value="">-</option>${(()=>{var _ts=getMktgTypes();var _tv=(t.task_type||'').trim();if(_tv&&!_ts.includes(_tv))_ts=[_tv,..._ts];return _ts.map(tp=>`<option value="${esc(tp)}"${tp===_tv?' selected':''} style="color:#1a1714">${esc(tp)}</option>`).join('');})()}</select></td>
         <td style="min-width:90px">
           <span class="cell-editable budget-cell"
             contenteditable="true"
@@ -3144,23 +3144,21 @@ function renderKpiGauge(kpi, taskList) {
 
 
 async function saveTaskSelectEdit(el) {
-  const taskId = el.dataset.taskId;
-  const field  = el.dataset.field;
-  const newVal = el.value;
-  const task = (state._lastKpiTasks||[]).find(t=>t.id===taskId)||(state.tasks||[]).find(t=>t.id===taskId);
+  var taskId=el.dataset.taskId,field=el.dataset.field,newVal=el.value;
+  var task=(state._lastKpiTasks||[]).find(function(t){return t.id===taskId;})
+         ||(state.tasks||[]).find(function(t){return t.id===taskId;});
   if(!task) return;
-  // Optimistic update: state 즉시 반영
-  const _oldVal = task[field];
-  task[field] = newVal;
+  var _oldVal=task[field];
+  // Optimistic: state만 업데이트 (renderKPIAccordion 즉시 호출 금지)
+  // → SELECT는 브라우저가 이미 표시, 즉시 재렌더 시 이벤트 처리 중 DOM 교체로 행 순서 혼란 발생
+  task[field]=newVal;
   ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
     var t2=(state[k]||[]).find(function(t){return t.id===taskId;});
     if(t2) t2[field]=newVal;
   });
-  renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||[]);
-  if(state._activeKpiModal&&typeof refreshKpiDetailModal==='function') refreshKpiDetailModal();
   try {
-    const {error} = await state.sb.from('tasks').update({[field]:newVal,updated_at:new Date().toISOString()}).eq('id',taskId);
-    if(error) throw error;
+    var res=await state.sb.from('tasks').update({[field]:newVal,updated_at:new Date().toISOString()}).eq('id',taskId);
+    if(res.error) throw res.error;
     if(field==='owner_id'){
       var ow2=(state.owners||[]).find(function(o){return o.id===newVal;});
       if(ow2){
@@ -3173,6 +3171,7 @@ async function saveTaskSelectEdit(el) {
       if(task.kpi_id) await _syncOwnerToKpi(task.kpi_id,newVal);
     }
     _syncAfterTaskChange(task,[field]);
+    if(state._activeKpiModal&&typeof refreshKpiDetailModal==='function') refreshKpiDetailModal();
     renderOwnerTable(state.tasks||[],state._lastKpis||[]);
   } catch(e) {
     task[field]=_oldVal;
@@ -3180,7 +3179,7 @@ async function saveTaskSelectEdit(el) {
       var t2=(state[k]||[]).find(function(t){return t.id===taskId;});
       if(t2) t2[field]=_oldVal;
     });
-    renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||[]);
+    el.value=_oldVal;
     console.error('saveTaskSelectEdit:',e);
   }
 }
