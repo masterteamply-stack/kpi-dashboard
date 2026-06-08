@@ -3855,28 +3855,29 @@ function renderTop7KPI(kpis, tasks) {
     return m ? Number(m[0]) : null;
   };
 
-  const getAchievementRate = kpi => {
-    // Q2 → Q1 순으로 결과값 있는 분기 사용
-    const quarters = [
-      { result: kpi.q2_result, target: kpi.q2_target },
-      { result: kpi.q1_result, target: kpi.q1_target },
-      { result: kpi.q3_result, target: kpi.q3_target },
-      { result: kpi.q4_result, target: kpi.q4_target },
-    ];
-    for (const { result, target } of quarters) {
-      const r = parseResult(result);
-      const t = Number(target) || 0;
-      if (r !== null && t > 0) {
-        return { rate: Math.round(r / t * 100), result: r, target: t, hasData: true };
-      }
-    }
-    return { rate: 0, result: null, target: null, hasData: false };
+  const getTaskByQ = kpi => {
+    const kt=tasks.filter(t=>t.kpi_id===kpi.id);
+    const bq={q1:0,q2:0,q3:0,q4:0};
+    kt.forEach(t=>{const q=parseQuarterKey(t.quarter)||'q2';
+      bq[q]+=Number(t._progressRaw!=null?t._progressRaw:t.progress||0);});
+    return {byQ:bq, total:bq.q1+bq.q2+bq.q3+bq.q4, taskCnt:kt.length};
   };
-
+  const getAchievementRate = (kpi, byQ, totalActual) => {
+    const annTgt=parseResult(kpi.q4_target)||['q1','q2','q3','q4'].reduce((s,q)=>s+(Number(kpi[q+'_target'])||0),0)||0;
+    if(totalActual>0&&annTgt>0) return {rate:Math.min(100,Math.round(totalActual/annTgt*100)),result:totalActual,target:annTgt,hasData:true};
+    const curQ=new Date().getMonth()<3?'q1':new Date().getMonth()<6?'q2':new Date().getMonth()<9?'q3':'q4';
+    const qA=byQ[curQ]||0, qT=parseResult(kpi[curQ+'_target']);
+    if(qA>0&&qT&&qT>0) return {rate:Math.min(100,Math.round(qA/qT*100)),result:qA,target:qT,hasData:true};
+    for(const q of [curQ,'q2','q1','q3','q4']){
+      const r=parseResult(kpi[q+'_result']),t=Number(kpi[q+'_target'])||0;
+      if(r!==null&&t>0) return {rate:Math.round(r/t*100),result:r,target:t,hasData:true};
+    }
+    return {rate:0,result:null,target:null,hasData:false};
+  };
   const scores = kpis.map(kpi => {
-    const { rate, result, target, hasData } = getAchievementRate(kpi);
-    const taskCnt = tasks.filter(t => t.kpi_id === kpi.id).length;
-    return { kpi, rate, result, target, hasData, taskCnt };
+    const {byQ,total,taskCnt}=getTaskByQ(kpi);
+    const {rate,result,target,hasData}=getAchievementRate(kpi,byQ,total);
+    return {kpi,rate,result,target,hasData,taskCnt};
   });
 
   // 달성률 기준 정렬
