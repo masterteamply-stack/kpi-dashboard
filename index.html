@@ -4590,7 +4590,7 @@ function renderDrawerEditForm(task) {
         </div>
         <div>
           <label class="field-label">실적 수치${unit?' ('+unit+')':''}</label>
-          <input type="number" id="de_progress" value="${task.progress!=null?task.progress:0}" min="0" step="any"
+          <input type="number" id="de_progress" value="${task._progressRaw!=null?task._progressRaw:(task.progress!=null?task.progress:0)}" min="0" step="any"
             placeholder="실제 측정 지표값"
             style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)"/>
           <div style="font-size:9px;color:#8a8278;margin-top:2px">완료 시 획득한 실측값 (기본 0)</div>
@@ -4642,68 +4642,92 @@ function renderDrawerEditForm(task) {
 
 // ── Drawer: 저장 ──
 async function saveDrawerEdit(taskId) {
-  const task = state.drawer?.task;
+  var task = state.drawer && state.drawer.task;
   if(!task) return;
 
-  const formEl    = document.getElementById('drawerEditForm');
-  const kpiId     = formEl?.dataset.kpiId;
-  const qKey      = formEl?.dataset.qKey;
-  const origTarget= parseFloat(formEl?.dataset.origTarget||'0')||0;
-  const newTarget = parseFloat(document.getElementById('de_target')?.value)||0;
+  var formEl     = document.getElementById('drawerEditForm');
+  var kpiId      = formEl && formEl.dataset.kpiId;
+  var qKey       = formEl && formEl.dataset.qKey;
+  var origTarget = parseFloat((formEl && formEl.dataset.origTarget)||'0')||0;
+  var newTarget  = parseFloat((document.getElementById('de_target') && document.getElementById('de_target').value))||0;
 
-  const updates = {
-    title:    document.getElementById('de_title')?.value.trim(),
-    status:   document.getElementById('de_status')?.value,
-    priority: document.getElementById('de_priority')?.value,
-    due_date: document.getElementById('de_due')?.value || null,
-    notes:    document.getElementById('de_notes')?.value.trim(),
-    progress: Math.max(0,Math.min(100,parseFloat(document.getElementById('de_progress')?.value)||0)),
-    spend:    parseFloat(document.getElementById('de_spend')?.value)||0,
-    allocated_budget: parseFloat(document.getElementById('de_budget')?.value)||0,
-    region:   (document.getElementById('de_region')?.value.trim().toUpperCase() || 'GLOBAL'),
-    task_type: document.getElementById('de_task_type')?.value || null,
+  // 실적 수치: 실제 입력값(_progressRaw) + DB용 클램핑
+  var progressRaw = parseFloat((document.getElementById('de_progress') && document.getElementById('de_progress').value)||0)||0;
+  var progressDb  = Math.max(0, Math.min(100, progressRaw));
+
+  var updates = {
+    title:    (document.getElementById('de_title') && document.getElementById('de_title').value.trim()) || task.title,
+    status:   (document.getElementById('de_status') && document.getElementById('de_status').value) || task.status,
+    priority: (document.getElementById('de_priority') && document.getElementById('de_priority').value) || task.priority,
+    due_date: (document.getElementById('de_due') && document.getElementById('de_due').value) || null,
+    notes:    (document.getElementById('de_notes') && document.getElementById('de_notes').value.trim()) || '',
+    progress: progressDb,
+    spend:    parseFloat((document.getElementById('de_spend') && document.getElementById('de_spend').value)||0)||0,
+    allocated_budget: parseFloat((document.getElementById('de_budget') && document.getElementById('de_budget').value)||0)||0,
+    region:   ((document.getElementById('de_region') && document.getElementById('de_region').value.trim().toUpperCase()) || 'GLOBAL'),
+    task_type: (document.getElementById('de_task_type') && document.getElementById('de_task_type').value) || null,
     updated_at: new Date().toISOString(),
   };
-  const ownerName = document.getElementById('de_owner')?.value;
+
+  // owner 처리
+  var ownerName = document.getElementById('de_owner') && document.getElementById('de_owner').value;
   if(ownerName) {
-    const ow = (state.owners||[]).find(o=>o.name===ownerName);
-    if(ow){
+    var ow = (state.owners||[]).find(function(o){return o.name===ownerName;});
+    if(ow) {
       updates.owner_id = ow.id;
-      if(task) task.owners = {name:ow.name,team:ow.team||''};
+      task.owners = {name:ow.name, team:ow.team||''};
     }
   }
 
-  const btn = document.querySelector('#drawerTabEdit .btn-primary');
+  var btn = document.querySelector('#drawerTabEdit .btn-primary');
   try {
-    // 1. Task 저장
-    const { error: te } = await state.sb.from('tasks').update(updates).eq('id', taskId);
-    if(te) throw te;
-    Object.assign(task, updates);
-    // _allTasks/_allKpiTasks에도 반영
-    ['_allTasks','_allKpiTasks'].forEach(k=>{
-      const t2=(state[k]||[]).find(t=>t.id===taskId); if(t2) Object.assign(t2,updates);
-    });
+    // 1. Task DB 저장
+    var res = await state.sb.from('tasks').update(updates).eq('id', taskId);
+    if(res.error) throw res.error;
 
-    // 2. 목표값 변경 시 KPI q_target 업데이트
+    // 2. _progressRaw localStorage 저장 (실제 입력값 유지)
+    try { localStorage.setItem('task_praw_'+taskId, String(progressRaw)); } catch(_e2) {}
+
+    // 3. 모든 state 배열 즉시 동기화 (_lastKpiTasks 포함 - 이전 버전에서 누락됨)
+    var updatesWithRaw = Object.assign({}, updates, {_progressRaw: progressRaw});
+    ['tasks','_lastKpiTasks','_lastKpiTasksRaw','_allTasks','_allKpiTasks'].forEach(function(k) {
+      var t2 = (state[k]||[]).find(function(t){return t.id===taskId;});
+      if(t2) Object.assign(t2, updatesWithRaw);
+    });
+    // drawer.task도 동기화
+    Object.assign(task, updatesWithRaw);
+
+    // 4. KPI 분기 목표 변경 시 업데이트
     if(kpiId && qKey && newTarget !== origTarget) {
-      const qField = qKey + '_target';
-      const { error: ke } = await state.sb.from('kpis').update({ [qField]: newTarget }).eq('id', kpiId);
-      if(ke) throw ke;
-      // 메모리 업데이트
-      const kpi = (state._lastKpis||[]).find(k=>k.id===kpiId);
-      if(kpi) kpi[qField] = newTarget;
-      // form origTarget 갱신
+      var qField = qKey + '_target';
+      var res2 = await state.sb.from('kpis').update({[qField]: newTarget}).eq('id', kpiId);
+      if(res2.error) throw res2.error;
+      var kpi2 = (state._lastKpis||[]).find(function(k){return k.id===kpiId;});
+      if(kpi2) kpi2[qField] = newTarget;
       if(formEl) formEl.dataset.origTarget = String(newTarget);
     }
 
-    if(btn) { btn.textContent='✅ 저장됨'; setTimeout(()=>{ btn.textContent='저장'; },1500); }
-    Object.assign(task, updates);
+    // 5. KPI 게이지 즉시 갱신
+    if(task.kpi_id) {
+      var _gEl = document.querySelector('[data-gauge-kpi="'+task.kpi_id+'"]');
+      if(_gEl) {
+        var _gK = (state._lastKpis||[]).find(function(k){return k.id===task.kpi_id;});
+        var _gT = (state._lastKpiTasks||[]).filter(function(t){return t.kpi_id===task.kpi_id;});
+        if(_gK) _gEl.innerHTML = renderKpiGauge(_gK, _gT);
+      }
+    }
+
+    // 6. accordion 즉시 재렌더 (task_type, region 등 즉시 반영)
+    renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||[]);
+
+    // 7. summary/차트 갱신
     _syncAfterTaskChange(task, Object.keys(updates));
-    refreshDashboard();
+
+    if(btn) { btn.textContent='✅ 저장됨'; setTimeout(function(){btn.textContent='저장';}, 1500); }
 
   } catch(e) {
     if(btn) btn.textContent='❌ 실패';
-    setTimeout(()=>{ if(btn) btn.textContent='저장'; },2000);
+    setTimeout(function(){if(btn) btn.textContent='저장';}, 2000);
     console.error('saveDrawerEdit error:', e);
     alert('저장 실패: '+(e.message||String(e)));
   }
