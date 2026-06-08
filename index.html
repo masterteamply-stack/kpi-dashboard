@@ -1996,15 +1996,21 @@ function buildOwnerSummary(tasks, kpis) {
   }
 
   for(const t of tasks) {
-    const name=t.owners?.name||"미지정", team=t.owners?.team||"-", key=`${name}__${team}`;
-    if(!map.has(key)) map.set(key,{name,team,total:0,done:0,inProg:0,delayed:0,prog:0,taskBudget:0,spend:0,revenue:0});
+    const name=t.owners?.name||'미지정', team=t.owners?.team||'-', key=name;
+    if(!map.has(key)) map.set(key,{name,team,total:0,done:0,inProg:0,delayed:0,prog:0,taskBudget:0,spend:0,revenue:0,_tc:{}});
     const r=map.get(key);
+    if(team&&team!=='-') r._tc[team]=(r._tc[team]||0)+1;
     r.total++; r.prog+=Number(t.progress||0);
     r.taskBudget+=Number(t.allocated_budget||0);
     r.spend+=Number(t.spend||0); r.revenue+=Number(t.revenue||0);
     if(t.status==="done") r.done++;
     if(t.status==="in_progress") r.inProg++;
     if(t.status!=="done"&&t.due_date&&new Date(t.due_date)<today) r.delayed++;
+  }
+  for(const r of map.values()) {
+    const te=Object.entries(r._tc||{});
+    r.team=te.length?te.sort((a,b)=>b[1]-a[1])[0][0]:(r.team||'-');
+    delete r._tc;
   }
 
   return [...map.values()].map(r=>({
