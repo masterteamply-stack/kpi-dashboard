@@ -3358,7 +3358,6 @@ async function saveTaskCellEdit(el) {
   if(!task) return;
   var _oldVal=task[field];
   var _fmtV=function(v){if(!v||v<=0)return '0';if(v>=1000000)return (v/1000000).toFixed(1)+'M';if(v>=1000)return (v/1000).toFixed(0)+'K';return String(Math.round(v));};
-  // Optimistic
   task[field]=newVal; if(field==='progress'){task._progressRaw=newVal;}
   ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
     var t2=(state[k]||[]).find(function(t){return t.id===taskId;});
@@ -3374,29 +3373,9 @@ async function saveTaskCellEdit(el) {
   var updates={}; updates[field]=newVal; updates.updated_at=new Date().toISOString();
   try {
     var res=await state.sb.from('tasks').update(updates).eq('id',taskId);
-    if(res.error){
-      var _em=String(res.error.message||res.error.details||res.error).toLowerCase();
-      if(field==='progress'&&(_em.includes('check')||_em.includes('constraint'))){
-        // DB 0-100 제약: 클램핑값을 DB에 저장, 실제값은 localStorage
-        var _cl=Math.max(0,Math.min(100,newVal));
-        await state.sb.from('tasks').update({progress:_cl,updated_at:updates.updated_at}).eq('id',taskId);
-        try{localStorage.setItem('task_praw_'+taskId,String(newVal));}catch(_le){}
-        // state: DB값(클램핑) + _progressRaw(실제값) 분리 유지
-        task.progress=_cl;
-        ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
-          var t2=(state[k]||[]).find(function(t){return t.id===taskId;});
-          if(t2){t2.progress=_cl;} // _progressRaw는 newVal 유지
-        });
-        el.style.color='#5c6b4a';
-        setTimeout(function(){el.style.color='';},1200);
-      } else {
-        throw res.error;
-      }
-    } else {
-      if(field==='progress') try{localStorage.setItem('task_praw_'+taskId,String(newVal));}catch(_le){}
-      el.style.color='#3a7c3a';
-      setTimeout(function(){el.style.color='';},1200);
-    }
+    if(res.error) throw res.error;
+    if(field==='progress') try{localStorage.setItem('task_praw_'+taskId,String(newVal));}catch(_le){}
+    el.style.color='#3a7c3a'; setTimeout(function(){el.style.color='';},1200);
     _syncAfterTaskChange(task,[field]);
   } catch(err){
     task[field]=_oldVal; if(field==='progress') task._progressRaw=_oldVal;
@@ -3407,12 +3386,9 @@ async function saveTaskCellEdit(el) {
     if(dtype==='number') el.textContent=_fmtV(typeof _oldVal==='number'?_oldVal:0);
     el.style.color='var(--red)'; setTimeout(function(){el.style.color='';},1500);
     console.error('saveTaskCellEdit:',field,err.message||err);
+    alert('저장 실패: '+(err.message||String(err)));
   }
-}function handleCellKeydown(event, el) {
-  if(event.key==='Enter'){event.preventDefault();el.blur();}
-  if(event.key==='Escape'){el.textContent=el.dataset.orig;el.blur();}
 }
-
 function openKpiDetail(kpiId) {
   // 데이터 소스: _lastKpiTasks + tasks + _allTasks 모두 확인
   var kpi = (state._lastKpis||[]).find(function(k){return k.id===kpiId;});
