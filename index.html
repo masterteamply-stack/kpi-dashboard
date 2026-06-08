@@ -2761,7 +2761,7 @@ function renderKPIAccordion(kpis, tasks) {
           <option value="보류" ${'보류'===kpi.progress_status?'selected':''}>● 보류</option>
         </select>
       </div>
-      <div class="kpi-progress-wrap">
+      <div class="kpi-progress-wrap" data-gauge-kpi="${esc(kpi.id)}">
         ${renderKpiGauge(kpi, taskList)}
       </div>
       <div class="target-cell" onclick="event.stopPropagation()">
@@ -3093,75 +3093,39 @@ async function saveOwnerField(input) {
 
 // ── KPI Progress Gauge ──
 function renderKpiGauge(kpi, taskList) {
-  const parseN = v => {
-    if(!v || String(v).trim()==='' || String(v)==='nan') return null;
-    const m = String(v).replace(/,/g,'').match(/[\d.]+/);
-    return m ? Number(m[0]) : null;
-  };
-  const fmtV = v => {
-    if(v===null) return '\u2013';
-    if(v>=1000000) return (v/1000000).toFixed(1)+'M';
-    if(v>=1000) return (v/1000).toFixed(0)+'K';
-    return String(Math.round(v));
-  };
-  const unit = kpi.unit||'';
-  const curQ = (() => { const mo=new Date().getMonth(); return mo<3?'q1':mo<6?'q2':mo<9?'q3':'q4'; })();
-
-  const byQ = { q1:0, q2:0, q3:0, q4:0 };
-  for(const t of taskList) {
-    const q = parseQuarterKey(t.quarter) || curQ;
-    byQ[q] += Number(t._progressRaw!=null ? t._progressRaw : t.progress||0);
+  var parseN=function(v){if(!v||String(v).trim()===''||String(v)==='nan')return null;var m=String(v).replace(/,/g,'').match(/[\d.]+/);return m?Number(m[0]):null;};
+  var fmtV=function(v){if(v===null||v===undefined)return '-';if(v>=1000000)return (v/1000000).toFixed(1)+'M';if(v>=1000)return (v/1000).toFixed(0)+'K';return String(Math.round(v));};
+  var unit=kpi.unit||'';
+  var curQ=(function(){var mo=new Date().getMonth();return mo<3?'q1':mo<6?'q2':mo<9?'q3':'q4';})();
+  var annualTarget=parseN(kpi.q4_target)||null;
+  if(!annualTarget){annualTarget=['q1','q2','q3'].reduce(function(s,q){return s+(parseN(kpi[q+'_target'])||0);},0)||null;}
+  var byQ={q1:0,q2:0,q3:0,q4:0};
+  for(var _i=0;_i<taskList.length;_i++){
+    var _t=taskList[_i];
+    var _q=parseQuarterKey(_t.quarter)||curQ;
+    byQ[_q]+=Number(_t._progressRaw!=null?_t._progressRaw:_t.progress||0);
   }
-
-  let displayQ = curQ;
-  for(const q of [curQ,'q2','q1','q3','q4']) {
-    if(byQ[q]>0 || parseN(kpi[q+'_result'])!==null) { displayQ=q; break; }
+  var totalActual=byQ.q1+byQ.q2+byQ.q3+byQ.q4;
+  var dbRes=null;
+  var qOrder=[curQ,'q4','q3','q2','q1'];
+  for(var _qi=0;_qi<qOrder.length;_qi++){
+    var _qk=qOrder[_qi];var _r=parseN(kpi[_qk+'_result']);
+    if(_r!==null&&_r>0){dbRes={val:_r,q:_qk};break;}
   }
-
-  const dbResult = parseN(kpi[displayQ+'_result']);
-  const qTarget  = parseN(kpi[displayQ+'_target']);
-
-  let actualVal=null, targetVal=null, achvPct=null, sourceLabel='';
-
-  if(dbResult!==null && qTarget!==null && qTarget>0) {
-    actualVal=dbResult; targetVal=qTarget;
-    achvPct=Math.round(dbResult/qTarget*100);
-    sourceLabel=displayQ.toUpperCase();
-  } else if(byQ[displayQ]>0 && qTarget!==null && qTarget>0) {
-    // 집계 방식: avg(평균) 또는 sum(누적) - localStorage에서 읽기
-    const aggType = (() => { try { return localStorage.getItem('kpi_agg_'+kpi.id)||'sum'; } catch(e){return 'sum';} })();
-    const qTasks  = taskList.filter(t => (parseQuarterKey(t.quarter)||curQ) === displayQ);
-    const aggVal  = aggType==='avg' && qTasks.length>0 ? byQ[displayQ]/qTasks.length : byQ[displayQ];
-    actualVal=aggVal; targetVal=qTarget;
-    achvPct=Math.round(aggVal/qTarget*100);
-    sourceLabel=displayQ.toUpperCase()+(aggType==='avg'?' 평균':' 누적');
+  var actualVal=null,targetVal=null,achvPct=null,label='';
+  if(annualTarget&&annualTarget>0){
+    if(dbRes){actualVal=dbRes.val;targetVal=annualTarget;achvPct=Math.round(dbRes.val/annualTarget*100);label=dbRes.q.toUpperCase()+' 실적';}
+    else if(totalActual>0){actualVal=totalActual;targetVal=annualTarget;achvPct=Math.round(totalActual/annualTarget*100);label='누적 실적';}
   } else {
-    const totalProg = Object.values(byQ).reduce((s,v)=>s+v,0);
-    const annualT   = parseN(kpi.q4_target)||Math.max(...['q1','q2','q3'].map(q=>parseN(kpi[q+'_target'])||0));
-    if(annualT>0 && totalProg>0) {
-      actualVal=totalProg; targetVal=annualT;
-      achvPct=Math.round(totalProg/annualT*100);
-      sourceLabel='연간';
-    }
+    var qT=parseN(kpi[curQ+'_target']);
+    if(qT&&qT>0&&byQ[curQ]>0){actualVal=byQ[curQ];targetVal=qT;achvPct=Math.round(byQ[curQ]/qT*100);label=curQ.toUpperCase();}
   }
-
-  if(achvPct===null) {
-    return '<div class="kpi-gauge-pct">\u2013</div>'
-      +'<div class="kpi-gauge-outer"><div class="kpi-gauge-bar" style="width:0%"></div></div>'
-      +'<div style="font-size:9px;color:#b0a898;margin-top:2px">\uc2e4\uc801 \ubbf8\uc785\ub825</div>';
-  }
-  const cc = achvPct>=80?'':achvPct>=50?'warn':'danger';
-  const bw = Math.min(100,achvPct);
-  return '<div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px">'
-    +'<span class="kpi-gauge-pct">'+achvPct+'%</span>'
-    +'<span style="font-size:9px;color:#8a8278;font-weight:600">'+sourceLabel+'</span>'
-    +'</div>'
+  if(achvPct===null){return '<div class="kpi-gauge-pct">-</div><div class="kpi-gauge-outer"><div class="kpi-gauge-bar" style="width:0%"></div></div><div style="font-size:9px;color:#b0a898;margin-top:2px">실적 미입력</div>';}
+  var cc=achvPct>=80?'':achvPct>=50?'warn':'danger';
+  var bw=Math.min(100,achvPct);
+  return '<div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px"><span class="kpi-gauge-pct">'+achvPct+'%</span><span style="font-size:9px;color:#8a8278;font-weight:600">'+label+'</span></div>'
     +'<div class="kpi-gauge-outer"><div class="kpi-gauge-bar '+cc+'" style="width:'+bw+'%"></div></div>'
-    +'<div style="font-size:10px;color:#6b6259;margin-top:3px">'
-    +'<span style="color:#5c6b4a;font-weight:700">'+fmtV(actualVal)+'</span>'
-    +'<span style="color:#8a8278"> / '+fmtV(targetVal)+'</span>'
-    +(unit?'<span style="color:#8a8278;margin-left:2px">'+unit+'</span>':'')
-    +'</div>';
+    +'<div style="font-size:10px;color:#6b6259;margin-top:3px"><span style="color:#5c6b4a;font-weight:700">'+fmtV(actualVal)+'</span><span style="color:#8a8278"> / 목표 '+fmtV(targetVal)+'</span>'+(unit?'<span style="color:#8a8278;margin-left:2px">'+unit+'</span>':'')+'</div>';
 }
 
 // ── KPI 상세 모달 ──
@@ -3306,8 +3270,10 @@ async function saveTaskCellEdit(el) {
     const {error} = await state.sb.from('tasks').update(updates).eq('id', taskId);
     if(error) throw error;
     task[field] = dbVal;
+    if(field==='progress'&&newVal!==dbVal){try{localStorage.setItem('task_praw_'+taskId,String(newVal));}catch(_e){}}
     el.style.color='#3a7c3a'; setTimeout(()=>{el.style.color='';},1200);
     _syncAfterTaskChange(task, [field]);
+    if(field==='progress'&&task.kpi_id){var _gEl=document.querySelector('[data-gauge-kpi="'+task.kpi_id+'"]');if(_gEl){var _gK=(state._lastKpis||[]).find(function(k){return k.id===task.kpi_id;});var _gT=(state._lastKpiTasks||state.tasks||[]).filter(function(t){return t.kpi_id===task.kpi_id;});if(_gK)_gEl.innerHTML=renderKpiGauge(_gK,_gT);}}
   } catch(e) {
     console.error('saveTaskCellEdit:',field,e.message||e);
     alert('저장 실패: '+((e.message||'')));
