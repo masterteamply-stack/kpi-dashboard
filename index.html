@@ -3151,6 +3151,7 @@ async function saveTaskSelectEdit(el) {
     if(t2) t2[field]=newVal;
   });
   renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||[]);
+  if(state._activeKpiModal&&typeof refreshKpiDetailModal==='function') refreshKpiDetailModal();
   try {
     const {error} = await state.sb.from('tasks').update({[field]:newVal,updated_at:new Date().toISOString()}).eq('id',taskId);
     if(error) throw error;
@@ -3326,150 +3327,283 @@ function handleCellKeydown(event, el) {
 }
 
 function openKpiDetail(kpiId) {
-  const _fmtT =  (v=>{if(v==null)return "-";const n=Number(v);if(n>=10000000)return (n/10000000).toFixed(1)+"천만";if(n>=1000000)return (n/1000000).toFixed(1)+"백만";return new Intl.NumberFormat("ko-KR").format(n);});
-  const kpi   = (state._lastKpis||[]).find(k=>k.id===kpiId);
-  const tasks = (state._lastKpiTasks||[]).filter(t=>t.kpi_id===kpiId);
+  // 데이터 소스: _lastKpiTasks + tasks + _allTasks 모두 확인
+  var kpi = (state._lastKpis||[]).find(function(k){return k.id===kpiId;});
   if(!kpi) return;
 
-  const avgProg = tasks.length
-    ? Math.round(tasks.reduce((s,t)=>s+Number(t.progress||0),0)/tasks.length) : 0;
-  const totalBudget = tasks.reduce((s,t)=>s+Number(t.allocated_budget||0),0);
-  const totalSpend  = tasks.reduce((s,t)=>s+Number(t.spend||0),0);
-  const execRate    = totalBudget>0 ? Math.round(totalSpend/totalBudget*100) : 0;
-  const doneCnt     = tasks.filter(t=>t.status==='done').length;
+  // 가장 풍부한 데이터 소스에서 tasks 추출
+  var allTaskSources = [
+    state._lastKpiTasks, state.tasks, state._allTasks, state._allKpiTasks
+  ].filter(Boolean);
+  var tasks = [];
+  for(var _si=0; _si<allTaskSources.length; _si++) {
+    var found = allTaskSources[_si].filter(function(t){return t.kpi_id===kpiId;});
+    if(found.length > tasks.length) tasks = found;
+  }
+  // started_at 기준 정렬
+  tasks = tasks.slice().sort(function(a,b){
+    return (a.started_at||'').localeCompare(b.started_at||'');
+  });
 
-  // 분기 카드 – 현재 분기(Q2) 하이라이트
-  const quarters = [
-    {q:'Q1', target:kpi.q1_target, result:kpi.q1_result},
-    {q:'Q2', target:kpi.q2_target, result:kpi.q2_result},
-    {q:'Q3', target:kpi.q3_target, result:null},
-    {q:'Q4', target:kpi.q4_target, result:null},
-  ];
-  const curQ = 'Q2';
-  const quarterCards = quarters.map(({q, target, result}) => {
-    const pct = (target&&result&&!isNaN(Number(result)))
-      ? Math.min(100, Math.round(Number(result)/Number(target)*100)) : null;
-    const barW = pct !== null ? pct : 0;
-    const isCur = q===curQ;
-    return `<div class="kpi-quarter-card${isCur?' current':''}">
-      <div class="kpi-qtr-label">${q} ${isCur?'<span style="color:#5c6b4a">●</span>':''}</div>
-      <div class="kpi-qtr-target">목표 ${_fmtT(target)||'-'}</div>
-      <div class="kpi-qtr-result">${result&&result!=='nan'?_fmtT(result):'-'}</div>
-      <div class="kpi-qtr-bar-wrap"><div class="kpi-qtr-bar" style="width:${barW}%"></div></div>
-      <div class="kpi-qtr-pct">${pct!==null?pct+'%':'-'}</div>
-    </div>`;
-  }).join('');
+  // KPI 모달 상태 저장 (갱신 위해)
+  state._activeKpiModal = {kpiId: kpiId};
 
-  // Task 목록 (inline 편집 지원)
-  const taskRows = tasks.length ? tasks.map(t => {
-    const mo  = t.started_at ? new Date(t.started_at).getMonth()+1+'월' : '';
-    const qtr = t.quarter ? t.quarter.replace('2026-','') : '';
-    const statusOpts = ['todo','in_progress','blocked','done'].map(v =>
-      `<option value="${v}" ${t.status===v?'selected':''}>${statusLabel(v)}</option>`
-    ).join('');
-    return `<div class="kpi-detail-task-row" style="grid-template-columns:1fr 90px 70px 68px 60px">
-      <div>
-        <div class="kpi-detail-task-title">
-          <span class="cell-editable"
-            contenteditable="true"
-            data-task-id="${t.id}" data-field="title"
-            onblur="saveTaskCellEdit(this)"
-            onkeydown="handleCellKeydown(event,this)"
-            onfocus="this.dataset.orig=this.textContent"
-            style="display:block;min-width:0"
-          >${esc(t.title||'')}</span>
-        </div>
-        <div class="kpi-detail-task-meta">${esc(t.owners?.name||'')} · ${esc(mo)} ${esc(qtr)}</div>
-      </div>
-      <div>
-        <select class="cell-select" data-task-id="${t.id}" data-field="status"
-          onchange="saveTaskSelectEdit(this)" onclick="event.stopPropagation()"
-          style="font-size:11px;width:100%;padding:3px 4px;border-radius:4px;
-            background:#fdfcf9;border:1px solid #e0dbd2;color:#1a1714;cursor:pointer">
-          ${statusOpts}
-        </select>
-      </div>
-      <div style="text-align:right">
-        <span class="cell-editable"
-          contenteditable="true"
-          data-task-id="${t.id}" data-field="progress" data-type="number"
-          onblur="saveTaskCellEdit(this)"
-          onkeydown="handleCellKeydown(event,this)"
-          onfocus="this.dataset.orig=this.textContent"
-          title="실적 값 입력"
-          style="font-size:12px;font-weight:700;color:#1a1714;padding:2px 4px;cursor:text"
-        >${t.progress!==null&&t.progress!==undefined ? (Number(t.progress)>=1000 ? (Number(t.progress)>=1000000?(Number(t.progress)/1000000).toFixed(1)+'M':(Number(t.progress)/1000).toFixed(0)+'K') : String(t.progress)) : '–'}</span>
-        <span style="font-size:10px;color:#8a8278">${esc(kpi.unit||'')}</span>
-      </div>
-      <div style="text-align:right">
-        <button class="btn btn-ghost" onclick="openDetailDrawer('${esc(t.id)}')"
-          style="font-size:10px;padding:2px 6px">수정</button>
-      </div>
-      <div style="font-size:11px;color:#6b6259;text-align:right">${fmtKRW(t.allocated_budget)}</div>
-    </div>`;
-  }).join('') : '<p style="color:#8a8278;font-size:13px;padding:12px 0">등록된 Task가 없습니다.</p>';
+  function buildContent() {
+    // 최신 데이터 재취득
+    var kpi2 = (state._lastKpis||[]).find(function(k){return k.id===kpiId;})||kpi;
+    var allSources2 = [state._lastKpiTasks, state.tasks, state._allTasks, state._allKpiTasks].filter(Boolean);
+    var tasks2 = [];
+    for(var _si2=0; _si2<allSources2.length; _si2++) {
+      var found2 = allSources2[_si2].filter(function(t){return t.kpi_id===kpiId;});
+      if(found2.length > tasks2.length) tasks2 = found2;
+    }
+    tasks2 = tasks2.slice().sort(function(a,b){
+      return (a.started_at||'').localeCompare(b.started_at||'');
+    });
 
-  const modal = document.createElement('div');
+    var _fmtT = function(v) {
+      if(v==null||v===''||String(v)==='nan') return '-';
+      var n = Number(v);
+      if(isNaN(n)||!isFinite(n)) return '-';
+      if(n>=10000000) return (n/10000000).toFixed(1)+'천만';
+      if(n>=1000000)  return (n/1000000).toFixed(1)+'백만';
+      if(n>=10000)    return (n/10000).toFixed(0)+'만';
+      return new Intl.NumberFormat('ko-KR').format(n);
+    };
+
+    var avgProg = tasks2.length
+      ? Math.round(tasks2.reduce(function(s,t){return s+Number(t._progressRaw!=null?t._progressRaw:t.progress||0);},0)/tasks2.length) : 0;
+    var totalBudget = tasks2.reduce(function(s,t){return s+Number(t.allocated_budget||0);},0);
+    var totalSpend  = tasks2.reduce(function(s,t){return s+Number(t.spend||0);},0);
+    var execRate = totalBudget>0 ? Math.round(totalSpend/totalBudget*100) : 0;
+    var doneCnt  = tasks2.filter(function(t){return t.status==='done';}).length;
+
+    var curMo = new Date().getMonth();
+    var curQ = curMo<3?'Q1':curMo<6?'Q2':curMo<9?'Q3':'Q4';
+
+    var quarters = [
+      {q:'Q1', target:kpi2.q1_target, result:kpi2.q1_result},
+      {q:'Q2', target:kpi2.q2_target, result:kpi2.q2_result},
+      {q:'Q3', target:kpi2.q3_target, result:kpi2.q3_result},
+      {q:'Q4', target:kpi2.q4_target, result:kpi2.q4_result},
+    ];
+    var quarterCards = quarters.map(function(item) {
+      var q=item.q, target=item.target, result=item.result;
+      var resNum = (result!=null&&result!=='nan'&&result!=='') ? Number(result) : null;
+      var tarNum = target!=null ? Number(target) : null;
+      var pct = (tarNum&&tarNum>0&&resNum!=null&&!isNaN(resNum))
+        ? Math.min(100, Math.round(resNum/tarNum*100)) : null;
+      var barW = pct!==null ? pct : 0;
+      var isCur = q===curQ;
+      return '<div class="kpi-quarter-card'+(isCur?' current':'')+'">'+
+        '<div class="kpi-qtr-label">'+q+(isCur?' <span style="color:#5c6b4a">●</span>':'')+'</div>'+
+        '<div class="kpi-qtr-target">목표 '+(tarNum!=null&&!isNaN(tarNum)?_fmtT(tarNum):'-')+'</div>'+
+        '<div class="kpi-qtr-result">'+(resNum!=null&&!isNaN(resNum)?_fmtT(resNum):'-')+'</div>'+
+        '<div class="kpi-qtr-bar-wrap"><div class="kpi-qtr-bar" style="width:'+barW+'%"></div></div>'+
+        '<div class="kpi-qtr-pct">'+(pct!==null?pct+'%':'-')+'</div>'+
+        '</div>';
+    }).join('');
+
+    var statusLbl = function(s){return s==='done'?'완료':s==='in_progress'?'진행중':s==='blocked'?'차단':'대기';};
+    var fmtProg = function(t){
+      var v=Number(t._progressRaw!=null?t._progressRaw:t.progress||0);
+      if(!v||v<=0) return '0';
+      if(v>=1000000) return (v/1000000).toFixed(1)+'M';
+      if(v>=1000) return (v/1000).toFixed(0)+'K';
+      return String(Math.round(v));
+    };
+
+    var taskRows = tasks2.length ? tasks2.map(function(t) {
+      var mo = t.started_at ? (new Date(t.started_at).getMonth()+1)+'월' : '';
+      var qtr = t.quarter ? t.quarter.replace('2026-','') : '';
+      var statusOpts = ['todo','in_progress','blocked','done'].map(function(v){
+        return '<option value="'+v+'"'+(t.status===v?' selected':'')+'>'+statusLbl(v)+'</option>';
+      }).join('');
+      return '<div class="kpi-detail-task-row" style="grid-template-columns:1fr 90px 70px 68px 60px">'+
+        '<div>'+
+        '<div class="kpi-detail-task-title">'+
+        '<span class="cell-editable" contenteditable="true"'+
+        ' data-task-id="'+esc(t.id)+'" data-field="title"'+
+        ' onblur="saveTaskCellEdit(this)"'+
+        ' onkeydown="handleCellKeydown(event,this)"'+
+        ' onfocus="this.dataset.orig=this.textContent"'+
+        ' style="display:block;min-width:0">'+esc(t.title||'')+'</span>'+
+        '</div>'+
+        '<div class="kpi-detail-task-meta">'+esc(t.owners&&t.owners.name?t.owners.name:'')+(mo?' · '+mo:'')+' '+esc(qtr)+'</div>'+
+        '</div>'+
+        '<div><select class="cell-select" data-task-id="'+esc(t.id)+'" data-field="status"'+
+        ' onchange="saveTaskSelectEdit(this)" onclick="event.stopPropagation()"'+
+        ' style="font-size:11px;width:100%;padding:3px 4px;border-radius:4px;background:#fdfcf9;border:1px solid #e0dbd2;color:#1a1714;cursor:pointer">'+
+        statusOpts+'</select></div>'+
+        '<div style="text-align:right">'+
+        '<span class="cell-editable" contenteditable="true"'+
+        ' data-task-id="'+esc(t.id)+'" data-field="progress" data-type="number"'+
+        ' onblur="saveTaskCellEdit(this)"'+
+        ' onkeydown="handleCellKeydown(event,this)"'+
+        ' onfocus="this.dataset.orig=this.textContent"'+
+        ' title="실적 값 입력"'+
+        ' style="font-size:12px;font-weight:700;color:#1a1714;padding:2px 4px;cursor:text">'+
+        fmtProg(t)+'</span>'+
+        '<span style="font-size:10px;color:#8a8278">'+esc(kpi2.unit||'')+'</span>'+
+        '</div>'+
+        '<div style="text-align:right">'+
+        '<button class="btn btn-ghost" onclick="openDetailDrawer(\''+esc(t.id)+'\')"'+
+        ' style="font-size:10px;padding:2px 6px">수정</button>'+
+        '</div>'+
+        '<div style="font-size:11px;color:#6b6259;text-align:right">'+fmtKRW(t.allocated_budget)+'</div>'+
+        '</div>';
+    }).join('') : '<p style="color:#8a8278;font-size:13px;padding:12px 0">등록된 Task가 없습니다.</p>';
+
+    return {tasks2, avgProg, totalSpend, totalBudget, execRate, doneCnt, quarterCards, taskRows, kpi2};
+  }
+
+  var built = buildContent();
+
+  var modal = document.createElement('div');
   modal.className = 'modal-backdrop open';
   modal.style.zIndex = '1100';
-  modal.innerHTML = `
-    <div class="kpi-detail-modal">
-      <div class="kpi-detail-header">
-        <div style="flex:1;min-width:0">
-          <div class="kpi-detail-tag">${esc(kpi.kpi_key||'')}</div>
-          <div class="kpi-detail-title">${esc(kpi.title||'')}</div>
-          <div class="kpi-detail-stmt">${esc(kpi.statement||'')}</div>
-        </div>
-        <button class="modal-close" onclick="this.closest('.modal-backdrop').remove()">×</button>
-      </div>
-      <div class="kpi-detail-body">
+  modal.id = '_kpiDetailBackdrop';
+  state._activeKpiModal.el = modal;
 
-        <!-- 종합 지표 -->
-        <div class="kpi-detail-section">
-          <h4>종합 현황</h4>
-          <div class="kpi-stat-row">
-            <div class="kpi-stat-card">
-              <div class="kpi-stat-label">평균 진척도</div>
-              <div class="kpi-stat-val" style="color:#5c6b4a">${avgProg}%</div>
-              <div style="height:6px;background:#dedad2;border-radius:999px;overflow:hidden;margin-top:8px">
-                <div style="height:100%;width:${avgProg}%;background:#5c6b4a;border-radius:999px"></div>
-              </div>
-            </div>
-            <div class="kpi-stat-card">
-              <div class="kpi-stat-label">예산 집행율</div>
-              <div class="kpi-stat-val" style="color:#b8962e">${execRate}%</div>
-              <div style="font-size:11px;color:#8a8278;margin-top:4px">${fmtKRW(totalSpend)} / ${fmtKRW(totalBudget)}</div>
-            </div>
-            <div class="kpi-stat-card">
-              <div class="kpi-stat-label">Task 완료</div>
-              <div class="kpi-stat-val">${doneCnt}<span style="font-size:14px;color:#8a8278"> / ${tasks.length}</span></div>
-            </div>
-          </div>
-        </div>
+  function renderModal(d) {
+    var inner = document.getElementById('_kpiDetailInner');
+    if(!inner) return;
+    // 종합 지표
+    var statEl = inner.querySelector('._kd_stat');
+    if(statEl) {
+      statEl.innerHTML =
+        '<div class="kpi-stat-card"><div class="kpi-stat-label">평균 진척도</div>'+
+        '<div class="kpi-stat-val" style="color:#5c6b4a">'+d.avgProg+'%</div>'+
+        '<div style="height:6px;background:#dedad2;border-radius:999px;overflow:hidden;margin-top:8px">'+
+        '<div style="height:100%;width:'+d.avgProg+'%;background:#5c6b4a;border-radius:999px"></div></div></div>'+
+        '<div class="kpi-stat-card"><div class="kpi-stat-label">예산 집행율</div>'+
+        '<div class="kpi-stat-val" style="color:#b8962e">'+d.execRate+'%</div>'+
+        '<div style="font-size:11px;color:#8a8278;margin-top:4px">'+fmtKRW(d.totalSpend)+' / '+fmtKRW(d.totalBudget)+'</div></div>'+
+        '<div class="kpi-stat-card"><div class="kpi-stat-label">Task 완료</div>'+
+        '<div class="kpi-stat-val">'+d.doneCnt+'<span style="font-size:14px;color:#8a8278"> / '+d.tasks2.length+'</span></div></div>';
+    }
+    var tasksEl = inner.querySelector('._kd_tasks');
+    if(tasksEl) tasksEl.innerHTML = d.taskRows;
+    var titleEl = inner.querySelector('._kd_task_title');
+    if(titleEl) titleEl.textContent = '관련 Task ('+d.tasks2.length+'건)';
+    var qEl = inner.querySelector('._kd_quarters');
+    if(qEl) qEl.innerHTML = d.quarterCards;
+  }
 
-        <!-- 분기별 진행 -->
-        <div class="kpi-detail-section">
-          <h4>분기별 목표 달성</h4>
-          <div class="kpi-quarter-grid">${quarterCards}</div>
-        </div>
-
-        <!-- Task 목록 -->
-        <div class="kpi-detail-section">
-          <h4>관련 Task (${tasks.length}건)</h4>
-          <div style="display:grid;grid-template-columns:1fr 90px 70px 68px 60px;gap:12px;padding:4px 14px 4px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8278;border-bottom:1px solid #e8e4dc;margin-bottom:4px">
-            <div>Task명</div><div>상태</div><div style="text-align:right">실적</div><div></div><div style="text-align:right">예산</div>
-          </div>
-          <div class="kpi-detail-tasks">${taskRows}</div>
-        </div>
-
-      </div>
-    </div>`;
+  modal.innerHTML =
+    '<div class="kpi-detail-modal">'+
+    '<div class="kpi-detail-header">'+
+    '<div style="flex:1;min-width:0">'+
+    '<div class="kpi-detail-tag">'+esc(built.kpi2.kpi_key||'')+'</div>'+
+    '<div class="kpi-detail-title">'+esc(built.kpi2.title||'')+'</div>'+
+    '<div class="kpi-detail-stmt">'+esc(built.kpi2.statement||'')+'</div>'+
+    '</div>'+
+    '<button class="modal-close" onclick="this.closest(\'.modal-backdrop\').remove();state._activeKpiModal=null;">×</button>'+
+    '</div>'+
+    '<div class="kpi-detail-body" id="_kpiDetailInner">'+
+    '<div class="kpi-detail-section"><h4>종합 현황</h4><div class="kpi-stat-row _kd_stat">'+
+    '<div class="kpi-stat-card"><div class="kpi-stat-label">평균 진척도</div>'+
+    '<div class="kpi-stat-val" style="color:#5c6b4a">'+built.avgProg+'%</div>'+
+    '<div style="height:6px;background:#dedad2;border-radius:999px;overflow:hidden;margin-top:8px">'+
+    '<div style="height:100%;width:'+built.avgProg+'%;background:#5c6b4a;border-radius:999px"></div></div></div>'+
+    '<div class="kpi-stat-card"><div class="kpi-stat-label">예산 집행율</div>'+
+    '<div class="kpi-stat-val" style="color:#b8962e">'+built.execRate+'%</div>'+
+    '<div style="font-size:11px;color:#8a8278;margin-top:4px">'+fmtKRW(built.totalSpend)+' / '+fmtKRW(built.totalBudget)+'</div></div>'+
+    '<div class="kpi-stat-card"><div class="kpi-stat-label">Task 완료</div>'+
+    '<div class="kpi-stat-val">'+built.doneCnt+'<span style="font-size:14px;color:#8a8278"> / '+built.tasks2.length+'</span></div></div>'+
+    '</div></div>'+
+    '<div class="kpi-detail-section"><h4>분기별 목표 달성</h4><div class="kpi-quarter-grid _kd_quarters">'+built.quarterCards+'</div></div>'+
+    '<div class="kpi-detail-section"><h4 class="_kd_task_title">관련 Task ('+built.tasks2.length+'건)</h4>'+
+    '<div style="display:grid;grid-template-columns:1fr 90px 70px 68px 60px;gap:12px;padding:4px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8278;border-bottom:1px solid #e8e4dc;margin-bottom:4px">'+
+    '<div>Task명</div><div>상태</div><div style="text-align:right">실적</div><div></div><div style="text-align:right">예산</div>'+
+    '</div><div class="kpi-detail-tasks _kd_tasks">'+built.taskRows+'</div></div>'+
+    '</div></div>';
 
   document.body.appendChild(modal);
-  modal.addEventListener('click', e => { if(e.target===modal) modal.remove(); });
-  document.addEventListener('keydown', function esc(e) {
-    if(e.key==='Escape'){ modal.remove(); document.removeEventListener('keydown',esc); }
+  modal.addEventListener('click', function(e){ if(e.target===modal){modal.remove();state._activeKpiModal=null;} });
+  document.addEventListener('keydown', function _kd_esc(e) {
+    if(e.key==='Escape'){ modal.remove(); state._activeKpiModal=null; document.removeEventListener('keydown',_kd_esc); }
   });
+}
+
+// KPI 상세 모달 실시간 갱신
+function refreshKpiDetailModal() {
+  if(!state._activeKpiModal || !state._activeKpiModal.kpiId) return;
+  var kpiId = state._activeKpiModal.kpiId;
+  var modal = state._activeKpiModal.el;
+  if(!modal || !document.body.contains(modal)) { state._activeKpiModal=null; return; }
+
+  var kpi2 = (state._lastKpis||[]).find(function(k){return k.id===kpiId;});
+  if(!kpi2) return;
+
+  var allSources = [state._lastKpiTasks, state.tasks, state._allTasks, state._allKpiTasks].filter(Boolean);
+  var tasks2 = [];
+  for(var _si=0; _si<allSources.length; _si++){
+    var found = allSources[_si].filter(function(t){return t.kpi_id===kpiId;});
+    if(found.length > tasks2.length) tasks2 = found;
+  }
+  tasks2 = tasks2.slice().sort(function(a,b){return (a.started_at||'').localeCompare(b.started_at||'');});
+
+  var avgProg = tasks2.length ? Math.round(tasks2.reduce(function(s,t){return s+Number(t._progressRaw!=null?t._progressRaw:t.progress||0);},0)/tasks2.length) : 0;
+  var totalBudget = tasks2.reduce(function(s,t){return s+Number(t.allocated_budget||0);},0);
+  var totalSpend  = tasks2.reduce(function(s,t){return s+Number(t.spend||0);},0);
+  var execRate = totalBudget>0 ? Math.round(totalSpend/totalBudget*100) : 0;
+  var doneCnt = tasks2.filter(function(t){return t.status==='done';}).length;
+
+  var statEl = modal.querySelector('._kd_stat');
+  if(statEl) {
+    statEl.innerHTML =
+      '<div class="kpi-stat-card"><div class="kpi-stat-label">평균 진척도</div>'+
+      '<div class="kpi-stat-val" style="color:#5c6b4a">'+avgProg+'%</div>'+
+      '<div style="height:6px;background:#dedad2;border-radius:999px;overflow:hidden;margin-top:8px">'+
+      '<div style="height:100%;width:'+avgProg+'%;background:#5c6b4a;border-radius:999px"></div></div></div>'+
+      '<div class="kpi-stat-card"><div class="kpi-stat-label">예산 집행율</div>'+
+      '<div class="kpi-stat-val" style="color:#b8962e">'+execRate+'%</div>'+
+      '<div style="font-size:11px;color:#8a8278;margin-top:4px">'+fmtKRW(totalSpend)+' / '+fmtKRW(totalBudget)+'</div></div>'+
+      '<div class="kpi-stat-card"><div class="kpi-stat-label">Task 완료</div>'+
+      '<div class="kpi-stat-val">'+doneCnt+'<span style="font-size:14px;color:#8a8278"> / '+tasks2.length+'</span></div></div>';
+  }
+  var titleEl = modal.querySelector('._kd_task_title');
+  if(titleEl) titleEl.textContent = '관련 Task ('+tasks2.length+'건)';
+
+  var statusLbl = function(s){return s==='done'?'완료':s==='in_progress'?'진행중':s==='blocked'?'차단':'대기';};
+  var fmtProg = function(t){
+    var v=Number(t._progressRaw!=null?t._progressRaw:t.progress||0);
+    if(!v||v<=0) return '0';
+    if(v>=1000000) return (v/1000000).toFixed(1)+'M';
+    if(v>=1000) return (v/1000).toFixed(0)+'K';
+    return String(Math.round(v));
+  };
+
+  var tasksEl = modal.querySelector('._kd_tasks');
+  if(tasksEl) {
+    tasksEl.innerHTML = tasks2.length ? tasks2.map(function(t){
+      var mo = t.started_at ? (new Date(t.started_at).getMonth()+1)+'월' : '';
+      var qtr = t.quarter ? t.quarter.replace('2026-','') : '';
+      var statusOpts = ['todo','in_progress','blocked','done'].map(function(v){
+        return '<option value="'+v+'"'+(t.status===v?' selected':'')+'>'+statusLbl(v)+'</option>';
+      }).join('');
+      return '<div class="kpi-detail-task-row" style="grid-template-columns:1fr 90px 70px 68px 60px">'+
+        '<div><div class="kpi-detail-task-title">'+
+        '<span class="cell-editable" contenteditable="true" data-task-id="'+esc(t.id)+'" data-field="title"'+
+        ' onblur="saveTaskCellEdit(this)" onkeydown="handleCellKeydown(event,this)" onfocus="this.dataset.orig=this.textContent"'+
+        ' style="display:block;min-width:0">'+esc(t.title||'')+'</span></div>'+
+        '<div class="kpi-detail-task-meta">'+esc(t.owners&&t.owners.name?t.owners.name:'')+(mo?' · '+mo:'')+' '+esc(qtr)+'</div></div>'+
+        '<div><select class="cell-select" data-task-id="'+esc(t.id)+'" data-field="status"'+
+        ' onchange="saveTaskSelectEdit(this)" onclick="event.stopPropagation()"'+
+        ' style="font-size:11px;width:100%;padding:3px 4px;border-radius:4px;background:#fdfcf9;border:1px solid #e0dbd2;color:#1a1714;cursor:pointer">'+
+        statusOpts+'</select></div>'+
+        '<div style="text-align:right"><span class="cell-editable" contenteditable="true"'+
+        ' data-task-id="'+esc(t.id)+'" data-field="progress" data-type="number"'+
+        ' onblur="saveTaskCellEdit(this)" onkeydown="handleCellKeydown(event,this)" onfocus="this.dataset.orig=this.textContent"'+
+        ' title="실적 값 입력" style="font-size:12px;font-weight:700;color:#1a1714;padding:2px 4px;cursor:text">'+
+        fmtProg(t)+'</span>'+
+        '<span style="font-size:10px;color:#8a8278">'+esc(kpi2.unit||'')+'</span></div>'+
+        '<div style="text-align:right"><button class="btn btn-ghost" onclick="openDetailDrawer(\''+esc(t.id)+'\')"'+
+        ' style="font-size:10px;padding:2px 6px">수정</button></div>'+
+        '<div style="font-size:11px;color:#6b6259;text-align:right">'+fmtKRW(t.allocated_budget)+'</div></div>';
+    }).join('') : '<p style="color:#8a8278;font-size:13px;padding:12px 0">등록된 Task가 없습니다.</p>';
+  }
 }
 
 
@@ -4722,6 +4856,7 @@ async function saveDrawerEdit(taskId) {
 
     // 7. summary/차트 갱신
     _syncAfterTaskChange(task, Object.keys(updates));
+    if(state._activeKpiModal&&typeof refreshKpiDetailModal==='function') refreshKpiDetailModal();
 
     if(btn) { btn.textContent='✅ 저장됨'; setTimeout(function(){btn.textContent='저장';}, 1500); }
 
