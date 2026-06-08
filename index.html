@@ -3144,13 +3144,11 @@ function renderKpiGauge(kpi, taskList) {
 
 
 async function saveTaskSelectEdit(el) {
-  var taskId=el.dataset.taskId,field=el.dataset.field,newVal=el.value;
+  var taskId=el.dataset.taskId, field=el.dataset.field, newVal=el.value;
   var task=(state._lastKpiTasks||[]).find(function(t){return t.id===taskId;})
          ||(state.tasks||[]).find(function(t){return t.id===taskId;});
   if(!task) return;
   var _oldVal=task[field];
-  // Optimistic: state만 업데이트 (renderKPIAccordion 즉시 호출 금지)
-  // → SELECT는 브라우저가 이미 표시, 즉시 재렌더 시 이벤트 처리 중 DOM 교체로 행 순서 혼란 발생
   task[field]=newVal;
   ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
     var t2=(state[k]||[]).find(function(t){return t.id===taskId;});
@@ -3170,9 +3168,24 @@ async function saveTaskSelectEdit(el) {
       }
       if(task.kpi_id) await _syncOwnerToKpi(task.kpi_id,newVal);
     }
-    _syncAfterTaskChange(task,[field]);
+    // await 완료 후 accordion 갱신 (이벤트 핸들러 밖, DOM 교체 안전)
+    renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||[]);
+    // SELECT 값 보장 (재렌더 후 다음 tick에서 확인)
+    setTimeout(function(){
+      var _s=document.querySelector('[data-task-id="'+taskId+'"][data-field="'+field+'"]');
+      if(_s&&_s.value!==newVal){
+        var _f=false;
+        for(var _i=0;_i<_s.options.length;_i++){if(_s.options[_i].value===newVal){_f=true;break;}}
+        if(!_f){var _o=document.createElement('option');_o.value=newVal;_o.textContent=newVal;_s.appendChild(_o);}
+        _s.value=newVal;
+      }
+    },0);
     if(state._activeKpiModal&&typeof refreshKpiDetailModal==='function') refreshKpiDetailModal();
     renderOwnerTable(state.tasks||[],state._lastKpis||[]);
+    if(field==='status'||field==='progress'){
+      renderSummary(computeSummary(state.tasks||[],state._lastKpis||[]));
+      renderKPICards(state._lastKpis||[],state._lastKpiTasks||[]);
+    }
   } catch(e) {
     task[field]=_oldVal;
     ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
@@ -3180,7 +3193,8 @@ async function saveTaskSelectEdit(el) {
       if(t2) t2[field]=_oldVal;
     });
     el.value=_oldVal;
-    console.error('saveTaskSelectEdit:',e);
+    console.error('[SELECT] 저장 실패 field='+field+':', e.message||e);
+    alert('저장 실패: '+(e.message||String(e)));
   }
 }
 
