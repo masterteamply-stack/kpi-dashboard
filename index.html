@@ -2685,7 +2685,7 @@ function renderKPIAccordion(kpis, tasks) {
               onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
               onfocus="this.dataset.orig=this.textContent"
               title="실적 수치 입력 (달성률 아님)"
-            >${(v=>v>0?(v>=1000000?(v/1000000).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'K':String(v)):'0')(Number(t.progress)||0)}</span>
+            >${(v=>v>0?(v>=1000000?(v/1000000).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'K':String(v)):'0')(Number(t._progressRaw!=null?t._progressRaw:t.progress)||0)}</span>
             </div>
         </td>
         <td onclick="event.stopPropagation()"><select class="cell-select" data-task-id="${t.id}" data-field="task_type" onchange="saveTaskSelectEdit(this)" style="font-size:10px;padding:2px 4px;max-width:90px;background:#fdfcf9;border:1px solid #e0dbd2;border-radius:3px;color:#3d5228;font-weight:600;cursor:pointer;outline:none"><option value="">-</option>${getMktgTypes().map(tp=>`<option value="${esc(tp)}"${tp===t.task_type?' selected':''} style="color:#1a1714">${esc(tp)}</option>`).join('')}</select></td>
@@ -3277,33 +3277,46 @@ async function _recalcKpiOwners(kpiId) {
 }
 
 async function saveTaskCellEdit(el) {
-  const taskId = el.dataset.taskId;
-  const field  = el.dataset.field;
-  const dtype  = el.dataset.type || 'text';
-  let   newVal = el.textContent.trim();
-  if(dtype === 'number') {
-    newVal = parseFloat(newVal.replace(/[^0-9.-]/g,'')) || 0;
+  var taskId=el.dataset.taskId, field=el.dataset.field, dtype=el.dataset.type||'text';
+  var newVal=el.textContent.trim();
+  if(dtype==='number') newVal=parseFloat(newVal.replace(/[^0-9.-]/g,''))||0;
+  var task=(state._lastKpiTasks||[]).find(function(t){return t.id===taskId;})
+         ||(state.tasks||[]).find(function(t){return t.id===taskId;});
+  if(!task) return;
+  var dbVal=field==='progress'?Math.max(0,Math.min(100,newVal)):newVal;
+  var _oldVal=task[field], _oldRaw=task._progressRaw;
+  var _fmtV=function(v){if(!v||v<=0)return '0';if(v>=1000000)return (v/1000000).toFixed(1)+'M';if(v>=1000)return (v/1000).toFixed(0)+'K';return String(Math.round(v));};
+  // -- Optimistic: state 즉시 반영 --
+  task[field]=dbVal;
+  if(field==='progress'){task._progressRaw=newVal;try{localStorage.setItem('task_praw_'+taskId,String(newVal));}catch(_e){}}
+  ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
+    var t2=(state[k]||[]).find(function(t){return t.id===taskId;});
+    if(t2){t2[field]=dbVal;if(field==='progress')t2._progressRaw=newVal;}
+  });
+  // -- 셀 텍스트+게이지 즉시 갱신 --
+  if(dtype==='number') el.textContent=_fmtV(newVal);
+  if(field==='progress'&&task.kpi_id){
+    var _gEl=document.querySelector('[data-gauge-kpi="'+task.kpi_id+'"]');
+    if(_gEl){var _gK=(state._lastKpis||[]).find(function(k){return k.id===task.kpi_id;});
+      var _gT=(state._lastKpiTasks||state.tasks||[]).filter(function(t){return t.kpi_id===task.kpi_id;});
+      if(_gK)_gEl.innerHTML=renderKpiGauge(_gK,_gT);}
   }
-  const task = (state._lastKpiTasks||[]).find(t=>t.id===taskId)
-             || (state.tasks||[]).find(t=>t.id===taskId);
-  if(!task) { return; }
-  // progress: DB 체크 제약 (0~100) 클램핑
-  const dbVal = field==='progress' ? Math.max(0, Math.min(100, newVal)) : newVal;
-  // 메모리엔 실제값
-  if(field==='progress') task._progressRaw = newVal;
-  const updates = {}; updates[field] = dbVal; updates.updated_at = new Date().toISOString();
+  // -- DB 저장 --
+  var updates={}; updates[field]=dbVal; updates.updated_at=new Date().toISOString();
   try {
-    const {error} = await state.sb.from('tasks').update(updates).eq('id', taskId);
-    if(error) throw error;
-    task[field] = dbVal;
-    if(field==='progress'&&newVal!==dbVal){try{localStorage.setItem('task_praw_'+taskId,String(newVal));}catch(_e){}}
-    el.style.color='#3a7c3a'; setTimeout(()=>{el.style.color='';},1200);
-    _syncAfterTaskChange(task, [field]);
-    if(field==='progress'&&task.kpi_id){var _gEl=document.querySelector('[data-gauge-kpi="'+task.kpi_id+'"]');if(_gEl){var _gK=(state._lastKpis||[]).find(function(k){return k.id===task.kpi_id;});var _gT=(state._lastKpiTasks||state.tasks||[]).filter(function(t){return t.kpi_id===task.kpi_id;});if(_gK)_gEl.innerHTML=renderKpiGauge(_gK,_gT);}}
+    var res=await state.sb.from('tasks').update(updates).eq('id',taskId);
+    if(res.error) throw res.error;
+    el.style.color='#3a7c3a'; setTimeout(function(){el.style.color='';},1200);
+    _syncAfterTaskChange(task,[field]);
   } catch(e) {
+    task[field]=_oldVal; task._progressRaw=_oldRaw;
+    ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
+      var t2=(state[k]||[]).find(function(t){return t.id===taskId;});
+      if(t2){t2[field]=_oldVal;t2._progressRaw=_oldRaw;}
+    });
+    if(dtype==='number') el.textContent=_fmtV(_oldRaw!=null?_oldRaw:_oldVal);
+    el.style.color='var(--red)'; setTimeout(function(){el.style.color='';},1500);
     console.error('saveTaskCellEdit:',field,e.message||e);
-    alert('저장 실패: '+((e.message||'')));
-    el.style.color='var(--red)'; setTimeout(()=>{el.style.color='';},1500);
   }
 }
 
