@@ -3434,8 +3434,24 @@ function openKpiDetail(kpiId) {
       return new Intl.NumberFormat('ko-KR').format(n);
     };
 
-    var avgProg = tasks2.length
-      ? Math.round(tasks2.reduce(function(s,t){return s+Number(t._progressRaw!=null?t._progressRaw:t.progress||0);},0)/tasks2.length) : 0;
+    var _byQ2={q1:0,q2:0,q3:0,q4:0};
+    tasks2.forEach(function(t){
+      var _q=parseQuarterKey(t.quarter)||curQ;
+      _byQ2[_q]+=Number(t._progressRaw!=null?t._progressRaw:t.progress||0);
+    });
+    var _totAct2=_byQ2.q1+_byQ2.q2+_byQ2.q3+_byQ2.q4;
+    var _annTgt2=(function(){
+      var _n=function(v){if(!v||String(v).trim()===''||String(v)==='nan')return null;
+        var _m=String(v).replace(/,/g,'').match(/[\d.]+/);return _m?Number(_m[0]):null;};
+      return _n(kpi2.q4_target)||['q1','q2','q3','q4'].reduce(function(s,q){
+        return s+(_n(kpi2[q+'_target'])||0);},0)||null;
+    })();
+    var avgProg=(function(){
+      if(_annTgt2&&_annTgt2>0&&_totAct2>0)
+        return Math.min(100,Math.round(_totAct2/_annTgt2*100));
+      return tasks2.length?Math.round(
+        tasks2.filter(function(t){return t.status==='done';}).length/tasks2.length*100):0;
+    })();
     var totalBudget = tasks2.reduce(function(s,t){return s+Number(t.allocated_budget||0);},0);
     var totalSpend  = tasks2.reduce(function(s,t){return s+Number(t.spend||0);},0);
     var execRate = totalBudget>0 ? Math.round(totalSpend/totalBudget*100) : 0;
@@ -3445,10 +3461,10 @@ function openKpiDetail(kpiId) {
     var curQ = curMo<3?'Q1':curMo<6?'Q2':curMo<9?'Q3':'Q4';
 
     var quarters = [
-      {q:'Q1', target:kpi2.q1_target, result:kpi2.q1_result},
-      {q:'Q2', target:kpi2.q2_target, result:kpi2.q2_result},
-      {q:'Q3', target:kpi2.q3_target, result:kpi2.q3_result},
-      {q:'Q4', target:kpi2.q4_target, result:kpi2.q4_result},
+      {q:'Q1',target:kpi2.q1_target,result:_byQ2.q1>0?_byQ2.q1:kpi2.q1_result},
+      {q:'Q2',target:kpi2.q2_target,result:_byQ2.q2>0?_byQ2.q2:kpi2.q2_result},
+      {q:'Q3',target:kpi2.q3_target,result:_byQ2.q3>0?_byQ2.q3:kpi2.q3_result},
+      {q:'Q4',target:kpi2.q4_target,result:_byQ2.q4>0?_byQ2.q4:kpi2.q4_result},
     ];
     var quarterCards = quarters.map(function(item) {
       var q=item.q, target=item.target, result=item.result;
@@ -3607,7 +3623,15 @@ function refreshKpiDetailModal() {
   }
   tasks2 = tasks2.slice().sort(function(a,b){return (a.started_at||'').localeCompare(b.started_at||'');});
 
-  var avgProg = tasks2.length ? Math.round(tasks2.reduce(function(s,t){return s+Number(t._progressRaw!=null?t._progressRaw:t.progress||0);},0)/tasks2.length) : 0;
+  var _byQr={q1:0,q2:0,q3:0,q4:0};
+  tasks2.forEach(function(t){var _q=parseQuarterKey(t.quarter)||curQ;
+    _byQr[_q]+=Number(t._progressRaw!=null?t._progressRaw:t.progress||0);});
+  var _totActR=_byQr.q1+_byQr.q2+_byQr.q3+_byQr.q4;
+  var _annTgtR=(function(){var _n=function(v){if(!v||String(v).trim()===''||String(v)==='nan')return null;
+    var _m=String(v).replace(/,/g,'').match(/[\d.]+/);return _m?Number(_m[0]):null;};
+    return _n(kpi2.q4_target)||['q1','q2','q3','q4'].reduce(function(s,q){return s+(_n(kpi2[q+'_target'])||0);},0)||null;})();
+  var avgProg=(_annTgtR&&_annTgtR>0&&_totActR>0)?Math.min(100,Math.round(_totActR/_annTgtR*100)):
+    (tasks2.length?Math.round(tasks2.filter(function(t){return t.status==='done';}).length/tasks2.length*100):0);
   var totalBudget = tasks2.reduce(function(s,t){return s+Number(t.allocated_budget||0);},0);
   var totalSpend  = tasks2.reduce(function(s,t){return s+Number(t.spend||0);},0);
   var execRate = totalBudget>0 ? Math.round(totalSpend/totalBudget*100) : 0;
@@ -3638,6 +3662,27 @@ function refreshKpiDetailModal() {
     return String(Math.round(v));
   };
 
+  var qEl=modal.querySelector('._kd_quarters');
+  if(qEl){
+    var _fV=function(v){if(v===null||v===undefined)return '-';if(v>=1000000)return (v/1000000).toFixed(1)+'M';if(v>=1000)return (v/1000).toFixed(0)+'K';return String(Math.round(v));};
+    var _nV=function(v){if(!v||String(v).trim()===''||String(v)==='nan')return null;var _m=String(v).replace(/,/g,'').match(/[\d.]+/);return _m?Number(_m[0]):null;};
+    var _qsR=[{q:'Q1',t:kpi2.q1_target,r:_byQr.q1>0?_byQr.q1:kpi2.q1_result},
+      {q:'Q2',t:kpi2.q2_target,r:_byQr.q2>0?_byQr.q2:kpi2.q2_result},
+      {q:'Q3',t:kpi2.q3_target,r:_byQr.q3>0?_byQr.q3:kpi2.q3_result},
+      {q:'Q4',t:kpi2.q4_target,r:_byQr.q4>0?_byQr.q4:kpi2.q4_result}];
+    var _cQ=new Date().getMonth()<3?'Q1':new Date().getMonth()<6?'Q2':new Date().getMonth()<9?'Q3':'Q4';
+    qEl.innerHTML=_qsR.map(function(item){
+      var tar=_nV(item.t),res=(item.r!=null&&Number(item.r)>0)?Number(item.r):null;
+      var pct=(tar&&tar>0&&res!=null&&!isNaN(res))?Math.min(100,Math.round(res/tar*100)):null;
+      var isCur=item.q===_cQ;
+      return '<div class="kpi-quarter-card'+(isCur?' current':'')+'">'+
+        '<div class="kpi-qtr-label">'+item.q+(isCur?' <span style="color:#5c6b4a">●</span>':'')+' </div>'+
+        '<div class="kpi-qtr-target">목표 '+(tar!=null?_fV(tar):'-')+'</div>'+
+        '<div class="kpi-qtr-result">'+(res!=null?_fV(res):'-')+'</div>'+
+        '<div class="kpi-qtr-bar-wrap"><div class="kpi-qtr-bar" style="width:'+(pct||0)+'%"></div></div>'+
+        '<div class="kpi-qtr-pct">'+(pct!==null?pct+'%':'-')+'</div></div>';
+    }).join('');
+  }
   var tasksEl = modal.querySelector('._kd_tasks');
   if(tasksEl) {
     tasksEl.innerHTML = tasks2.length ? tasks2.map(function(t){
