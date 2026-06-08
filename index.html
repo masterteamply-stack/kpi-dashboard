@@ -2055,18 +2055,15 @@ function computeMarketingLeads() {
   const channelTotal = state.webLead.total || 0;
   const channelMonthly = state.webLead.data || {}; // { "2026-04": { total: 37 } }
 
-  // O2O 마케팅 리드 (Task.leads 합산)
+  // O2O -> localStorage o2o_lead_data
+  var _o2oLS=(function(){try{return JSON.parse(localStorage.getItem('o2o_lead_data')||'{}');}catch(e){return {};}})();
   const tasks = state.tasks || [];
-  const o2oTotal = tasks.reduce((s,t) => s + Number(t.leads||0), 0);
-
-  // O2O 월별 집계
-  const o2oMonthly = {};
-  tasks.forEach(t => {
-    if(Number(t.leads||0) <= 0) return;
-    const mo = t.started_at ? t.started_at.slice(0,7) : null;
-    if(!mo) return;
-    o2oMonthly[mo] = (o2oMonthly[mo]||0) + Number(t.leads||0);
-  });
+  const o2oTotal=_o2oLS.total||tasks.reduce(function(s,t){return s+Number(t.leads||0);},0);
+  var _o2oMo={};
+  if(_o2oLS.monthly){_o2oMo=_o2oLS.monthly;}else{tasks.forEach(function(t){if(Number(t.leads||0)<=0)return;var mo=t.started_at?t.started_at.slice(0,7):null;if(!mo)return;_o2oMo[mo]=(_o2oMo[mo]||0)+Number(t.leads||0);});}
+  const o2oMonthly=_o2oMo;
+  const o2oByRegion=_o2oLS.byRegion||{};
+  const o2oDetail=_o2oLS.detail||[];
 
   // 모든 월 합집합
   const allMonths = [...new Set([
@@ -2074,7 +2071,7 @@ function computeMarketingLeads() {
     ...Object.keys(o2oMonthly)
   ])].sort();
 
-  return { channelTotal, o2oTotal, totalCh: channelTotal, totalO2o: o2oTotal, total: channelTotal + o2oTotal, channelMonthly, o2oMonthly, allMonths };
+  return { channelTotal, o2oTotal, totalCh: channelTotal, totalO2o: o2oTotal, total: channelTotal + o2oTotal, channelMonthly, o2oMonthly, o2oByRegion, o2oDetail, allMonths };
 }
 
 function toggleLeadDetail() {
@@ -2310,7 +2307,14 @@ function renderSummary(s) {
   h += '<div style="font-size:17px;font-weight:800;color:#1a1714;line-height:1">' + fmtNum(_totLead) + ' 건</div>';
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:5px">';
   h += '<div style="background:#e8f0e8;border-radius:4px;padding:3px 5px"><div style="font-size:8px;color:#5c6b4a;font-weight:700">📧 이메일 리드</div><div style="font-size:13px;font-weight:800;color:#5c6b4a">' + fmtNum(ml.totalCh) + '</div><div style="font-size:9px;color:#8a8278">이번 ' + fmtNum(_thisCh) + '</div></div>';
-  h += '<div style="background:#fff8e8;border-radius:4px;padding:3px 5px"><div style="font-size:8px;color:#7a6010;font-weight:700">🤝 O2O 리드</div><div style="font-size:13px;font-weight:800;color:#7a6010">' + fmtNum(ml.totalO2o) + '</div><div style="font-size:9px;color:#8a8278">이번 ' + fmtNum(_thisO2o) + '</div></div>';
+  h += '<div style="background:#fff8e8;border-radius:4px;padding:3px 5px">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">';
+  h += '<div style="font-size:8px;color:#7a6010;font-weight:700">🤝 O2O 리드</div>';
+  h += '<button onclick="showO2ODetail()" style="font-size:8px;background:#fff0c0;border:1px solid #e6c84a;border-radius:3px;padding:1px 6px;color:#7a6010;cursor:pointer">지역별 →</button>';
+  h += '</div>';
+  h += '<div style="font-size:13px;font-weight:800;color:#7a6010">' + fmtNum(ml.totalO2o) + '<span style="font-size:9px;font-weight:400;color:#8a8278"> 명</span></div>';
+  h += '<div style="font-size:9px;color:#8a8278">이번달 <b style="color:#7a6010">' + fmtNum(_thisO2o) + '</b> 명</div>';
+  h += '</div>';
   h += '</div></div>';
   h += '</div>';
 
@@ -2334,6 +2338,72 @@ function renderSummary(s) {
   el.summaryBox.innerHTML = h;
 }
 
+
+function showO2ODetail() {
+  var ml=computeMarketingLeads();
+  var br=ml.o2oByRegion||{};
+  var det=ml.o2oDetail||[];
+  var tot=ml.o2oTotal||0;
+  var now=new Date();
+  var tk=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  var thisMo=(ml.o2oMonthly||{})[tk]||0;
+  var RC={RUS:'#5b8de0',LATAM:'#e07b3c',ASIA:'#3cba7b',MENA:'#e0c03c'};
+  var h='';
+  h+='<div style="display:flex;gap:12px;margin-bottom:16px">';
+  h+='<div style="flex:1;background:#fff8e8;border-radius:8px;padding:10px;text-align:center">';
+  h+='<div style="font-size:10px;color:#8a8278;margin-bottom:2px">2026 누적</div>';
+  h+='<div style="font-size:22px;font-weight:900;color:#7a6010">'+tot.toLocaleString()+' <span style="font-size:12px">명</span></div></div>';
+  h+='<div style="flex:1;background:#fff0c0;border-radius:8px;padding:10px;text-align:center">';
+  h+='<div style="font-size:10px;color:#8a8278;margin-bottom:2px">이번달('+tk+')</div>';
+  h+='<div style="font-size:22px;font-weight:900;color:#b8860b">'+thisMo.toLocaleString()+' <span style="font-size:12px">명</span></div></div></div>';
+  h+='<div style="font-size:11px;font-weight:700;color:#5a5048;margin-bottom:8px">지역별 리드</div>';
+  var sorted=Object.entries(br).filter(function(x){return x[1]>0;}).sort(function(a,b){return b[1]-a[1];});
+  var maxV=sorted.length?Math.max.apply(null,sorted.map(function(x){return x[1];})):1;
+  sorted.forEach(function(e2){
+    var r=e2[0],v=e2[1],pct=Math.round(v/tot*100),bw=Math.round(v/maxV*100),c=RC[r]||'#888';
+    h+='<div style="margin-bottom:8px">';
+    h+='<div style="display:flex;justify-content:space-between;margin-bottom:3px">';
+    h+='<span style="font-size:11px;font-weight:600">'+r+'</span>';
+    h+='<span style="font-size:11px;color:#5a5048"><b>'+v.toLocaleString()+'</b> 명 ('+pct+'%)</span></div>';
+    h+='<div style="background:#f0ede6;border-radius:4px;height:8px">';
+    h+='<div style="background:'+c+';width:'+bw+'%;height:8px;border-radius:4px"></div></div></div>';
+  });
+  h+='<div style="font-size:11px;font-weight:700;color:#5a5048;margin:12px 0 8px">세미나 상세</div>';
+  h+='<div style="max-height:220px;overflow-y:auto;border:1px solid #e8e4dd;border-radius:6px">';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:11px">';
+  h+='<thead><tr style="background:#f5f2ed"><th style="padding:5px 8px;text-align:left;color:#6b6259">날짜</th>';
+  h+='<th style="padding:5px 8px;text-align:left;color:#6b6259">지역</th>';
+  h+='<th style="padding:5px 8px;text-align:left;color:#6b6259">국가</th>';
+  h+='<th style="padding:5px 8px;text-align:right;color:#6b6259">리드</th></tr></thead><tbody>';
+  det.filter(function(x){return x.lead>0;}).sort(function(a,b){return b.date.localeCompare(a.date);}).forEach(function(row){
+    var c2=RC[row.region]||'#888';
+    h+='<tr style="border-top:1px solid #f0ede6">';
+    h+='<td style="padding:4px 8px">'+row.date+'</td>';
+    h+='<td style="padding:4px 8px"><span style="background:'+c2+'20;color:'+c2+';border-radius:3px;padding:1px 5px;font-weight:600">'+row.region+'</span></td>';
+    h+='<td style="padding:4px 8px">'+row.country+'</td>';
+    h+='<td style="padding:4px 8px;text-align:right;font-weight:700">'+row.lead.toLocaleString()+'</td></tr>';
+  });
+  h+='</tbody></table></div>';
+  var m=document.getElementById('_o2oModal');
+  if(!m){
+    m=document.createElement('div');m.id='_o2oModal';
+    m.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45)';
+    m.addEventListener('click',function(ev){if(ev.target===m)m.style.display='none';});
+    document.body.appendChild(m);
+  }
+  var wrap=document.createElement('div');
+  wrap.style.cssText='background:#fff;border-radius:12px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)';
+  var hd=document.createElement('div');
+  hd.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #eee';
+  hd.innerHTML='<b style="font-size:14px;color:#1a1714">🤝 O2O 리드 상세 (CTR Tech Seminar 2026)</b>';
+  var cb=document.createElement('button');cb.textContent='X';
+  cb.style.cssText='background:none;border:none;font-size:18px;cursor:pointer;color:#888;padding:0 4px';
+  cb.onclick=function(){m.style.display='none';};
+  hd.appendChild(cb);
+  var bd=document.createElement('div');bd.style.padding='20px';bd.innerHTML=h;
+  wrap.appendChild(hd);wrap.appendChild(bd);
+  m.innerHTML='';m.appendChild(wrap);m.style.display='flex';
+}
 
 function renderChart(tasks) {
   const buckets = buildBuckets(tasks);
@@ -6691,6 +6761,9 @@ var CK_TARGET_BY_REGION = {
     } catch(e) {}
   })();
 
+  
+  // -- O2O Lead (CTR Tech Seminar 2026) --
+  (function(){try{localStorage.setItem('o2o_lead_data','{"total":2036,"monthly":{"2026-01":198,"2026-02":35,"2026-03":740,"2026-04":284,"2026-05":729,"2026-06":50},"byRegion":{"RUS":1265,"LATAM":660,"ASIA":96,"MENA":15},"detail":[{"date":"2026-01-10","region":"ASIA","country":"Thailand","lead":8},{"date":"2026-01-22","region":"RUS","country":"Russia","lead":132},{"date":"2026-01-29","region":"RUS","country":"Russia","lead":58},{"date":"2026-02-06","region":"MENA","country":"UAE","lead":15},{"date":"2026-02-12","region":"LATAM","country":"Venezuela","lead":20},{"date":"2026-03-04","region":"LATAM","country":"Guatemala","lead":50},{"date":"2026-03-05","region":"LATAM","country":"Chile","lead":35},{"date":"2026-03-05","region":"RUS","country":"Russia","lead":144},{"date":"2026-03-10","region":"RUS","country":"Russia","lead":88},{"date":"2026-03-16","region":"LATAM","country":"Bolivia","lead":100},{"date":"2026-03-17","region":"LATAM","country":"Bolivia","lead":60},{"date":"2026-03-18","region":"LATAM","country":"Guatemala","lead":41},{"date":"2026-03-19","region":"RUS","country":"Russia","lead":137},{"date":"2026-03-24","region":"RUS","country":"Russia","lead":77},{"date":"2026-03-30","region":"ASIA","country":"Thailand","lead":8},{"date":"2026-04-07","region":"RUS","country":"Russia","lead":47},{"date":"2026-04-08","region":"LATAM","country":"Colombia","lead":1},{"date":"2026-04-08","region":"LATAM","country":"Argentina","lead":30},{"date":"2026-04-13","region":"ASIA","country":"Philippines","lead":50},{"date":"2026-04-15","region":"ASIA","country":"Philippines","lead":30},{"date":"2026-04-21","region":"RUS","country":"Russia","lead":126},{"date":"2026-05-05","region":"LATAM","country":"Uruguay","lead":51},{"date":"2026-05-12","region":"LATAM","country":"Guatemala","lead":2},{"date":"2026-05-12","region":"RUS","country":"Russia","lead":142},{"date":"2026-05-13","region":"LATAM","country":"Chile","lead":150},{"date":"2026-05-14","region":"RUS","country":"Russia","lead":39},{"date":"2026-05-19","region":"RUS","country":"Russia","lead":137},{"date":"2026-05-21","region":"RUS","country":"Russia","lead":88},{"date":"2026-05-28","region":"LATAM","country":"Argentina","lead":120},{"date":"2026-06-02","region":"RUS","country":"Russia","lead":50}]}');}catch(e){}})();
   // ── 14. Init ───────────────────────────────────────────────
 (async function init() {
   const url=window.__SUPABASE_URL__, key=window.__SUPABASE_ANON_KEY__;
