@@ -2600,7 +2600,12 @@ function renderKPIAccordion(kpis, tasks) {
   const rows = kpis.map(kpi => {
     const taskList = byKpi[kpi.id] || [];
     const taskCount = taskList.length;
-    const owners = (kpi.owners||'').split(',').map(o=>o.trim()).filter(Boolean);
+    // KPI 담당 = 하위 태스크 담당자 합집합 (taskOwners 우선, 없으면 kpi.owners fallback)
+    const _kpiOwners = (kpi.owners||'').split(',').map(o=>o.trim()).filter(Boolean);
+    const _taskOwners = [...new Set(
+      taskList.map(t => (t.owners?.name || t.owner_name || '')).filter(Boolean)
+    )];
+    const owners = _taskOwners.length > 0 ? _taskOwners : _kpiOwners;
     // 담당자 드릴 트리거 (클릭 시 팝업으로 전체 편집)
     const ownerChips = owners.map(o=>`<span class="kpi-owner-chip" style="font-size:10px;padding:2px 5px;border-radius:2px;background:#e4e0d8;border:1px solid #ccc8bf;color:#1a1714;font-weight:600;white-space:nowrap;flex-shrink:0">${esc(o)}</span>`).join('');
     const ownerMoreBadge = owners.length > 1 ? `<span style="font-size:9px;color:#5c6b4a;flex-shrink:0">+${owners.length-1}</span>` : '';
