@@ -3124,6 +3124,54 @@ function renderKpiGauge(kpi, taskList) {
   var curMo=new Date().getMonth();
   var curQ=curMo<3?'q1':curMo<6?'q2':curMo<9?'q3':'q4';
 
+  // ── B2D-04: O2O 마케팅 리드 연계 KPI → o2o_lead_data 연동 ──
+  if(kpi.kpi_key==='B2D-04') {
+    var _ml=computeMarketingLeads();
+    var _o2oTotal=_ml.totalO2o||0;
+    var _annT=parseN(kpi.q4_target)||7259;
+    var _curQT=parseN(kpi[curQ+'_target'])||null;
+    var _achv=_annT>0?Math.round(_o2oTotal/_annT*100):0;
+    var _cc=_achv>=80?'':_achv>=50?'warn':'danger';
+    var _bw=Math.min(100,_achv);
+    // 월별 바 차트 (최근 6개월)
+    var _now=new Date();
+    var _months=[];
+    for(var _mi=5;_mi>=0;_mi--){
+      var _d=new Date(_now.getFullYear(),_now.getMonth()-_mi,1);
+      _months.push(_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0'));
+    }
+    var _moData=_ml.o2oMonthly||{};
+    var _maxMo=Math.max.apply(null,_months.map(function(m){return _moData[m]||0;}));
+    if(_maxMo<=0) _maxMo=1;
+    var _barHtml='<div style="display:flex;align-items:flex-end;gap:2px;height:28px;margin-top:5px">';
+    _months.forEach(function(m){
+      var v=_moData[m]||0;
+      var h=Math.max(2,Math.round(v/_maxMo*22));
+      var isThis=m===(_now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0'));
+      _barHtml+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px">'
+        +'<div title="'+m+': '+v+'명" style="width:100%;height:'+h+'px;background:'+(isThis?'#7a6010':'#d4bc6a')+';border-radius:1px 1px 0 0"></div>'
+        +'<div style="font-size:7px;color:#8a8278;white-space:nowrap">'+m.slice(5)+'</div>'
+        +'</div>';
+    });
+    _barHtml+='</div>';
+    var _qDetail='';
+    if(_curQT&&_curQT>0){
+      var _qAchv=Math.round(_o2oTotal/_curQT*100);
+      _qDetail='<div style="font-size:9px;color:#7a6010;margin-top:2px;font-weight:600">'+curQ.toUpperCase()+' 누적목표 '+fmtV(_curQT)+'명 대비 '+_qAchv+'%</div>';
+    }
+    return '<div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px">'
+      +'<span class="kpi-gauge-pct">'+_achv+'%</span>'
+      +'<span style="font-size:9px;color:#7a6010;font-weight:600">🤝 O2O 리드</span>'
+      +'</div>'
+      +'<div class="kpi-gauge-outer"><div class="kpi-gauge-bar '+_cc+'" style="width:'+_bw+'%"></div></div>'
+      +'<div style="font-size:10px;color:#6b6259;margin-top:3px">'
+        +'<span style="color:#7a6010;font-weight:700">'+fmtV(_o2oTotal)+'명</span>'
+        +'<span style="color:#8a8278"> / 연간목표 '+fmtV(_annT)+'명</span>'
+      +'</div>'
+      +_qDetail
+      +_barHtml;
+  }
+
   // 연간 목표
   var annualTarget=parseN(kpi.q4_target)||null;
   if(!annualTarget){annualTarget=['q1','q2','q3','q4'].reduce(function(s,q){return s+(parseN(kpi[q+'_target'])||0);},0)||null;}
@@ -3152,7 +3200,6 @@ function renderKpiGauge(kpi, taskList) {
 
   if(annualTarget&&annualTarget>0){
     if(taskHasData){
-      // 태스크 실적 합산 우선
       actualVal=totalActual; targetVal=annualTarget;
       achvPct=Math.round(totalActual/annualTarget*100);
       var curQActual=byQ[curQ]||0;
@@ -3177,7 +3224,6 @@ function renderKpiGauge(kpi, taskList) {
   var cc=achvPct>=80?'':achvPct>=50?'warn':'danger';
   var bw=Math.min(100,achvPct);
 
-  // 분기별 실적 세부 (실적 있는 분기만)
   var qDetail=[];
   ['q1','q2','q3','q4'].forEach(function(q){
     if(byQ[q]>0){
@@ -3192,6 +3238,7 @@ function renderKpiGauge(kpi, taskList) {
     +'<div style="font-size:10px;color:#6b6259;margin-top:3px"><span style="color:#5c6b4a;font-weight:700">'+fmtV(actualVal)+'</span><span style="color:#8a8278"> / 연간목표 '+fmtV(targetVal)+'</span>'+(unit?'<span style="color:#8a8278;margin-left:2px">'+unit+'</span>':'')+'</div>'
     +detailStr;
 }
+
 // ── KPI 상세 모달 ──
 
 
