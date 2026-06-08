@@ -3143,18 +3143,39 @@ async function saveTaskSelectEdit(el) {
   const newVal = el.value;
   const task = (state._lastKpiTasks||[]).find(t=>t.id===taskId)||(state.tasks||[]).find(t=>t.id===taskId);
   if(!task) return;
+  // Optimistic update: state 즉시 반영
+  const _oldVal = task[field];
+  task[field] = newVal;
+  ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
+    var t2=(state[k]||[]).find(function(t){return t.id===taskId;});
+    if(t2) t2[field]=newVal;
+  });
+  renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||[]);
   try {
     const {error} = await state.sb.from('tasks').update({[field]:newVal,updated_at:new Date().toISOString()}).eq('id',taskId);
     if(error) throw error;
-    task[field]=newVal;
     if(field==='owner_id'){
       var ow2=(state.owners||[]).find(function(o){return o.id===newVal;});
-      if(ow2) task.owners={name:ow2.name,team:ow2.team||''};
+      if(ow2){
+        task.owners={name:ow2.name,team:ow2.team||''};
+        ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
+          var t2=(state[k]||[]).find(function(t){return t.id===taskId;});
+          if(t2) t2.owners={name:ow2.name,team:ow2.team||''};
+        });
+      }
       if(task.kpi_id) await _syncOwnerToKpi(task.kpi_id,newVal);
     }
     _syncAfterTaskChange(task,[field]);
     renderOwnerTable(state.tasks||[],state._lastKpis||[]);
-  } catch(e) { console.error('saveTaskSelectEdit:',e); }
+  } catch(e) {
+    task[field]=_oldVal;
+    ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
+      var t2=(state[k]||[]).find(function(t){return t.id===taskId;});
+      if(t2) t2[field]=_oldVal;
+    });
+    renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||[]);
+    console.error('saveTaskSelectEdit:',e);
+  }
 }
 
 
@@ -3162,7 +3183,7 @@ function _syncAfterTaskChange(task, changedFields) {
   if(!task) return;
   changedFields = changedFields || [];
   var _ae=typeof document!=='undefined'?document.activeElement:null;
-  var _isEditing=_ae&&(_ae.contentEditable==='true'||_ae.tagName==='INPUT'||_ae.tagName==='SELECT');
+  var _isEditing=_ae&&(_ae.contentEditable==='true'||_ae.tagName==='INPUT');
   // 4개 캐시 동기화
   ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k) {
     var t2 = (state[k]||[]).find(function(t){ return t.id === task.id; });
