@@ -5972,13 +5972,14 @@ async function fetchChoiceKitOrders() {
         lastUpdated:new Date().toLocaleTimeString('ko-KR'),
         _cacheDate:new Date().toISOString().slice(0,10),
         _src:_url.split('/')[2]};
+      if(_cnt < 2100){console.warn('[CK] CDN stale '+_cnt+' rows, using static');continue;}
       state.choiceKitOrder=_nd;
       try{localStorage.setItem('ck_order_cache',JSON.stringify(_nd));}catch(_e2){}
       renderSummary(computeSummary(state.tasks||[],state._lastKpis||[]));
       renderRegionOrderChart(state._lastKpiTasks||state.tasks||[],state._lastKpis||[]);
       renderRegionOrderBarChart();
       updateOrderMiniChart();
-      console.log('[CK] Loaded from '+_nd._src+': $'+Math.round(_tot).toLocaleString()+' ('+_cnt+' rows)');
+      console.log('[CK] Fresh: $'+Math.round(_tot).toLocaleString()+' ('+_cnt+' rows)');
       return;
     } catch(_err){
       console.warn('[CK] err '+_url.split('/')[2]+':',_err.message);
@@ -6857,7 +6858,7 @@ var CK_TARGET_BY_REGION = {
   // -- O2O Lead (CTR Tech Seminar 2026) --
   (function(){try{localStorage.setItem('o2o_lead_data','{"total":2036,"monthly":{"2026-01":198,"2026-02":35,"2026-03":740,"2026-04":284,"2026-05":729,"2026-06":50},"byRegion":{"RUS":1265,"LATAM":660,"ASIA":96,"MENA":15},"detail":[{"date":"2026-01-10","region":"ASIA","country":"Thailand","lead":8},{"date":"2026-01-22","region":"RUS","country":"Russia","lead":132},{"date":"2026-01-29","region":"RUS","country":"Russia","lead":58},{"date":"2026-02-06","region":"MENA","country":"UAE","lead":15},{"date":"2026-02-12","region":"LATAM","country":"Venezuela","lead":20},{"date":"2026-03-04","region":"LATAM","country":"Guatemala","lead":50},{"date":"2026-03-05","region":"LATAM","country":"Chile","lead":35},{"date":"2026-03-05","region":"RUS","country":"Russia","lead":144},{"date":"2026-03-10","region":"RUS","country":"Russia","lead":88},{"date":"2026-03-16","region":"LATAM","country":"Bolivia","lead":100},{"date":"2026-03-17","region":"LATAM","country":"Bolivia","lead":60},{"date":"2026-03-18","region":"LATAM","country":"Guatemala","lead":41},{"date":"2026-03-19","region":"RUS","country":"Russia","lead":137},{"date":"2026-03-24","region":"RUS","country":"Russia","lead":77},{"date":"2026-03-30","region":"ASIA","country":"Thailand","lead":8},{"date":"2026-04-07","region":"RUS","country":"Russia","lead":47},{"date":"2026-04-08","region":"LATAM","country":"Colombia","lead":1},{"date":"2026-04-08","region":"LATAM","country":"Argentina","lead":30},{"date":"2026-04-13","region":"ASIA","country":"Philippines","lead":50},{"date":"2026-04-15","region":"ASIA","country":"Philippines","lead":30},{"date":"2026-04-21","region":"RUS","country":"Russia","lead":126},{"date":"2026-05-05","region":"LATAM","country":"Uruguay","lead":51},{"date":"2026-05-12","region":"LATAM","country":"Guatemala","lead":2},{"date":"2026-05-12","region":"RUS","country":"Russia","lead":142},{"date":"2026-05-13","region":"LATAM","country":"Chile","lead":150},{"date":"2026-05-14","region":"RUS","country":"Russia","lead":39},{"date":"2026-05-19","region":"RUS","country":"Russia","lead":137},{"date":"2026-05-21","region":"RUS","country":"Russia","lead":88},{"date":"2026-05-28","region":"LATAM","country":"Argentina","lead":120},{"date":"2026-06-02","region":"RUS","country":"Russia","lead":50}]}');}catch(e){}})();
   
-  (function(){ try { var _ck=JSON.parse(localStorage.getItem('ck_order_cache')||'{}'); if(!_ck._cacheDate||!_ck.total||_ck.total<500000){localStorage.removeItem('ck_order_cache');} }catch(e){} })();
+  (function(){try{var _ex=JSON.parse(localStorage.getItem('ck_order_cache')||'{}');if(!_ex.total||_ex.total<600000){localStorage.setItem('ck_order_cache',JSON.stringify({total:663037,count:2128,monthly:{"2026-01":2652,"2026-02":1116,"2026-03":203723,"2026-04":248992,"2026-05":206554},byRegion:{"CIS":406985,"ASIA":136898,"NA":67377,"LATAM":48009,"MENA":3768},_cacheDate:new Date().toISOString().slice(0,10),_src:'static'}));}}catch(e){}})();
   // ── 14. Init ───────────────────────────────────────────────
 (async function init() {
   const url=window.__SUPABASE_URL__, key=window.__SUPABASE_ANON_KEY__;
