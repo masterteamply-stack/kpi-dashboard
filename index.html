@@ -1440,7 +1440,7 @@
           </div>
           <div class="field" data-field="region">
             <label for="task_region">지역 *</label>
-            <input id="task_region" name="region" type="text" maxlength="20" placeholder="KR" />
+            <input id="task_region" name="region" type="text" maxlength="20" placeholder="GLOBAL" />
             <div class="error-text"></div>
           </div>
           <div class="field" data-field="status">
@@ -1758,7 +1758,7 @@ function readFormVals() {
     owner_id: formEls.owner_id.value,
     kpi_id: formEls.kpi_id.value||null,
     quarter: formEls.quarter.value.trim(),
-    region: formEls.region.value.trim(),
+    region: (formEls.region.value.trim() || 'GLOBAL'),
     status: formEls.status.value,
     priority: formEls.priority.value,
     progress: formEls.progress.value,
@@ -1780,7 +1780,7 @@ function validateForm(v) {
   if(blank(v.owner_id)) errs.owner_id="담당자를 선택해주세요.";
   if(blank(v.quarter)) errs.quarter="분기를 입력해주세요.";
   else if(!/^\d{4}-Q[1-4]$/i.test(v.quarter)) errs.quarter="형식: 2026-Q2";
-  if(blank(v.region)) errs.region="지역을 입력해주세요.";
+  // region 빈 값 = GLOBAL (HQ팀 기본값)
   if(blank(v.status)) errs.status="상태를 선택해주세요.";
   if(blank(v.priority)) errs.priority="우선순위를 선택해주세요.";
   const prog=parseN(v.progress,NaN), alloc=parseN(v.allocated_budget,NaN), spend=parseN(v.spend,NaN);
@@ -4267,7 +4267,7 @@ async function saveInlineTask(kpiId) {
     kpi_id:   kpiId || null,
     owner_id: document.getElementById('af_owner_'+kpiId)?.value || null,
     quarter:  document.getElementById('af_quarter_'+kpiId)?.value || '2026-Q2',
-    region:   'KR',
+    region:   'GLOBAL',
     status:   document.getElementById('af_status_'+kpiId)?.value || 'todo',
     priority: 'medium',
     progress: Math.min(100, Math.max(0, Number(document.getElementById('af_progress_'+kpiId)?.value)||0)),
@@ -4571,6 +4571,23 @@ function renderDrawerEditForm(task) {
             style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)"/>
         </div>
       </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label class="field-label">지역</label>
+          <input type="text" id="de_region" value="${esc(task.region||'GLOBAL')}" maxlength="20"
+            placeholder="GLOBAL"
+            style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)"/>
+          <div style="font-size:9px;color:#8a8278;margin-top:2px">미입력 시 GLOBAL</div>
+        </div>
+        <div>
+          <label class="field-label">업무 유형</label>
+          <select id="de_task_type" style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)">
+            <option value="">-</option>
+            ${getMktgTypes().map(tp=>`<option value="${esc(tp)}"${tp===task.task_type?' selected':''}>${esc(tp)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
       <div>
         <label class="field-label">메모</label>
         <textarea id="de_notes" rows="3"
@@ -4604,6 +4621,8 @@ async function saveDrawerEdit(taskId) {
     progress: Math.max(0,Math.min(100,parseFloat(document.getElementById('de_progress')?.value)||0)),
     spend:    parseFloat(document.getElementById('de_spend')?.value)||0,
     allocated_budget: parseFloat(document.getElementById('de_budget')?.value)||0,
+    region:   (document.getElementById('de_region')?.value.trim().toUpperCase() || 'GLOBAL'),
+    task_type: document.getElementById('de_task_type')?.value || null,
     updated_at: new Date().toISOString(),
   };
   const ownerName = document.getElementById('de_owner')?.value;
