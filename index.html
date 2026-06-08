@@ -1842,21 +1842,35 @@ async function hydrateFilters() {
   const { data, error } = await state.sb.from("tasks").select("quarter,region").order("quarter");
   if(error) throw error;
   const qs=[...new Set((data||[]).map(r=>r.quarter).filter(Boolean))];
-  var _rsDB=[...new Set((data||[]).map(r=>r.region).filter(Boolean))];
+
+  // 지역: KR·빈값 → GLOBAL 통합 (DB의 구버전 KR 데이터 포함)
+  var _normalizeRegion=function(r){
+    var v=(r||'').trim().toUpperCase();
+    return (v===''||v==='KR'||v==='DOMESTIC') ? 'GLOBAL' : v;
+  };
+  var _rsDB=[...new Set((data||[]).map(function(r){return _normalizeRegion(r.region);}).filter(Boolean))];
   try{var _rsRev=Object.keys(JSON.parse(localStorage.getItem('revenue_by_region')||'{}'));}catch(e){var _rsRev=[];}
   var _rsStd=['ASIA','CIS','EUROPE','GLOBAL','KOREA','LATAM','MENA','NA','OCEANIA','RUS'];
-  var rs=[...new Set([..._rsDB,..._rsRev,..._rsStd].map(function(r){return r.trim().toUpperCase();}).filter(Boolean))].sort();
-  const rs2=rs;
+  // KR 제거 (GLOBAL로 통합), 중복 제거 후 정렬
+  var rs=[...new Set([..._rsDB,..._rsRev,..._rsStd].map(function(r){return r.trim().toUpperCase();}).filter(function(r){return r&&r!=='KR';})  )].sort();
+
   if(el.quarterFilter) el.quarterFilter.innerHTML = `<option value="all">전체 분기</option>`+qs.map(q=>`<option value="${esc(q)}">${esc(q)}</option>`).join("");
-  if(el.regionFilter) el.regionFilter.innerHTML  = `<option value="all">전체 지역</option>` +rs.map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join("");
+  if(el.regionFilter) el.regionFilter.innerHTML  = `<option value="all">전체 지역</option>`+rs.map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join("");
   if(el.quarterFilter) el.quarterFilter.value = state.filters.quarter;
   if(el.regionFilter) el.regionFilter.value  = state.filters.region;
-  // 담당자 필터: owners 테이블 전체 (이름 순 정렬)
+
+  // 담당자 필터: owners 테이블 + KPI owners 합집합
+  var _ownerNameSet=new Set();
+  (state.owners||[]).forEach(function(o){if(o.name)_ownerNameSet.add(o.name.trim());});
+  // KPI owners 필드 (쉼표 구분 문자열)에서 이름 추출
+  (state._lastKpis||[]).forEach(function(kpi){
+    if(kpi.owners){String(kpi.owners).split(',').forEach(function(n){var t=n.trim();if(t)_ownerNameSet.add(t);});}
+  });
+  var _sortedOwners=[..._ownerNameSet].sort(function(a,b){return a.localeCompare(b,'ko');});
   const ownerFilterEl = el.ownerFilter || document.getElementById("ownerFilter");
   if(ownerFilterEl) { el.ownerFilter = ownerFilterEl;
-    const sorted = [...(state.owners||[])].sort((a,b)=>a.name.localeCompare(b.name,'ko'));
-    el.ownerFilter.innerHTML = '<option value="all">전체 담당자</option>' +
-      sorted.map(o=>`<option value="${esc(o.name)}">${esc(o.name)}</option>`).join('');
+    el.ownerFilter.innerHTML = '<option value="all">전체 담당자</option>'+
+      _sortedOwners.map(function(n){return `<option value="${esc(n)}">${esc(n)}</option>`;}).join('');
     if(el.ownerFilter) el.ownerFilter.value = state.filters.owner;
   }
 }
@@ -6905,16 +6919,31 @@ function applyFilters() {
   const allTasks = state._allTasks || state.tasks || [];
   const allKpiTasks = state._allKpiTasks || state._lastKpiTasks || [];
 
+  // 지역 정규화: KR·빈값 → GLOBAL
+  var _normR=function(r){var v=(r||'').trim().toUpperCase();return(v===''||v==='KR'||v==='DOMESTIC')?'GLOBAL':v;};
   const filterFn = function(t) {
+    // 분기 필터
     if(state.filters.quarter !== 'all' && t.quarter !== state.filters.quarter) return false;
+    // 지역 필터: KR/빈값 → GLOBAL로 통일
     if(state.filters.region !== 'all') {
-      var _tr=((t.region||'').trim().toUpperCase()||'GLOBAL');
-      if(_tr !== state.filters.region.toUpperCase()) return false;
+      var _tr=_normR(t.region);
+      var _sr=_normR(state.filters.region);
+      if(_tr !== _sr) return false;
     }
+    // 담당자 필터: 태스크 직접 담당자 OR 해당 KPI의 담당자
     if(state.filters.owner !== 'all') {
-      var _on=(t.owners&&t.owners.name)?t.owners.name:(t.owner_name||'');
-      if(!_on&&t.owner_id){var _ow=(state.owners||[]).find(function(o){return o.id===t.owner_id;});if(_ow)_on=_ow.name;}
-      if(_on !== state.filters.owner) return false;
+      var _on=(t.owners&&t.owners.name)?t.owners.name.trim():(t.owner_name||'').trim();
+      if(!_on&&t.owner_id){var _ow=(state.owners||[]).find(function(o){return o.id===t.owner_id;});if(_ow)_on=(_ow.name||'').trim();}
+      if(_on === state.filters.owner) return true;  // 태스크 담당자 매칭
+      // KPI 담당자 매칭: 태스크가 속한 KPI의 owners 필드 확인
+      if(t.kpi_id){
+        var _kpi=(state._lastKpis||[]).find(function(k){return k.id===t.kpi_id;});
+        if(_kpi&&_kpi.owners){
+          var _kOwners=String(_kpi.owners).split(',').map(function(n){return n.trim();});
+          if(_kOwners.indexOf(state.filters.owner)>=0) return true;
+        }
+      }
+      return false;
     }
     return true;
   };
