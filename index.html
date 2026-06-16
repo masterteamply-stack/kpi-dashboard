@@ -1975,7 +1975,7 @@ function computeSummary(tasks, kpis) {
   const _revKeys = Object.keys(_revMonthly).sort();
   const _thisMonthRev = _revKeys.length ? (_revMonthly[_revKeys[_revKeys.length-1]]||0) : 0;
   const leads    = tasks.reduce((s,t)=>s+Number(t.leads||0),0);
-  const avgProg  = total ? tasks.reduce((s,t)=>s+Number(t.progress||0),0)/total : 0;
+  const avgProg  = total ? tasks.reduce((s,t)=>s+Math.min(100,Math.max(0,Number(t.progress||0))),0)/total : 0;
   const compRate = total ? (done/total)*100 : 0;
   // ROI = (B2B매출 - 마케팅집행비) / 마케팅집행비 × 100
   const roi = spend>0 ? ((revenue - spend) / spend) * 100 : 0;
@@ -2014,7 +2014,7 @@ function buildOwnerSummary(tasks, kpis) {
     if(!map.has(key)) map.set(key,{name,team,total:0,done:0,inProg:0,delayed:0,prog:0,taskBudget:0,spend:0,revenue:0,_tc:{}});
     const r=map.get(key);
     if(team&&team!=='-') r._tc[team]=(r._tc[team]||0)+1;
-    r.total++; r.prog+=Number(t.progress||0);
+    r.total++; r.prog+=Math.min(100,Math.max(0,Number(t.progress||0)));
     r.taskBudget+=Number(t.allocated_budget||0);
     r.spend+=Number(t.spend||0); r.revenue+=Number(t.revenue||0);
     if(t.status==="done") r.done++;
