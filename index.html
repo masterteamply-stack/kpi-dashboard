@@ -3525,10 +3525,21 @@ async function saveTaskCellEdit(el) {
   if(!task) return;
   var _oldVal=task[field];
   var _fmtV=function(v){if(!v||v<=0)return '0';if(v>=1000000)return (v/1000000).toFixed(1)+'M';if(v>=1000)return (v/1000).toFixed(0)+'K';return String(Math.round(v));};
-  task[field]=newVal; if(field==='progress'){task._progressRaw=newVal;}
+  // progress: _progressRaw에 raw값 보존, progress 자체는 0~100 클램핑
+  task[field]=newVal;
+  if(field==='progress'){
+    task._progressRaw=newVal;
+    task.progress=Math.min(100,Math.max(0,Math.round(Number(newVal)||0)));
+  }
   ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
     var t2=(state[k]||[]).find(function(t){return t.id===taskId;});
-    if(t2){t2[field]=newVal; if(field==='progress') t2._progressRaw=newVal;}
+    if(t2){
+      t2[field]=newVal;
+      if(field==='progress'){
+        t2._progressRaw=newVal;
+        t2.progress=Math.min(100,Math.max(0,Math.round(Number(newVal)||0)));
+      }
+    }
   });
   if(dtype==='number') el.textContent=_fmtV(newVal);
   if(field==='progress'&&task.kpi_id){
@@ -4447,30 +4458,32 @@ function saveDkpiSheet() {
   const kpiKey = _dkpiSheetKpi;
 
   if(kpiKey === 'channel_discriber') {
-    const v = document.getElementById('cdSingleInput')?.value.trim();
-    const num = v ? Number(v) : null;
-    try { localStorage.setItem('channel_discriber_val', JSON.stringify({total:num})); } catch(e){}
-    if(!state.channelDiscriber) state.channelDiscriber = {};
-    state.channelDiscriber.manual = num;
+    // 지역별 구독자 합계 + 월별 데이터 저장
+    const saved = {};
+    document.querySelectorAll('#dkpiSheetBody .regionSubTotal').forEach(inp => {
+      const r = inp.dataset.region; if(!r) return;
+      if(!saved[r]) saved[r] = {total:0, monthly:{}};
+      saved[r].total = inp.value ? Number(inp.value) : 0;
+    });
+    document.querySelectorAll('#dkpiSheetBody .regionSubMonthly').forEach(inp => {
+      const r = inp.dataset.region, mo = inp.dataset.month; if(!r||!mo) return;
+      if(!saved[r]) saved[r] = {total:0, monthly:{}};
+      if(!saved[r].monthly) saved[r].monthly = {};
+      saved[r].monthly[mo] = inp.value ? Number(inp.value) : 0;
+    });
+    // grand total 자동 합산
+    const grandTotal = Object.values(saved).reduce((s, rd) => s + (rd.total||0), 0);
+    try {
+      localStorage.setItem('region_sub_detail', JSON.stringify(saved));
+      localStorage.setItem('region_sub_grand_total', String(grandTotal));
+    } catch(e){}
+    state._regionSubData = saved;
+    // 운영 요약 + 차트 즉시 갱신
+    renderRegionSubChart();
     const cs = computeSummary(state.tasks||[], state._lastKpis||[]);
     renderSummary(cs);
 
-  } else if(kpiKey === 'region_sub_DISABLED') { // merged into channel_discriber
-    const saved = {};
-    document.querySelectorAll('#dkpiSheetBody .regionSubTotal').forEach(inp => {
-      const r=inp.dataset.region; if(!r) return;
-      if(!saved[r]) saved[r]={total:0,monthly:{}};
-      saved[r].total = inp.value ? Number(inp.value) : 0;
-    });
-    document.querySelectorAll('#dkpiSheetBody .regionSubInput').forEach(inp => {
-      const r=inp.dataset.region, mo=inp.dataset.month; if(!r||!mo) return;
-      if(!saved[r]) saved[r]={total:0,monthly:{}};
-      if(!saved[r].monthly) saved[r].monthly={};
-      saved[r].monthly[mo] = inp.value ? Number(inp.value) : 0;
-    });
-    try { localStorage.setItem('region_sub_detail', JSON.stringify(saved)); } catch(e){}
-    state._regionSubData = saved;
-    renderRegionSubChart();
+  } else if(false) { // region_sub_DISABLED - channel_discriber로 통합됨
 
   } else if(kpiKey === 'revenue') {
     const saved = {};
@@ -5067,7 +5080,8 @@ async function saveDrawerEdit(taskId) {
 
   // 실적 수치: 실제 입력값(_progressRaw) + DB용 클램핑
   var progressRaw = parseFloat((document.getElementById('de_progress') && document.getElementById('de_progress').value)||0)||0;
-  var progressDb  = progressRaw; // 클램핑 제거
+  // progressDb: DB 저장용 (0~100 클램핑), _progressRaw: 실제 입력값 보존용
+  var progressDb  = Math.min(100, Math.max(0, Math.round(progressRaw)));
 
   var updates = {
     title:    (document.getElementById('de_title') && document.getElementById('de_title').value.trim()) || task.title,
@@ -5103,7 +5117,8 @@ async function saveDrawerEdit(taskId) {
     try { localStorage.setItem('task_praw_'+taskId, String(progressRaw)); } catch(_e2) {}
 
     // 3. 모든 state 배열 즉시 동기화 (_lastKpiTasks 포함 - 이전 버전에서 누락됨)
-    var updatesWithRaw = Object.assign({}, updates, {_progressRaw: progressRaw});
+    // updatesWithRaw: progress는 클램핑값, _progressRaw는 원본 raw값
+    var updatesWithRaw = Object.assign({}, updates, {_progressRaw: progressRaw, progress: progressDb});
     ['tasks','_lastKpiTasks','_lastKpiTasksRaw','_allTasks','_allKpiTasks'].forEach(function(k) {
       var t2 = (state[k]||[]).find(function(t){return t.id===taskId;});
       if(t2) Object.assign(t2, updatesWithRaw);
