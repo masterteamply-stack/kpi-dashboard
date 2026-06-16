@@ -1983,7 +1983,8 @@ function computeSummary(tasks, kpis) {
   const kpiList  = kpis || state._lastKpis || [];
   const kpiTotal = kpiList.length;
   const kpiDone  = kpiList.filter(k=>k.progress_status==='완료').length;
-  return { total,done,inProg,blocked,todo,delayed,budget,spend,spendKrw:_spendKrwRaw,revenue,leads,avgProg,compRate,roi,kpiTotal,kpiDone,thisMonthRev:_thisMonthRev };
+  const avgProgCapped = Math.min(100, Math.max(0, avgProg||0));
+  return { total,done,inProg,blocked,todo,delayed,budget,spend,spendKrw:_spendKrwRaw,revenue,leads,avgProg:avgProgCapped,compRate,roi,kpiTotal,kpiDone,thisMonthRev:_thisMonthRev };
 }
 
 function buildOwnerSummary(tasks, kpis) {
@@ -2056,7 +2057,7 @@ function renderKPICards(s) {
       sub:`완료 ${fmtNum(s.done)}건 · KPI ${fmtNum(s.kpiTotal||0)}개`,      icon:"📋" },
     { label:"완료율",      value:fmtPct(s.compRate),
       sub:`KPI 완료 ${fmtNum(s.kpiDone||0)}개 · 진행중 ${fmtNum(s.inProg)}건`,   icon:"✅" },
-    { label:"평균 진척도", value:fmtPct(s.avgProg),   sub:`완료 ${fmtNum(s.done)}건`,    icon:"📈" },
+    { label:"평균 진척도", value:fmtPct(Math.min(100,Math.max(0,s.avgProg||0))),   sub:`완료 ${fmtNum(s.done)}건`,    icon:"📈" },
     { label:"지연 업무",   value:fmtNum(s.delayed),   sub:`대기 ${fmtNum(s.todo)}건`,       icon:"⚠️" },
     { label:"총 집행",     value:fmtKRW(s.spendKrw||s.spend*1502),     sub:`배정 ${fmtKRW(s.budget)}`,       icon:"💰" },
     { label:"마케팅 ROI", value: s.spend>0 ? fmtPct(s.roi) : (s.revenue>0 ? "+INF" : "N/A"), sub: "매출 $" + (s.revenue/1000000).toFixed(2) + "M"     + (s.spendKrw>0 ? " / 집행 " + fmtKRW(s.spendKrw) : (s.spend>0 ? " / 집행 $" + (s.spend/1000).toFixed(0) + "K" : "")), icon:"📈" }
@@ -3076,6 +3077,20 @@ async function refreshDashboard() {
     });
     state.tasks = tasksData;
     state._allTasks = [...tasksData]; // 원본 전체 보존
+
+    // DB progress 100 초과 태스크 자동 fix (백그라운드, 오류 무시)
+    (async function _fixProgressInDB() {
+      try {
+        var dirty = tasksData.filter(function(t) {
+          return (t._progressRaw != null ? t._progressRaw : Number(t.progress||0)) > 100;
+        });
+        for(var _di=0; _di<dirty.length; _di++) {
+          var _dt = dirty[_di];
+          var _clamped = Math.min(100, Math.max(0, Math.round(Number(_dt.progress||0))));
+          await state.sb.from('tasks').update({progress: _clamped}).eq('id', _dt.id);
+        }
+      } catch(_fixE) { /* 무시 */ }
+    })();
 
 
     // KPI accordion 렌더 → state._lastKpis / state._lastKpiTasks 세팅
