@@ -2056,7 +2056,7 @@ function renderKPICards(s) {
       sub:`완료 ${fmtNum(s.done)}건 · KPI ${fmtNum(s.kpiTotal||0)}개`,      icon:"📋" },
     { label:"완료율",      value:fmtPct(s.compRate),
       sub:`KPI 완료 ${fmtNum(s.kpiDone||0)}개 · 진행중 ${fmtNum(s.inProg)}건`,   icon:"✅" },
-    { label:"평균 진척도", value:fmtPct(s.avgProg),   sub:`차단 ${fmtNum(s.blocked)}건`,    icon:"📈" },
+    { label:"평균 진척도", value:fmtPct(s.avgProg),   sub:`완료 ${fmtNum(s.done)}건`,    icon:"📈" },
     { label:"지연 업무",   value:fmtNum(s.delayed),   sub:`대기 ${fmtNum(s.todo)}건`,       icon:"⚠️" },
     { label:"총 집행",     value:fmtKRW(s.spendKrw||s.spend*1502),     sub:`배정 ${fmtKRW(s.budget)}`,       icon:"💰" },
     { label:"마케팅 ROI", value: s.spend>0 ? fmtPct(s.roi) : (s.revenue>0 ? "+INF" : "N/A"), sub: "매출 $" + (s.revenue/1000000).toFixed(2) + "M"     + (s.spendKrw>0 ? " / 집행 " + fmtKRW(s.spendKrw) : (s.spend>0 ? " / 집행 $" + (s.spend/1000).toFixed(0) + "K" : "")), icon:"📈" }
@@ -2324,8 +2324,10 @@ function renderSummary(s) {
   // 1. 전체 진척도
   h += '<div>';
   h += '<div style="font-size:10px;color:#8a8278;margin-bottom:4px;font-weight:500">전체 평균 진척도</div>';
-  h += '<div style="font-family:var(--font-display);font-size:24px;font-weight:800;color:#1a1714;line-height:1">' + fmtPct(s.avgProg) + '</div>';
-  h += '<div class="progress-shell" style="margin-top:5px"><div class="progress-bar" style="width:' + Math.min(100,s.avgProg||0) + '%"></div></div>';
+  var _dispAvg = Math.min(100, Math.max(0, s.avgProg||0));
+  h += '<div style="font-family:var(--font-display);font-size:24px;font-weight:800;color:#1a1714;line-height:1">' + fmtPct(_dispAvg) + '</div>';
+  h += '<div style="font-size:10px;color:#6b6259;margin-top:2px">완료 <b style="color:var(--green)">' + fmtNum(s.done) + '</b>건 / 전체 ' + fmtNum(s.total) + '건</div>';
+  h += '<div class="progress-shell" style="margin-top:5px"><div class="progress-bar" style="width:' + _dispAvg + '%"></div></div>';
   h += '</div>';
 
   // 2. 관련 오더 + Marketing Lead
@@ -3058,11 +3060,31 @@ async function refreshDashboard() {
       fetchTasks(),
       fetchKpisWithTasks().catch(e => { console.warn('KPI fetch:', e); return { kpis:[], tasks:[] }; })
     ]);
+    // progress 정규화: DB에 raw 수치(100 초과)가 저장된 경우 _progressRaw로 보존하고
+    // progress 자체는 0~100으로 클램핑 → avgProg 등 % 집계에 오염 방지
+    tasksData.forEach(function(t) {
+      var raw = Number(t.progress || 0);
+      if (t._progressRaw == null) {
+        // localStorage에 저장된 raw값 복원 시도
+        try {
+          var ls = localStorage.getItem('task_praw_' + t.id);
+          if (ls !== null) raw = Number(ls);
+        } catch(_e) {}
+        t._progressRaw = raw;
+      }
+      t.progress = Math.min(100, Math.max(0, Math.round(raw)));
+    });
     state.tasks = tasksData;
     state._allTasks = [...tasksData]; // 원본 전체 보존
 
 
     // KPI accordion 렌더 → state._lastKpis / state._lastKpiTasks 세팅
+    // kpiResult.tasks도 동일하게 progress 정규화
+    (kpiResult.tasks||[]).forEach(function(t) {
+      var raw = Number(t.progress || 0);
+      if (t._progressRaw == null) t._progressRaw = raw;
+      t.progress = Math.min(100, Math.max(0, Math.round(raw)));
+    });
     renderKPIAccordion(kpiResult.kpis, kpiResult.tasks);
     state._allKpiTasks = [...(kpiResult.tasks||[])]; // 원본 전체 보존
 
