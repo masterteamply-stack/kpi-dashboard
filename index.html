@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <!-- v20260616-082426 -->
   <title>마케팅커뮤니케이션 대시보드</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -7424,6 +7428,7 @@ var CK_TARGET_BY_REGION = {
   (function(){try{var _ex=JSON.parse(localStorage.getItem('ck_order_cache')||'{}');if(!_ex.total||_ex.total<600000){localStorage.setItem('ck_order_cache',JSON.stringify({total:663037,count:2128,monthly:{"2026-01":2652,"2026-02":1116,"2026-03":203723,"2026-04":248992,"2026-05":206554},byRegion:{"CIS":406985,"ASIA":136898,"NA":67377,"LATAM":48009,"MENA":3768},_cacheDate:new Date().toISOString().slice(0,10),_src:'static'}));}}catch(e){}})();
   // ── 14. Init ───────────────────────────────────────────────
 (async function init() {
+  console.log("🚀 Dashboard v20260616-082426 loaded - avgProg fix applied");
   const url=window.__SUPABASE_URL__, key=window.__SUPABASE_ANON_KEY__;
   if(!url || !key) {
     setStatus("⚠️ Supabase 설정 오류: URL 또는 KEY가 없습니다.", true);
