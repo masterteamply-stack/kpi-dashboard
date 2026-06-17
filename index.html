@@ -6570,12 +6570,61 @@ async function fetchChoiceKitOrders() {
     return _txt;
   }
 
-  // fetch URL 목록 (raw.githubusercontent 우선)
+  // fetch URL 목록
   var _ts=Date.now();
+  var _BASE='https://raw.githubusercontent.com/masterteamply-stack/choicekit-dashboard/main/';
   var _URLS=[
-    'https://raw.githubusercontent.com/masterteamply-stack/choicekit-dashboard/main/orders.csv?t='+_ts,
+    _BASE+'orders.csv?t='+_ts,
     'https://api.github.com/repos/masterteamply-stack/choicekit-dashboard/contents/orders.csv'
   ];
+  var _MKT_URLS=[
+    _BASE+'marketing.csv?t='+_ts,
+    'https://api.github.com/repos/masterteamply-stack/choicekit-dashboard/contents/marketing.csv'
+  ];
+
+  // marketing.csv에서 캠페인별 시작일 추출
+  async function _getCampStarts() {
+    for(var _mi=0;_mi<_MKT_URLS.length;_mi++){
+      try{
+        var _mu=_MKT_URLS[_mi];
+        var _mo2=_mu.indexOf('api.github.com')>=0
+          ?{cache:'no-store',headers:{'Accept':'application/vnd.github.raw+json','Cache-Control':'no-cache'}}
+          :{cache:'no-store'};
+        var _mr=await fetch(_mu,_mo2);
+        if(!_mr.ok) continue;
+        var _mt=await _parse(_mr);
+        var _mlines=_mt.split('\n').map(function(l){return l.replace('\r','');}).filter(function(l){return l.trim();});
+        if(_mlines.length<2) continue;
+        var _mh=_mlines[0].split(',').map(function(h){return h.trim().toLowerCase();});
+        var _ci=_mh.findIndex(function(h){return h==='promotion_category';});
+        var _edi=_mh.findIndex(function(h){return h==='execution_date';});
+        var _ki=_mh.findIndex(function(h){return h==='kpi_metric';});
+        if(_ci<0||_edi<0) continue;
+        var _starts={}, _allDates={};
+        for(var _mi2=1;_mi2<_mlines.length;_mi2++){
+          var _mc=_mlines[_mi2].split(',');
+          var _cat=(_mc[_ci]||'').trim();
+          var _edt=(_mc[_edi]||'').trim();
+          var _kpi2=_ki>=0?(_mc[_ki]||'').trim():'';
+          if(!_cat||!_edt) continue;
+          if(!_allDates[_cat]||_edt<_allDates[_cat]) _allDates[_cat]=_edt;
+          // STARTED 날짜 우선
+          if(_kpi2==='STARTED'){
+            if(!_starts[_cat]||_edt<_starts[_cat]) _starts[_cat]=_edt;
+          }
+        }
+        // STARTED 없는 캠페인은 min execution_date
+        Object.keys(_allDates).forEach(function(c){
+          if(!_starts[c]) _starts[c]=_allDates[c];
+        });
+        console.log('[CK] 캠페인 시작일:', _starts);
+        return _starts;
+      }catch(_me){console.warn('[CK] marketing.csv 오류:',_me.message);}
+    }
+    return {};
+  }
+
+  var _campStarts = await _getCampStarts();
 
   for(var _ui=0;_ui<_URLS.length;_ui++) {
     var _url=_URLS[_ui];
@@ -6592,34 +6641,40 @@ async function fetchChoiceKitOrders() {
       var _ai=_hdrs.findIndex(function(h){return h==='amount';});
       var _di=_hdrs.findIndex(function(h){return h==='order date'||h==='order_date';});
       var _ri=_hdrs.findIndex(function(h){return h==='region';});
-      if(_ai<0){console.warn('[CK] no amount col, hdrs:',_hdrs.slice(0,6));continue;}
-      var _tot=0,_cnt=0;
+      var _pci=_hdrs.findIndex(function(h){return h==='promotion_category';});
+      if(_ai<0){console.warn('[CK] no amount col');continue;}
+      var _tot=0,_cnt=0,_filteredCnt=0;
       var _mo={},_br={};
       for(var _i=1;_i<_lines.length;_i++){
         var _c=_lines[_i].split(',');
         var _a=parseFloat((_c[_ai]||'').replace(/[,\s]/g,''));
-        if(!isNaN(_a)&&_a>0){
-          _tot+=_a;_cnt++;
-          if(_di>=0){var _dd=(_c[_di]||'').trim().slice(0,7);if(_dd)_mo[_dd]=(_mo[_dd]||0)+_a;}
-          var _r=_ri>=0?(_c[_ri]||'').trim().toUpperCase():'GLOBAL';
-          _br[_r||'GLOBAL']=(_br[_r||'GLOBAL']||0)+_a;
-        }
+        if(isNaN(_a)||_a<=0) continue;
+        var _odt=_di>=0?(_c[_di]||'').trim():'';
+        var _cat2=_pci>=0?(_c[_pci]||'').trim():'';
+        // 캠페인 시작일 이후 데이터만 집계
+        var _start=_campStarts[_cat2];
+        if(_start && _odt && _odt < _start){_filteredCnt++;continue;}
+        _tot+=_a;_cnt++;
+        if(_odt){var _dd=_odt.slice(0,7);if(_dd)_mo[_dd]=(_mo[_dd]||0)+_a;}
+        var _r=_ri>=0?(_c[_ri]||'').trim().toUpperCase():'GLOBAL';
+        _br[_r||'GLOBAL']=(_br[_r||'GLOBAL']||0)+_a;
       }
+      if(_cnt < 10){console.warn('[CK] too few rows after filter: '+_cnt);continue;}
       var _nd={total:_tot,count:_cnt,monthly:_mo,byRegion:_br,
         lastUpdated:new Date().toLocaleTimeString('ko-KR'),
         _cacheDate:new Date().toISOString().slice(0,10),
-        _src:_url.split('/')[2]};
-      if(_cnt < 10){console.warn('[CK] CSV too few rows: '+_cnt);continue;} // 최소 행 수만 체크
+        _src:_url.split('/')[2],
+        _campStarts:_campStarts};
       state.choiceKitOrder=_nd;
       try{localStorage.setItem('ck_order_cache',JSON.stringify(_nd));}catch(_e2){}
       renderSummary(computeSummary(state.tasks||[],state._lastKpis||[]));
       renderRegionOrderChart(state._lastKpiTasks||state.tasks||[],state._lastKpis||[]);
       renderRegionOrderBarChart();
       updateOrderMiniChart();
-      console.log('[CK] Fresh: $'+Math.round(_tot).toLocaleString()+' ('+_cnt+' rows)');
+      console.log('[CK] Fresh: $'+Math.round(_tot).toLocaleString()+' ('+_cnt+'건, '+_filteredCnt+'건 제외)');
       return;
     } catch(_err){
-      console.warn('[CK] err '+_url.split('/')[2]+':',_err.message);
+      console.warn('[CK] err:',_err.message);
     }
   }
   console.error('[CK] All URLs failed');
