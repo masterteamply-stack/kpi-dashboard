@@ -2937,6 +2937,7 @@ function renderKPIAccordion(kpis, tasks) {
           data-kpi-id="${esc(kpi.id)}" data-field="q1_target" data-type="number"
           onblur="saveKpiField(this)"
           onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+          onpaste="event.preventDefault();var t=event.clipboardData.getData('text/plain').replace(/[^0-9.-]/g,'');document.execCommand('insertText',false,t)"
           onfocus="this.dataset.orig=this.textContent;event.stopPropagation()"
           title="목표값 수정"
         >${fmtT(kpi.q1_target)}</span>
@@ -2946,6 +2947,7 @@ function renderKPIAccordion(kpis, tasks) {
           data-kpi-id="${esc(kpi.id)}" data-field="q2_target" data-type="number"
           onblur="saveKpiField(this)"
           onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+          onpaste="event.preventDefault();var t=event.clipboardData.getData('text/plain').replace(/[^0-9.-]/g,'');document.execCommand('insertText',false,t)"
           onfocus="this.dataset.orig=this.textContent;event.stopPropagation()"
           title="목표값 수정"
         >${fmtT(kpi.q2_target)}</span>
@@ -2955,6 +2957,7 @@ function renderKPIAccordion(kpis, tasks) {
           data-kpi-id="${esc(kpi.id)}" data-field="q3_target" data-type="number"
           onblur="saveKpiField(this)"
           onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+          onpaste="event.preventDefault();var t=event.clipboardData.getData('text/plain').replace(/[^0-9.-]/g,'');document.execCommand('insertText',false,t)"
           onfocus="this.dataset.orig=this.textContent;event.stopPropagation()"
           title="목표값 수정"
         >${fmtT(kpi.q3_target)}</span>
@@ -2964,6 +2967,7 @@ function renderKPIAccordion(kpis, tasks) {
           data-kpi-id="${esc(kpi.id)}" data-field="q4_target" data-type="number"
           onblur="saveKpiField(this)"
           onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
+          onpaste="event.preventDefault();var t=event.clipboardData.getData('text/plain').replace(/[^0-9.-]/g,'');document.execCommand('insertText',false,t)"
           onfocus="this.dataset.orig=this.textContent;event.stopPropagation()"
           title="목표값 수정"
         >${fmtT(kpi.q4_target)}</span>
@@ -5320,8 +5324,15 @@ async function saveKpiField(el) {
     const k = (state._lastKpis||[]).find(k=>k.id===kpiId);
     if(k) k[field] = val;
     el.style.opacity = '';
+    // innerHTML 정리 - 브라우저가 삽입한 <div><br> 제거
+    el.innerHTML = '';
+    el.textContent = dtype === 'number' ? (val != null ? fmtT(val) : '-') : (raw || '-');
     el.classList.add('cell-saved-flash');
     setTimeout(()=>el.classList.remove('cell-saved-flash'), 600);
+    // KPI 아코디언 게이지 갱신 (타깃 변경 반영)
+    if(field && field.includes('target')) {
+      renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||[]);
+    }
     // 차트 갱신
     renderStrategicThemeChart(state._lastKpis||[], state._lastKpiTasks||[]);
   } catch(e) {
