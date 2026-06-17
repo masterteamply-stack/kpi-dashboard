@@ -1232,6 +1232,53 @@
     .owner-drill-popup .odp-suggest-chip{ background:#f0ede6;border:1px solid #e0dbd2;border-radius:3px;padding:2px 7px;font-size:10px;cursor:pointer;color:#5a5148; }
     .owner-drill-popup .odp-suggest-chip:hover{ background:#e4e0d8; }
   </style>
+
+  <!-- force-init-v20260617050727 -->
+  <script>
+  // CDN 캐시 우회 강제 초기화
+  document.addEventListener('DOMContentLoaded', function() {
+    var _retry = 0;
+    function _forceInit() {
+      var url = 'https://oehfptlkpqlpruaqogkk.supabase.co';
+      var key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9laGZwdGxrcHFscHJ1YXFvZ2trIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MjEyMzIsImV4cCI6MjA5NTM5NzIzMn0.8ssyrGtrrE0guYErEezDpsy7ckq6fPtke9ffxCj6FL0';
+      // state.sb가 null이면 강제 초기화
+      if(typeof state !== 'undefined' && !state.sb && typeof createClient === 'function') {
+        try {
+          state.sb = createClient(url, key);
+          console.log('✅ force-init v20260617050727: state.sb 초기화 완료');
+        } catch(e) { console.error('force-init createClient 오류:', e); }
+      }
+      // avgProg 오버라이드
+      if(typeof computeSummary === 'function' && !window.__avgProgPatched) {
+        var _orig = computeSummary;
+        window.computeSummary = function(tasks, kpis) {
+          var r = _orig(tasks, kpis);
+          var t = (tasks||[]).length;
+          if(t > 0) {
+            var dn = tasks.filter(function(x){return x.status==='done';}).length;
+            var ip = tasks.filter(function(x){return x.status==='in_progress';}).length;
+            var bl = tasks.filter(function(x){return x.status==='blocked';}).length;
+            r.avgProg = Math.min(100, Math.round((dn*100+ip*50+bl*25)/t));
+          }
+          return r;
+        };
+        window.__avgProgPatched = true;
+        console.log('✅ force-init v20260617050727: avgProg 패치 완료');
+      }
+      // refreshDashboard 실행
+      if(typeof state !== 'undefined' && state.sb && typeof refreshDashboard === 'function') {
+        if(!state.tasks || state.tasks.length === 0) {
+          console.log('✅ force-init v20260617050727: refreshDashboard 실행');
+          refreshDashboard().catch(function(e) { console.error('refreshDashboard 오류:', e); });
+        }
+      } else if(_retry < 20) {
+        _retry++;
+        setTimeout(_forceInit, 300);
+      }
+    }
+    setTimeout(_forceInit, 500);
+  });
+  </script>
 </head>
 <body>
 <div class="container">
