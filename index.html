@@ -7454,6 +7454,27 @@ var CK_TARGET_BY_REGION = {
   
   (function(){try{var _ex=JSON.parse(localStorage.getItem('ck_order_cache')||'{}');if(!_ex.total||_ex.total<600000){localStorage.setItem('ck_order_cache',JSON.stringify({total:663037,count:2128,monthly:{"2026-01":2652,"2026-02":1116,"2026-03":203723,"2026-04":248992,"2026-05":206554},byRegion:{"CIS":406985,"ASIA":136898,"NA":67377,"LATAM":48009,"MENA":3768},_cacheDate:new Date().toISOString().slice(0,10),_src:'static'}));}}catch(e){}})();
   // ── 14. Init ───────────────────────────────────────────────
+<script>
+/* avgProg-patch-v20260617020425 */
+window.__origCS = null;
+var __patchInterval = setInterval(function() {
+  if (typeof computeSummary !== 'undefined' && !window.__origCS) {
+    window.__origCS = computeSummary;
+    window.computeSummary = function(tasks, kpis) {
+      var r = window.__origCS(tasks, kpis);
+      var t = (tasks||[]).length;
+      if (!t) return r;
+      var dn = tasks.filter(function(x){return x.status==='done';}).length;
+      var ip = tasks.filter(function(x){return x.status==='in_progress';}).length;
+      var bl = tasks.filter(function(x){return x.status==='blocked';}).length;
+      r.avgProg = Math.min(100, Math.round((dn*100+ip*50+bl*25)/t));
+      return r;
+    };
+    clearInterval(__patchInterval);
+    console.log('✅ avgProg patched v20260617020425');
+  }
+}, 50);
+</script>
 (async function init() {
   console.log("🚀 Dashboard v20260617-0113 loaded - status-based avgProg");
   const url=window.__SUPABASE_URL__, key=window.__SUPABASE_ANON_KEY__;
@@ -7475,28 +7496,6 @@ var CK_TARGET_BY_REGION = {
 
 </script>
 
-<script>
-/* avgProg-fix v20260617015346 */
-(function waitAndFix() {
-  if (typeof computeSummary === 'undefined') {
-    setTimeout(waitAndFix, 100);
-    return;
-  }
-  var _orig = computeSummary;
-  window.computeSummary = function(tasks, kpis) {
-    var r = _orig(tasks, kpis);
-    var total = (tasks || []).length;
-    if (!total) return r;
-    var done    = tasks.filter(function(t){ return t.status === 'done'; }).length;
-    var inProg  = tasks.filter(function(t){ return t.status === 'in_progress'; }).length;
-    var blocked = tasks.filter(function(t){ return t.status === 'blocked'; }).length;
-    r.avgProg = Math.min(100, Math.round((done * 100 + inProg * 50 + blocked * 25) / total));
-    return r;
-  };
-  console.log('✅ avgProg fix v20260617015346 applied');
-  if (typeof refreshDashboard === 'function') refreshDashboard();
-})();
-</script>
 </body>
 </html>
-<!-- force-rebuild:20260617015040 -->
+<!-- force-rebuild:20260617020425 -->
