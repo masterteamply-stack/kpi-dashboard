@@ -7455,21 +7455,44 @@ var CK_TARGET_BY_REGION = {
   (function(){try{var _ex=JSON.parse(localStorage.getItem('ck_order_cache')||'{}');if(!_ex.total||_ex.total<600000){localStorage.setItem('ck_order_cache',JSON.stringify({total:663037,count:2128,monthly:{"2026-01":2652,"2026-02":1116,"2026-03":203723,"2026-04":248992,"2026-05":206554},byRegion:{"CIS":406985,"ASIA":136898,"NA":67377,"LATAM":48009,"MENA":3768},_cacheDate:new Date().toISOString().slice(0,10),_src:'static'}));}}catch(e){}})();
   // ── 14. Init ───────────────────────────────────────────────
 (async function init() {
-  console.log("🚀 Dashboard v20260617-0113 loaded - status-based avgProg");
+  console.log("🚀 Dashboard v20260617045716");
   const url=window.__SUPABASE_URL__, key=window.__SUPABASE_ANON_KEY__;
   if(!url || !key) {
     setStatus("⚠️ Supabase 설정 오류: URL 또는 KEY가 없습니다.", true);
     return;
   }
+  // avgProg: status 기반으로 오버라이드
+  var __origCS = computeSummary;
+  window.computeSummary = function(tasks, kpis) {
+    var r = __origCS(tasks, kpis);
+    var t = (tasks||[]).length;
+    if(t > 0) {
+      var dn = tasks.filter(function(x){return x.status==='done';}).length;
+      var ip = tasks.filter(function(x){return x.status==='in_progress';}).length;
+      var bl = tasks.filter(function(x){return x.status==='blocked';}).length;
+      r.avgProg = Math.min(100, Math.round((dn*100+ip*50+bl*25)/t));
+    }
+    return r;
+  };
   try {
-    state.sb = createClient(url, key);
+    // state.sb 초기화 (실패 시 재시도)
+    if(!state.sb) {
+      state.sb = createClient(url, key);
+    }
+    if(!state.sb) throw new Error('Supabase 클라이언트 초기화 실패');
     restorePanelStates();
     setStatus("데이터 불러오는 중…");
     await refreshDashboard();
     setupRealtime();
   } catch(e) {
     console.error("Init error:", e);
-    setStatus(`⚠️ 오류: ${e.message||String(e)}`, true);
+    // state.sb 재초기화 후 재시도
+    try {
+      state.sb = createClient(url, key);
+      await refreshDashboard();
+    } catch(e2) {
+      setStatus(`⚠️ 오류: ${e2.message||String(e2)}`, true);
+    }
   }
 })();
 
