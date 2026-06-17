@@ -2410,7 +2410,7 @@ function renderSummary(s) {
   // 분기 월별 타깃 (연간 7259 / 12 ≈ 605 per month, 분기 타깃 있으면 /3)
   var _o2oCurQ=(function(){var cm=_o2oNow.getMonth();return cm<3?'q1':cm<6?'q2':cm<9?'q3':'q4';})();
   var _o2oKpi=(state._lastKpis||[]).find(function(k){return k.kpi_key==='B2D-04';});
-  var _o2oQT=_o2oKpi?(parseFloat((_o2oKpi[_o2oCurQ+'_target']||'').replace(/,/g,''))||null):null;
+  var _o2oQT=_o2oKpi?(parseFloat(String(_o2oKpi[_o2oCurQ+'_target']||'').replace(/,/g,''))||null):null;
   var _o2oMonthT=_o2oQT?Math.round(_o2oQT/3):Math.round(7259/12);
   var _o2oMiniBar='<div style="display:flex;align-items:flex-end;gap:3px;height:22px;margin-top:4px">';
   _o2oMoList.forEach(function(m){
