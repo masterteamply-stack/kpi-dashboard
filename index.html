@@ -6499,12 +6499,19 @@ function refreshOwnerFilterOptions() {
   const sel = document.getElementById('ownerFilter');
   if(!sel) return;
   const cur = sel.value;
+  // value를 이름으로 통일 (populateFilters와 동일하게)
   const sorted = [...(state.owners||[])].sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  var nameSet = new Set(sorted.map(o=>o.name));
+  // KPI owners도 추가
+  (state._lastKpis||[]).forEach(function(kpi){
+    if(kpi.owners){String(kpi.owners).split(',').forEach(function(n){var t=n.trim();if(t)nameSet.add(t);});}
+  });
+  var names = [...nameSet].sort(function(a,b){return a.localeCompare(b,'ko');});
   sel.innerHTML = '<option value="all">전체 담당자</option>' +
-    sorted.map(o=>`<option value="${esc(o.id)}">${esc(o.name)}</option>`).join('');
+    names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
   // 현재 선택값 유지
   if([...sel.options].some(o=>o.value===cur)) sel.value = cur;
-  else sel.value = 'all';
+  else sel.value = state.filters?.owner || 'all';
 }
 
 
