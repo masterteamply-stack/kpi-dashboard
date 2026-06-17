@@ -7474,6 +7474,29 @@ var CK_TARGET_BY_REGION = {
 })();
 
 </script>
+
+<script>
+/* avgProg-fix v20260617015346 */
+(function waitAndFix() {
+  if (typeof computeSummary === 'undefined') {
+    setTimeout(waitAndFix, 100);
+    return;
+  }
+  var _orig = computeSummary;
+  window.computeSummary = function(tasks, kpis) {
+    var r = _orig(tasks, kpis);
+    var total = (tasks || []).length;
+    if (!total) return r;
+    var done    = tasks.filter(function(t){ return t.status === 'done'; }).length;
+    var inProg  = tasks.filter(function(t){ return t.status === 'in_progress'; }).length;
+    var blocked = tasks.filter(function(t){ return t.status === 'blocked'; }).length;
+    r.avgProg = Math.min(100, Math.round((done * 100 + inProg * 50 + blocked * 25) / total));
+    return r;
+  };
+  console.log('✅ avgProg fix v20260617015346 applied');
+  if (typeof refreshDashboard === 'function') refreshDashboard();
+})();
+</script>
 </body>
 </html>
 <!-- force-rebuild:20260617015040 -->
