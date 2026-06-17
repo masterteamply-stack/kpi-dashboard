@@ -1931,7 +1931,7 @@ async function hydrateFilters() {
 async function fetchTasks() {
   let q = state.sb.from("tasks")
     .select(`id,title,owner_id,kpi_id,quarter,region,status,priority,progress,
-             allocated_budget,spend,revenue,leads,due_date,started_at,notes,updated_at,
+             allocated_budget,spend,revenue,leads,due_date,started_at,notes,task_type,updated_at,
              owners(name,team),kpis(title,unit,target_value)`)
     .order("updated_at",{ascending:false});
   if(state.filters.quarter!=="all") q=q.eq("quarter",state.filters.quarter);
