@@ -6569,35 +6569,62 @@ async function fetchChoiceKitOrders() {
   ];
 
   // marketing.csv에서 캠페인별 시작일 추출
+  // 캠페인별 시작일 - 하드코딩 기준 + marketing.csv 동적 보완
   async function _getCampStarts() {
-    for(var _mi=0;_mi<_MKT_URLS.length;_mi++){
-      try{
-        var _mu=_MKT_URLS[_mi];
-        var _mo2=_mu.indexOf('api.github.com')>=0
-          ?{cache:'no-store',headers:{'Accept':'application/vnd.github.raw+json','Cache-Control':'no-cache'}}
-          :{cache:'no-store'};
-        var _mr=await fetch(_mu,_mo2);
-        if(!_mr.ok) continue;
-        var _mt=await _parse(_mr);
-        var _mlines=_mt.split('\n').map(function(l){return l.replace('\r','');}).filter(function(l){return l.trim();});
-        if(_mlines.length<2) continue;
-        var _mh=_mlines[0].split(',').map(function(h){return h.trim().toLowerCase();});
-        var _ci=_mh.findIndex(function(h){return h==='promotion_category';});
-        var _edi=_mh.findIndex(function(h){return h==='execution_date';});
-        var _ki=_mh.findIndex(function(h){return h==='kpi_metric';});
-        if(_ci<0||_edi<0) continue;
-        var _starts={}, _allDates={};
-        for(var _mi2=1;_mi2<_mlines.length;_mi2++){
-          var _mc=_mlines[_mi2].split(',');
-          var _cat=(_mc[_ci]||'').trim();
-          var _edt=(_mc[_edi]||'').trim();
-          var _kpi2=_ki>=0?(_mc[_ki]||'').trim():'';
-          if(!_cat||!_edt) continue;
-          if(!_allDates[_cat]||_edt<_allDates[_cat]) _allDates[_cat]=_edt;
-          // STARTED 날짜 우선
-          if(_kpi2==='STARTED'){
-            if(!_starts[_cat]||_edt<_starts[_cat]) _starts[_cat]=_edt;
-          }
+    var _base = {
+      "Asian vehicle":               "2026-04-09",
+      "European vehicle":            "2026-05-04",
+      "Korean & Japanese vehicles":  "2026-06-01",
+      "Mexico Awakening Campaign":   "2026-03-13",
+      "Mexico Worldcup Promotion":   "2026-02-11",
+      "Portfolio Expansion Program": "2025-12-04",
+      "Strategic Partner Program":   "2026-03-02",
+      "Trade promotion":             "2026-04-24"
+    };
+    try {
+      var _mu = _MKT_URLS[0];
+      var _mr = await fetch(_mu, {cache:'no-store'});
+      if(!_mr.ok) throw new Error(_mr.status);
+      var _mt = await _parse(_mr);
+      var _mlines = _mt.split('\n').map(function(l){return l.replace('\r','');}).filter(Boolean);
+      if(_mlines.length < 2) throw new Error('empty');
+      // 헤더 파싱
+      var _mh = _mlines[0].split(',').map(function(h){return h.trim().toLowerCase();});
+      var _ci = _mh.indexOf('promotion_category');
+      var _edi = _mh.indexOf('execution_date');
+      var _ki = _mh.indexOf('kpi_metric');
+      if(_ci < 0 || _edi < 0) throw new Error('col not found');
+      var _dyn = Object.assign({}, _base);
+      var _allDates = {};
+      for(var _j = 1; _j < _mlines.length; _j++) {
+        // 콤마 포함 필드 처리 (quoted CSV)
+        var _cols = [], _buf = '', _inQ = false;
+        var _ln = _mlines[_j];
+        for(var _k = 0; _k < _ln.length; _k++) {
+          var _ch = _ln[_k];
+          if(_ch === '"') { _inQ = !_inQ; }
+          else if(_ch === ',' && !_inQ) { _cols.push(_buf.trim()); _buf = ''; }
+          else { _buf += _ch; }
+        }
+        _cols.push(_buf.trim());
+        var _cat = (_cols[_ci]||'').replace(/^"|"$/g,'').trim();
+        var _edt = (_cols[_edi]||'').replace(/^"|"$/g,'').trim();
+        var _kpi = _ki >= 0 ? (_cols[_ki]||'').replace(/^"|"$/g,'').trim() : '';
+        if(!_cat || !/^\d{4}-\d{2}/.test(_edt)) continue;
+        if(!_allDates[_cat] || _edt < _allDates[_cat]) _allDates[_cat] = _edt;
+        if(_kpi === 'STARTED' && (!_dyn[_cat] || _edt < _dyn[_cat])) _dyn[_cat] = _edt;
+      }
+      // STARTED 없는 캠페인은 min execution_date (base보다 앞서면 업데이트)
+      Object.keys(_allDates).forEach(function(c) {
+        if(!_dyn[c]) _dyn[c] = _allDates[c];
+      });
+      console.log('[CK] 캠페인 시작일:', _dyn);
+      return _dyn;
+    } catch(_e) {
+      console.log('[CK] marketing.csv fallback 사용:', _e.message);
+      return _base;
+    }
+  }
         }
         // STARTED 없는 캠페인은 min execution_date
         Object.keys(_allDates).forEach(function(c){
