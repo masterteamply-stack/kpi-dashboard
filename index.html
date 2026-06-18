@@ -6578,19 +6578,7 @@ async function fetchChoiceKitOrders() {
       return _base;
     }
   }
-        }
-        // STARTED 없는 캠페인은 min execution_date
-        Object.keys(_allDates).forEach(function(c){
-          if(!_starts[c]) _starts[c]=_allDates[c];
-        });
-        console.log('[CK] 캠페인 시작일:', _starts);
-        return _starts;
-      }catch(_me){console.warn('[CK] marketing.csv 오류:',_me.message);}
-    }
-    // marketing.csv 로드 실패 시 fallback
-    console.warn('[CK] marketing.csv 로드 실패, fallback 사용');
-    return {"Asian vehicle": "2026-04-09", "European vehicle": "2026-05-04", "Korean & Japanese vehicles": "2026-06-01", "Mexico Awakening Campaign": "2026-03-13", "Mexico Worldcup Promotion": "2026-02-11", "Portfolio Expansion Program": "2025-12-04", "Strategic Partner Program": "2026-03-02", "Trade promotion": "2026-04-24"};
-  }
+
 
   var _campStarts = await _getCampStarts();
 
