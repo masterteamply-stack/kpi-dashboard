@@ -7596,50 +7596,46 @@ var CK_TARGET_BY_REGION = {
   // static 캐시 초기화 제거 - orders.csv에서 실시간 로드
   // ── 14. Init ───────────────────────────────────────────────
 (async function init() {
-  console.log("🚀 Dashboard v20260617045716");
+  console.log("🚀 Dashboard v20260618003918");
   const url=window.__SUPABASE_URL__, key=window.__SUPABASE_ANON_KEY__;
   if(!url || !key) {
     setStatus("⚠️ Supabase 설정 오류: URL 또는 KEY가 없습니다.", true);
     return;
   }
-  // avgProg: status 기반으로 오버라이드
-  var __origCS = computeSummary;
-  window.computeSummary = function(tasks, kpis) {
-    var r = __origCS(tasks, kpis);
-    var t = (tasks||[]).length;
-    if(t > 0) {
-      var dn = tasks.filter(function(x){return x.status==='done';}).length;
-      var ip = tasks.filter(function(x){return x.status==='in_progress';}).length;
-      var bl = tasks.filter(function(x){return x.status==='blocked';}).length;
-      r.avgProg = Math.min(100, Math.round((dn*100+ip*50+bl*25)/t));
-    }
-    return r;
-  };
+  // avgProg: status 기반으로 오버라이드 (progress 필드 raw 수치 오염 방지)
+  if(!window.__avgProgPatched) {
+    var __origCS = computeSummary;
+    window.computeSummary = function(tasks, kpis) {
+      var r = __origCS(tasks, kpis);
+      var t = (tasks||[]).length;
+      if(t > 0) {
+        var dn = tasks.filter(function(x){return x.status==='done';}).length;
+        var ip = tasks.filter(function(x){return x.status==='in_progress';}).length;
+        var bl = tasks.filter(function(x){return x.status==='blocked';}).length;
+        r.avgProg = Math.min(100, Math.round((dn*100+ip*50+bl*25)/t));
+      }
+      return r;
+    };
+    window.__avgProgPatched = true;
+  }
+  // state.sb 초기화
+  if(!state.sb) {
+    try { state.sb = createClient(url, key); }
+    catch(e) { setStatus("⚠️ Supabase 연결 실패: "+e.message, true); return; }
+  }
+  restorePanelStates();
+  setStatus("데이터 불러오는 중…");
   try {
-    // state.sb 초기화 (실패 시 재시도)
-    if(!state.sb) {
-      state.sb = createClient(url, key);
-    }
-    if(!state.sb) throw new Error('Supabase 클라이언트 초기화 실패');
-    restorePanelStates();
-    setStatus("데이터 불러오는 중…");
     await refreshDashboard();
     setupRealtime();
   } catch(e) {
     console.error("Init error:", e);
-    // state.sb 재초기화 후 재시도
-    try {
-      state.sb = createClient(url, key);
-      await refreshDashboard();
-    } catch(e2) {
-      setStatus(`⚠️ 오류: ${e2.message||String(e2)}`, true);
-    }
+    setStatus("⚠️ 오류: "+(e.message||String(e)), true);
   }
 })();
 
 </script>
 
-<script src="init.js?v=20260617051148"></script>
 </body>
 </html>
 <!-- force-rebuild:20260617020425 -->
