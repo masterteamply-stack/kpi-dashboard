@@ -6530,22 +6530,8 @@ function refreshOwnerFilterOptions() {
 
 // ── ChoiceKit 관련 오더 실시간 데이터 ──
 async function fetchChoiceKitOrders() {
-  // 캐시 즉시 표시 (UX - 이전 데이터 먼저 보여주기)
-  try {
-    var _ck=JSON.parse(localStorage.getItem('ck_order_cache')||'{}');
-    var _today=new Date().toISOString().slice(0,10);
-    // 당일 캐시만 사용 (오래된 캐시 무시해서 항상 최신 CSV 로드)
-    if(_ck&&_ck.total>0&&_ck._cacheDate===_today){
-      state.choiceKitOrder=_ck;
-      renderSummary(computeSummary(state.tasks||[],state._lastKpis||[]));
-      renderRegionOrderChart(state._lastKpiTasks||state.tasks||[],state._lastKpis||[]);
-      renderRegionOrderBarChart();
-      updateOrderMiniChart();
-    } else if(_ck&&_ck._cacheDate!==_today) {
-      // 날짜 다르면 캐시 삭제
-      localStorage.removeItem('ck_order_cache');
-    }
-  } catch(_e0){}
+  // 항상 최신 CSV에서 로드 (캐시 미사용)
+  try { localStorage.removeItem('ck_order_cache'); } catch(_e0){}
 
   // 파싱 함수
   async function _parse(res) {
