@@ -6602,14 +6602,16 @@ async function fetchChoiceKitOrders() {
       var _tot=0,_cnt=0,_filteredCnt=0;
       var _mo={},_br={};
       for(var _i=1;_i<_lines.length;_i++){
-        var _c=_lines[_i].split(',');
+        // quoted CSV 파싱 (콤마 포함 필드 대응)
+        var _c=[],_bf='',_iq=false;
+        for(var _ci2=0;_ci2<_lines[_i].length;_ci2++){var _cc=_lines[_i][_ci2];if(_cc=='"'){_iq=!_iq;}else if(_cc==','&&!_iq){_c.push(_bf.trim());_bf='';}else{_bf+=_cc;}} _c.push(_bf.trim());
         var _a=parseFloat((_c[_ai]||'').replace(/[,\s]/g,''));
         if(isNaN(_a)||_a<=0) continue;
         var _odt=_di>=0?(_c[_di]||'').trim():'';
-        var _cat2=_pci>=0?(_c[_pci]||'').trim():'';
-        // 캠페인 시작일 이후 데이터만 집계
+        var _cat2=_pci>=0?(_c[_pci]||'').replace(/^"|"$/g,'').trim():'';
         var _start=_campStarts[_cat2];
-        if(_start && _odt && _odt < _start){_filteredCnt++;continue;}
+        if(!_start){_filteredCnt++;continue;}
+        if(_start&&_odt&&_odt<_start){_filteredCnt++;continue;}
         _tot+=_a;_cnt++;
         if(_odt){var _dd=_odt.slice(0,7);if(_dd)_mo[_dd]=(_mo[_dd]||0)+_a;}
         var _r=_ri>=0?(_c[_ri]||'').trim().toUpperCase():'GLOBAL';
