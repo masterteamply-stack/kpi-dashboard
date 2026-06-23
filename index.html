@@ -3057,6 +3057,24 @@ function renderKPIAccordion(kpis, tasks) {
   setTimeout(()=>{ window.applyAllSavedWidths(); window.rebuildAccGrid && window.rebuildAccGrid(); }, 0);
 }
 
+// 컬럼 너비 저장/복원
+window.applyAllSavedWidths = function() {
+  try {
+    var saved = JSON.parse(localStorage.getItem('col_widths')||'{}');
+    Object.keys(saved).forEach(function(key) {
+      var els = document.querySelectorAll('[data-col-key="'+key+'"]');
+      els.forEach(function(el) { el.style.width = saved[key]+'px'; });
+    });
+  } catch(e) {}
+};
+window.saveColWidth = function(key, width) {
+  try {
+    var saved = JSON.parse(localStorage.getItem('col_widths')||'{}');
+    saved[key] = width;
+    localStorage.setItem('col_widths', JSON.stringify(saved));
+  } catch(e) {}
+};
+
 function toggleKpiRow(rowEl) {
   const wrap    = rowEl.nextElementSibling;
   const chevron = rowEl.querySelector('.kpi-chevron');
