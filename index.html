@@ -2867,7 +2867,14 @@ function renderKPIAccordion(kpis, tasks) {
             >${esc((t.notes||'').slice(0,80))}${(t.notes||'').length>80?'…':''}</span>
           </div>` : ''}
         </td>
-        <td style="color:#2a2520;font-weight:500">${esc(t.owners?.name||'-')}</td>
+        <td onclick="event.stopPropagation()">
+          <div class="owner-multi-cell" data-task-id="${t.id}" style="position:relative">
+            <div class="owner-multi-display" onclick="toggleOwnerPicker(event,this,t.id)"
+              style="font-size:10px;padding:2px 6px;min-width:60px;max-width:110px;background:#fdfcf9;border:1px solid #e0dbd2;border-radius:3px;cursor:pointer;color:#1a1714;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+              title="${getTaskOwnerNames(t)||'담당자 선택'}"
+            >${getTaskOwnerNames(t)||'-'}</div>
+          </div>
+        </td>
         <td>
           <select class="cell-select" data-task-id="${t.id}" data-field="status"
             onchange="saveTaskSelectEdit(this)" onclick="event.stopPropagation()">
