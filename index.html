@@ -3355,45 +3355,31 @@ function renderKpiGauge(kpi, taskList) {
   // ── KPI 유형 판별 ──
   // unit이 '%' 이거나 연간목표가 100이면 → % 기반 (태스크 progress 평균)
   // 그 외 → 수치 기반 (태스크 _progressRaw 합산 vs 목표)
-  var isPctKpi = (unit==='%') || (annualTarget===100);
+  var stmt2=(kpi.statement||kpi.title||'').toLowerCase();
+  var isPctKpi = (unit==='%') || (annualTarget===100) || (stmt2.indexOf('%')>=0 && annualTarget<=100);
 
   var actualVal=null, targetVal=null, achvPct=null, label='';
   var byQ={q1:0,q2:0,q3:0,q4:0};
 
   if(isPctKpi) {
-    // ── % 기반 KPI: 태스크별 진척도(0~100) 평균 ──
-    // 1순위: 완료된 태스크 비율 (status=done)
-    // 2순위: progress 필드 평균 (100입력=완료, 0=미착수)
+    // ── % 기반 KPI: 태스크별 진척도 평균 ──
+    // done=100%, 그 외=progress 필드(0~100 클램핑), _progressRaw 무시
     var totalTasks = taskList.length;
     var doneTasks  = taskList.filter(function(t){return t.status==='done';}).length;
     var inProgTasks= taskList.filter(function(t){return t.status==='in_progress';}).length;
     var blockedTasks=taskList.filter(function(t){return t.status==='blocked';}).length;
 
     if(totalTasks > 0) {
-      // progress 필드 입력값 확인 (100 입력된 태스크 있는지)
-      var hasProgressInput = taskList.some(function(t){
-        return Number(t.progress||0) > 0;
-      });
+      var sumProg = taskList.reduce(function(s,t){
+        if(t.status==='done') return s+100;
+        return s + Math.min(100, Math.max(0, Number(t.progress||0)));
+      }, 0);
+      var avgProg = Math.round(sumProg / totalTasks);
 
-      var avgProg;
-      if(hasProgressInput) {
-        // progress 필드 입력값 기반 평균 (0~100)
-        var sumProg = taskList.reduce(function(s,t){
-          return s + Math.min(100, Math.max(0, Number(t.progress||0)));
-        }, 0);
-        avgProg = Math.round(sumProg / totalTasks);
-      } else {
-        // status 기반 가중 평균
-        avgProg = Math.round((doneTasks*100 + inProgTasks*50 + blockedTasks*25) / totalTasks);
-      }
-
-      actualVal  = avgProg;
-      targetVal  = 100;
-      achvPct    = avgProg;
-
-      // 완료 태스크 수 표시
-      var doneRatio = doneTasks+'/'+totalTasks;
-      label = '완료 '+doneRatio+'건';
+      actualVal = avgProg;
+      targetVal = 100;
+      achvPct   = Math.min(100, avgProg);
+      label     = '완료 '+doneTasks+'/'+totalTasks+'건';
     } else {
       // 태스크 없으면 DB 실적 fallback
       var qOrder0=[curQ,'q4','q3','q2','q1'];
@@ -3911,44 +3897,57 @@ function openKpiDetail(kpiId) {
   });
 }
 
-// KPI 모달 진척도 계산 (renderKpiGauge와 동일한 로직)
+// KPI 모달 진척도 계산
 function calcKpiModalProgress(kpi2, tasks2) {
   var _pN=function(v){if(!v||String(v).trim()===''||String(v)==='nan')return null;var m=String(v).replace(/,/g,'').match(/[\d.]+/);return m?Number(m[0]):null;};
-  var unit2 = kpi2.unit||'';
+  var unit2 = (kpi2.unit||'').trim();
+  var stmt  = (kpi2.statement||kpi2.title||'').toLowerCase();
   var annTgt = _pN(kpi2.q4_target)||['q1','q2','q3','q4'].reduce(function(s,q){return s+(_pN(kpi2[q+'_target'])||0);},0)||null;
-  var isPct = (unit2==='%') || (annTgt===100);
+
+  // % KPI 판별: unit='%' 또는 목표=100 또는 statement에 '%' 포함
+  var isPct = (unit2==='%') || (annTgt===100) || (stmt.indexOf('%')>=0 && annTgt<=100);
   var total2 = tasks2.length;
+  var dn = tasks2.filter(function(t){return t.status==='done';}).length;
+  var ip = tasks2.filter(function(t){return t.status==='in_progress';}).length;
+  var bl = tasks2.filter(function(t){return t.status==='blocked';}).length;
 
   if(isPct) {
-    // % 기반: progress 평균 또는 status 가중 평균
-    if(total2===0) return {avgProg:0, label:'태스크 없음', doneCnt:0};
-    var hasInput = tasks2.some(function(t){return Number(t.progress||0)>0;});
-    var dn2 = tasks2.filter(function(t){return t.status==='done';}).length;
-    var ip2 = tasks2.filter(function(t){return t.status==='in_progress';}).length;
-    var bl2 = tasks2.filter(function(t){return t.status==='blocked';}).length;
-    var avg2;
-    if(hasInput) {
-      var sum2=tasks2.reduce(function(s,t){return s+Math.min(100,Math.max(0,Number(t.progress||0)));},0);
-      avg2=Math.round(sum2/total2);
-    } else {
-      avg2=Math.round((dn2*100+ip2*50+bl2*25)/total2);
-    }
-    return {avgProg:Math.min(100,avg2), label:'완료 '+dn2+'/'+total2+'건', doneCnt:dn2, isPct:true, dn:dn2, ip:ip2, bl:bl2, total:total2};
+    // ── % 기반 ──
+    // 각 태스크 진척도: done=100, 그 외는 progress 필드(0~100 클램핑)
+    // _progressRaw는 절대 사용하지 않음 (raw 수치 오염 방지)
+    if(total2===0) return {avgProg:0, label:'태스크 없음', doneCnt:0, isPct:true};
+    var sum=0;
+    tasks2.forEach(function(t){
+      if(t.status==='done') {
+        sum+=100; // 완료 태스크는 무조건 100%
+      } else {
+        // progress 필드(0~100)만 사용, _progressRaw 무시
+        var p=Math.min(100, Math.max(0, Number(t.progress||0)));
+        sum+=p;
+      }
+    });
+    var avg=Math.round(sum/total2);
+    return {
+      avgProg: Math.min(100, avg),
+      label:   '완료 '+dn+'/'+total2+'건',
+      doneCnt: dn, isPct:true,
+      dn:dn, ip:ip, bl:bl, total:total2
+    };
   } else {
-    // 수치 기반: _progressRaw 합산 vs 연간목표
+    // ── 수치 기반 ──
+    // 각 태스크의 _progressRaw 합산 vs 연간목표
     var byQ2={q1:0,q2:0,q3:0,q4:0};
     tasks2.forEach(function(t){
       var _q2=(t.quarter||'').toLowerCase().replace(/[^q1-4]/g,'').slice(0,2)||'q1';
       byQ2[_q2]+=Number(t._progressRaw!=null?t._progressRaw:(t.progress||0));
     });
-    var totAct2=byQ2.q1+byQ2.q2+byQ2.q3+byQ2.q4;
-    var dn3=tasks2.filter(function(t){return t.status==='done';}).length;
-    if(annTgt&&annTgt>0&&totAct2>0) {
-      return {avgProg:Math.min(100,Math.round(totAct2/annTgt*100)), label:'누적 실적', doneCnt:dn3, totAct:totAct2, annTgt:annTgt};
+    var totAct=byQ2.q1+byQ2.q2+byQ2.q3+byQ2.q4;
+    if(annTgt&&annTgt>0&&totAct>0) {
+      return {avgProg:Math.min(100,Math.round(totAct/annTgt*100)), label:'누적 실적', doneCnt:dn, totAct:totAct, annTgt:annTgt};
     }
     // fallback: 완료 비율
-    var fb=total2?Math.round(dn3/total2*100):0;
-    return {avgProg:fb, label:'완료 '+dn3+'/'+total2+'건', doneCnt:dn3};
+    var fb=total2?Math.round(dn/total2*100):0;
+    return {avgProg:fb, label:'완료 '+dn+'/'+total2+'건', doneCnt:dn};
   }
 }
 
