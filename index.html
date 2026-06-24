@@ -5576,7 +5576,7 @@ function renderRegionOrderChart(tasks, kpis) {
   const spendByRegion = {};
   for(const t of tasks) {
     var _r=((t.region||'').trim().toUpperCase()||'GLOBAL');
-    if(_r==='KR'||_r==='DOMESTIC') _r='ASEAN';
+    if(_r==='KR'||_r==='DOMESTIC') _r='GLOBAL';
     const v=Number(t.spend||t.allocated_budget||0);
     if(v>0) spendByRegion[_r]=(spendByRegion[_r]||0)+v;
   }
@@ -5605,7 +5605,7 @@ function renderRegionOrderChart(tasks, kpis) {
                  (kpi&&((kpi.kpi_key||'').toLowerCase().includes('choice')||(kpi.title||'').toLowerCase().includes('choice')));
     if(!isCk) continue;
     var _rb=((t.region||'').trim().toUpperCase()||'GLOBAL');
-    if(_rb==='KR'||_rb==='DOMESTIC') _rb='ASEAN';
+    if(_rb==='KR'||_rb==='DOMESTIC') _rb='GLOBAL';
     const bv=Number(t.spend||0);
     if(bv>0) ckSpendByRegion[_rb]=(ckSpendByRegion[_rb]||0)+bv;
   }
