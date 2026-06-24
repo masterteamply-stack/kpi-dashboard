@@ -3345,8 +3345,8 @@ function renderKpiGauge(kpi, taskList) {
   // ── KPI 유형 판별 ──
   // unit이 '%' 이거나 연간목표가 100이면 → % 기반 (태스크 progress 평균)
   // 그 외 → 수치 기반 (태스크 _progressRaw 합산 vs 목표)
-  var stmt2=(kpi.statement||kpi.title||'').toLowerCase();
-  var isPctKpi = (unit==='%') || (annualTarget===100) || (stmt2.indexOf('%')>=0 && annualTarget<=100);
+  // % KPI 판별: unit='%' 또는 목표=100만 (statement 체크 제거 - 오탐 방지)
+  var isPctKpi = (unit==='%') || (annualTarget===100);
 
   var actualVal=null, targetVal=null, achvPct=null, label='';
   var byQ={q1:0,q2:0,q3:0,q4:0};
@@ -3756,18 +3756,40 @@ function openKpiDetail(kpiId) {
       return new Intl.NumberFormat('ko-KR').format(n);
     };
 
-    var _byQ2={q1:0,q2:0,q3:0,q4:0};
+    var _pN2=function(v){if(!v||String(v).trim()===''||String(v)==='nan')return null;
+      var _m=String(v).replace(/,/g,'').match(/[\d.]+/);return _m?Number(_m[0]):null;};
+    var _annTgt2=_pN2(kpi2.q4_target)||['q1','q2','q3','q4'].reduce(function(s,q){
+      return s+(_pN2(kpi2[q+'_target'])||0);},0)||null;
+    var _unit2=(kpi2.unit||'').trim();
+    var _stmt2=(kpi2.statement||kpi2.title||'').toLowerCase();
+    var _isPct2=(_unit2==='%')||(_annTgt2===100)||(_stmt2.indexOf('%')>=0&&_annTgt2<=100);
+
+    // 분기별 실적 계산
+    var _byQ2={q1:{done:0,total:0,raw:0},q2:{done:0,total:0,raw:0},
+               q3:{done:0,total:0,raw:0},q4:{done:0,total:0,raw:0}};
     tasks2.forEach(function(t){
-      var _q=parseQuarterKey(t.quarter)||curQ;
-      _byQ2[_q]+=Number(t._progressRaw!=null?t._progressRaw:t.progress||0);
+      var _q=(parseQuarterKey(t.quarter)||'q1').toLowerCase();
+      if(!_byQ2[_q]) _byQ2[_q]={done:0,total:0,raw:0};
+      _byQ2[_q].total++;
+      if(t.status==='done') _byQ2[_q].done++;
+      _byQ2[_q].raw+=Number(t._progressRaw!=null?t._progressRaw:t.progress||0);
     });
-    var _totAct2=_byQ2.q1+_byQ2.q2+_byQ2.q3+_byQ2.q4;
-    var _annTgt2=(function(){
-      var _n=function(v){if(!v||String(v).trim()===''||String(v)==='nan')return null;
-        var _m=String(v).replace(/,/g,'').match(/[\d.]+/);return _m?Number(_m[0]):null;};
-      return _n(kpi2.q4_target)||['q1','q2','q3','q4'].reduce(function(s,q){
-        return s+(_n(kpi2[q+'_target'])||0);},0)||null;
-    })();
+
+    // 분기별 표시값: % KPI는 완료/총수 비율, 수치 KPI는 raw 합산
+    function _qResult(qd, qTarget) {
+      if(!qd||qd.total===0) return null;
+      if(_isPct2) {
+        // % KPI: 태스크 완료 비율 (목표 max로 cap)
+        var _tgt=_pN2(qTarget)||100;
+        var _pct=Math.round(qd.done/qd.total*100);
+        // 분기 카드 실적은 목표 기준 달성값으로 표시 (목표가 20이면 최대 20)
+        return Math.min(_tgt, Math.round(_pct/100*_tgt));
+      } else {
+        // 수치 KPI: raw 합산
+        return qd.raw>0?qd.raw:null;
+      }
+    }
+
     var _kmp=calcKpiModalProgress(kpi2, tasks2);
     var avgProg=_kmp.avgProg;
     var totalBudget = tasks2.reduce(function(s,t){return s+Number(t.allocated_budget||0);},0);
@@ -3779,10 +3801,10 @@ function openKpiDetail(kpiId) {
     var curQ = curMo<3?'Q1':curMo<6?'Q2':curMo<9?'Q3':'Q4';
 
     var quarters = [
-      {q:'Q1',target:kpi2.q1_target,result:_byQ2.q1>0?_byQ2.q1:kpi2.q1_result},
-      {q:'Q2',target:kpi2.q2_target,result:_byQ2.q2>0?_byQ2.q2:kpi2.q2_result},
-      {q:'Q3',target:kpi2.q3_target,result:_byQ2.q3>0?_byQ2.q3:kpi2.q3_result},
-      {q:'Q4',target:kpi2.q4_target,result:_byQ2.q4>0?_byQ2.q4:kpi2.q4_result},
+      {q:'Q1',target:kpi2.q1_target,result:_qResult(_byQ2.q1,kpi2.q1_target)!=null?_qResult(_byQ2.q1,kpi2.q1_target):kpi2.q1_result},
+      {q:'Q2',target:kpi2.q2_target,result:_qResult(_byQ2.q2,kpi2.q2_target)!=null?_qResult(_byQ2.q2,kpi2.q2_target):kpi2.q2_result},
+      {q:'Q3',target:kpi2.q3_target,result:_qResult(_byQ2.q3,kpi2.q3_target)!=null?_qResult(_byQ2.q3,kpi2.q3_target):kpi2.q3_result},
+      {q:'Q4',target:kpi2.q4_target,result:_qResult(_byQ2.q4,kpi2.q4_target)!=null?_qResult(_byQ2.q4,kpi2.q4_target):kpi2.q4_result},
     ];
     var quarterCards = quarters.map(function(item) {
       var q=item.q, target=item.target, result=item.result;
@@ -3930,8 +3952,8 @@ function calcKpiModalProgress(kpi2, tasks2) {
   var stmt  = (kpi2.statement||kpi2.title||'').toLowerCase();
   var annTgt = _pN(kpi2.q4_target)||['q1','q2','q3','q4'].reduce(function(s,q){return s+(_pN(kpi2[q+'_target'])||0);},0)||null;
 
-  // % KPI 판별: unit='%' 또는 목표=100 또는 statement에 '%' 포함
-  var isPct = (unit2==='%') || (annTgt===100) || (stmt.indexOf('%')>=0 && annTgt<=100);
+  // % KPI 판별: unit='%' 또는 목표=100만
+  var isPct = (unit2==='%') || (annTgt===100);
   var total2 = tasks2.length;
   var dn = tasks2.filter(function(t){return t.status==='done';}).length;
   var ip = tasks2.filter(function(t){return t.status==='in_progress';}).length;
@@ -4329,33 +4351,16 @@ function renderStrategicThemeChart(kpis, tasks) {
   const themes = Object.entries(themeMap).sort((a,b)=>b[1].total-a[1].total);
 
   wrap.innerHTML = themes.map(([name, v]) => {
-    // 진척도: 완료 태스크 비율 기반 (status 기준, progress raw 수치 사용 안함)
-    // done=100, in_progress=50, blocked=25, todo=0
+    // 진척도: status 기반 가중 평균 (progress raw 수치 완전 배제)
     const _tasks = v.kpis.flatMap(x => x.tasks);
     const _dn = _tasks.filter(t=>t.status==='done').length;
     const _ip = _tasks.filter(t=>t.status==='in_progress').length;
     const _bl = _tasks.filter(t=>t.status==='blocked').length;
     const _tot = _tasks.length;
-    // progress 필드에 0~100 값이 입력된 경우 활용
-    const _hasProgInput = _tasks.some(t => {
-      const p = Number(t.progress||0);
-      return p > 0 && p <= 100;
-    });
-    let avg;
-    if(_tot === 0) {
-      avg = 0;
-    } else if(_hasProgInput) {
-      // % 입력값 기반 평균
-      const _sumP = _tasks.reduce((s,t) => {
-        if(t.status==='done') return s+100;
-        const p = Number(t.progress||0);
-        return s + (p <= 100 ? Math.max(0,p) : 0);
-      }, 0);
-      avg = Math.min(100, Math.round(_sumP/_tot));
-    } else {
-      // status 가중 평균
-      avg = Math.min(100, Math.round((_dn*100+_ip*50+_bl*25)/_tot));
-    }
+    // status 가중 평균만 사용 (done=100, in_progress=50, blocked=25, todo=0)
+    const avg = _tot > 0
+      ? Math.min(100, Math.round((_dn*100+_ip*50+_bl*25)/_tot))
+      : 0;
     const exec = v.budget>0 ? Math.min(100, Math.round(v.spend/v.budget*100)) : 0;
     const col  = COLORS[name] || '#8a8278';
     return `
@@ -5517,7 +5522,7 @@ async function saveKpiField(el) {
       renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||[]);
     }
     // 차트 갱신
-    renderStrategicThemeChart(state._lastKpis||[], state._lastKpiTasks||[]);
+    renderStrategicThemeChart(state._lastKpis||[], state.tasks||state._lastKpiTasks||[]);
   } catch(e) {
     el.textContent = orig;
     el.style.opacity = '';
