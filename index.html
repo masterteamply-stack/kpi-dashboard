@@ -3845,16 +3845,32 @@ function openKpiDetail(kpiId) {
       var q=item.q, target=item.target, result=item.result;
       var resNum = (result!=null&&result!=='nan'&&result!=='') ? Number(result) : null;
       var tarNum = target!=null ? Number(target) : null;
-      var pct = (tarNum&&tarNum>0&&resNum!=null&&!isNaN(resNum))
-        ? Math.min(100, Math.round(resNum/tarNum*100)) : null;
-      var barW = pct!==null ? pct : 0;
+      // % KPI: 목표=100이면 실적도 % 단위
+      var _isQPct = (tarNum===100) || (_unit2==='%');
+      // 실제 달성률 (100% 초과 가능)
+      var pctReal = (tarNum&&tarNum>0&&resNum!=null&&!isNaN(resNum))
+        ? Math.round(resNum/tarNum*100) : null;
+      // 바 너비는 100% cap
+      var barW = pctReal!==null ? Math.min(100, pctReal) : 0;
+      // 색상: 100% 이상=초록, 80%이상=초록, 50%이상=노랑, 미만=빨강
+      var _qColor = pctReal===null?'#c8c4bc':pctReal>=100?'#5c6b4a':pctReal>=80?'#5c6b4a':pctReal>=50?'#b8962e':'#9e4a3a';
       var isCur = q===curQ;
+      // 표시값: % KPI면 달성률%, 수치 KPI면 실제값
+      var _dispResult = resNum!=null&&!isNaN(resNum)
+        ? (_isQPct ? resNum+'%' : _fmtT(resNum))
+        : '-';
+      // 달성률 표시: 실제 달성률 (100% 초과 표시)
+      var _dispPct = pctReal!==null
+        ? (pctReal>100
+            ? '<span style="color:#5c6b4a;font-weight:800">'+pctReal+'%</span>'
+            : pctReal+'%')
+        : '-';
       return '<div class="kpi-quarter-card'+(isCur?' current':'')+'">'+
         '<div class="kpi-qtr-label">'+q+(isCur?' <span style="color:#5c6b4a">●</span>':'')+'</div>'+
-        '<div class="kpi-qtr-target">목표 '+(tarNum!=null&&!isNaN(tarNum)?_fmtT(tarNum):'-')+'</div>'+
-        '<div class="kpi-qtr-result">'+(resNum!=null&&!isNaN(resNum)?_fmtT(resNum):'-')+'</div>'+
-        '<div class="kpi-qtr-bar-wrap"><div class="kpi-qtr-bar" style="width:'+barW+'%"></div></div>'+
-        '<div class="kpi-qtr-pct">'+(pct!==null?pct+'%':'-')+'</div>'+
+        '<div class="kpi-qtr-target">목표 '+(tarNum!=null&&!isNaN(tarNum)?(_isQPct?tarNum+'%':_fmtT(tarNum)):'-')+'</div>'+
+        '<div class="kpi-qtr-result">'+_dispResult+'</div>'+
+        '<div class="kpi-qtr-bar-wrap"><div class="kpi-qtr-bar" style="width:'+barW+'%;background:'+_qColor+'"></div></div>'+
+        '<div class="kpi-qtr-pct">'+_dispPct+'</div>'+
         '</div>';
     }).join('');
 
