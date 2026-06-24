@@ -1932,11 +1932,19 @@ async function fetchKpisWithTasks() {
     .order('kpi_key');
   if(ke) throw ke;
 
-  const { data: tasks, error: te } = await state.sb
-    .from('tasks')
-    .select('id,title,kpi_id,owner_id,quarter,region,status,priority,progress,allocated_budget,spend,notes,started_at,due_date,task_type,owners(name),kpis(kpi_key)')
-    .order('started_at');
-  if(te) throw te;
+  // tasks는 state.tasks를 그대로 참조 (업무 상세 테이블과 동일한 소스)
+  // 단, state.tasks가 없으면 DB에서 fetch
+  var tasks = state.tasks && state.tasks.length > 0
+    ? state.tasks
+    : (function() {
+        return state.sb
+          .from('tasks')
+          .select('id,title,kpi_id,owner_id,quarter,region,status,priority,progress,allocated_budget,spend,notes,started_at,due_date,task_type,owners(name),kpis(kpi_key)')
+          .order('started_at')
+          .then(function(r) { return r.data || []; });
+      })();
+
+  if(tasks && tasks.then) tasks = await tasks;
 
   return { kpis: kpis||[], tasks: tasks||[] };
 }
@@ -3115,11 +3123,15 @@ async function refreshDashboard() {
 
 
     // KPI accordion 렌더 → state._lastKpis / state._lastKpiTasks 세팅
-    // kpiResult.tasks _progressRaw 동기화
-    (kpiResult.tasks||[]).forEach(function(t) {
-      if (t._progressRaw == null) t._progressRaw = Number(t.progress || 0);
+    // kpiResult.tasks를 state.tasks와 동기화 (단일 데이터 소스)
+    // state.tasks에 있는 태스크는 그 값을 우선 사용
+    var _syncedKpiTasks = (kpiResult.tasks||[]).map(function(kt) {
+      var st = (state.tasks||[]).find(function(t){ return t.id === kt.id; });
+      if(st) return st; // state.tasks 값 우선
+      if(kt._progressRaw == null) kt._progressRaw = Number(kt.progress || 0);
+      return kt;
     });
-    renderKPIAccordion(kpiResult.kpis, kpiResult.tasks);
+    renderKPIAccordion(kpiResult.kpis, _syncedKpiTasks);
     state._allKpiTasks = [...(kpiResult.tasks||[])]; // 원본 전체 보존
 
 
@@ -3516,6 +3528,15 @@ async function saveTaskSelectEdit(el) {
 
 
 function _syncAfterTaskChange(task, changedFields) {
+  // _lastKpiTasks도 반드시 동기화 (KPI 모달/게이지가 이 배열을 참조)
+  if(task && task.id) {
+    ['_lastKpiTasks','_lastKpiTasksRaw','_allKpiTasks'].forEach(function(k) {
+      var arr = state[k];
+      if(!arr) return;
+      var t2 = arr.find(function(t){ return t.id === task.id; });
+      if(t2) Object.assign(t2, task);
+    });
+  }
   // 인라인 셀 DOM 갱신 (드로어 저장 외 경로에서도 일치 보장)
   if(task && task.id) {
     var _r2 = document.querySelector('tr[data-task-id="'+task.id+'"]');
@@ -3965,11 +3986,17 @@ function refreshKpiDetailModal() {
   var kpi2 = (state._lastKpis||[]).find(function(k){return k.id===kpiId;});
   if(!kpi2) return;
 
-  var allSources = [state._lastKpiTasks, state.tasks, state._allTasks, state._allKpiTasks].filter(Boolean);
-  var tasks2 = [];
-  for(var _si=0; _si<allSources.length; _si++){
-    var found = allSources[_si].filter(function(t){return t.kpi_id===kpiId;});
-    if(found.length > tasks2.length) tasks2 = found;
+  // 업무 상세 테이블의 state.tasks를 단일 소스로 사용
+  // state.tasks가 가장 최신 (인라인/드로어 편집 즉시 반영)
+  var _primarySource = state.tasks || state._lastKpiTasks || [];
+  var tasks2 = _primarySource.filter(function(t){ return t.kpi_id===kpiId; });
+  // 혹시 state.tasks에 없으면 _lastKpiTasks에서 보완
+  if(tasks2.length === 0) {
+    var allSources = [state._lastKpiTasks, state._allTasks, state._allKpiTasks].filter(Boolean);
+    for(var _si=0; _si<allSources.length; _si++){
+      var found = allSources[_si].filter(function(t){return t.kpi_id===kpiId;});
+      if(found.length > tasks2.length) tasks2 = found;
+    }
   }
   tasks2 = tasks2.slice().sort(function(a,b){return (a.started_at||'').localeCompare(b.started_at||'');});
 
