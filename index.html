@@ -1883,7 +1883,7 @@ async function hydrateFilters() {
 
 async function fetchTasks() {
   let q = state.sb.from("tasks")
-    .select(`id,title,owner_id,kpi_id,quarter,region,status,priority,progress,
+    .select(`id,title,owner_id,co_owners,kpi_id,quarter,region,status,priority,progress,
              allocated_budget,spend,revenue,leads,due_date,started_at,notes,task_type,updated_at,
              owners(name,team),kpis(title,unit,target_value)`)
     .order("updated_at",{ascending:false});
@@ -1939,7 +1939,7 @@ async function fetchKpisWithTasks() {
     : (function() {
         return state.sb
           .from('tasks')
-          .select('id,title,kpi_id,owner_id,quarter,region,status,priority,progress,allocated_budget,spend,notes,started_at,due_date,task_type,owners(name),kpis(kpi_key)')
+          .select('id,title,kpi_id,owner_id,co_owners,quarter,region,status,priority,progress,allocated_budget,spend,notes,started_at,due_date,task_type,owners(name),kpis(kpi_key)')
           .order('started_at')
           .then(function(r) { return r.data || []; });
       })();
@@ -1963,6 +1963,97 @@ function parseQuarterKey(raw) {
   const m2 = s.match(/([1-4])/);
   if(m2) return 'q'+m2[1];
   return null;
+}
+
+// 태스크 담당자 이름 목록 반환 (주담당자 + 공동담당자)
+function getTaskOwnerNames(t) {
+  var names = [];
+  var mainName = (t.owners&&t.owners.name) ? t.owners.name
+    : ((state.owners||[]).find(function(o){return o.id===t.owner_id;})||{}).name||'';
+  if(mainName) names.push(mainName);
+  if(t.co_owners) {
+    var coList = typeof t.co_owners==='string' ? t.co_owners.split(',') : (t.co_owners||[]);
+    coList.forEach(function(c) {
+      var cn = String(c).trim();
+      if(!cn) return;
+      var ow = (state.owners||[]).find(function(o){return o.id===cn||o.name===cn;});
+      var coName = ow ? ow.name : cn;
+      if(coName && names.indexOf(coName)<0) names.push(coName);
+    });
+  }
+  return names.join(', ');
+}
+
+// 담당자 다중 선택 피커
+function toggleOwnerPicker(e, displayEl, taskId) {
+  e.stopPropagation();
+  document.querySelectorAll('.owner-picker-popup').forEach(function(p){p.remove();});
+  var task = (state.tasks||[]).find(function(t){return t.id===taskId;})
+           ||(state._lastKpiTasks||[]).find(function(t){return t.id===taskId;});
+  if(!task) return;
+  var selectedIds = [];
+  if(task.owner_id) selectedIds.push(task.owner_id);
+  if(task.co_owners) {
+    var coArr = typeof task.co_owners==='string' ? task.co_owners.split(',') : (task.co_owners||[]);
+    coArr.forEach(function(c){var cn=String(c).trim();if(cn&&selectedIds.indexOf(cn)<0)selectedIds.push(cn);});
+  }
+  var popup = document.createElement('div');
+  popup.className = 'owner-picker-popup';
+  popup.dataset.taskId = taskId;
+  popup.style.cssText = 'position:fixed;background:#fff;border:1px solid #dedad2;border-radius:8px;padding:8px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.12);min-width:160px;max-height:280px;overflow-y:auto';
+  var rect = displayEl.getBoundingClientRect();
+  popup.style.left = Math.min(rect.left, window.innerWidth-180)+'px';
+  popup.style.top = (rect.bottom+4)+'px';
+  var html = '<div style="font-size:10px;color:#8a8278;font-weight:700;padding:2px 4px 6px;border-bottom:1px solid #eceae3;margin-bottom:4px">담당자 선택 (복수 가능)</div>';
+  (state.owners||[]).sort(function(a,b){return a.name.localeCompare(b.name,'ko');}).forEach(function(o) {
+    var checked = selectedIds.indexOf(o.id)>=0||selectedIds.indexOf(o.name)>=0;
+    html += '<label style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:12px;'+(checked?'background:#f0f5ec;':'')+'">'
+      +'<input type="checkbox" value="'+esc(o.id)+'" '+(checked?'checked':'')+' style="cursor:pointer">'
+      +'<span>'+esc(o.name)+'</span>'
+      +(o.team?'<span style="font-size:10px;color:#8a8278;margin-left:2px">('+esc(o.team)+')</span>':'')
+      +'</label>';
+  });
+  html += '<div style="margin-top:6px;border-top:1px solid #eceae3;padding-top:6px;display:flex;gap:6px;justify-content:flex-end">'
+    +'<button class="owner-picker-confirm" style="font-size:11px;padding:3px 10px;background:#5c6b4a;color:#fff;border:none;border-radius:4px;cursor:pointer">확인</button>'
+    +'<button class="owner-picker-cancel" style="font-size:11px;padding:3px 8px;background:#f0ede6;border:1px solid #dedad2;border-radius:4px;cursor:pointer">취소</button>'
+    +'</div>';
+  popup.innerHTML = html;
+  popup.querySelector('.owner-picker-confirm').addEventListener('click', function(){applyOwnerPicker(popup, taskId);});
+  popup.querySelector('.owner-picker-cancel').addEventListener('click', function(){popup.remove();});
+  document.body.appendChild(popup);
+  setTimeout(function(){
+    document.addEventListener('click', function _close(ev){
+      if(!popup.contains(ev.target)){popup.remove();document.removeEventListener('click',_close);}
+    });
+  }, 0);
+}
+
+async function applyOwnerPicker(popup, taskId) {
+  var checked = Array.from(popup.querySelectorAll('input[type=checkbox]:checked')).map(function(c){return c.value;});
+  if(checked.length===0){alert('최소 1명을 선택해주세요.');return;}
+  var mainId = checked[0];
+  var coIds = checked.slice(1).join(',');
+  try {
+    var upd = {owner_id:mainId, co_owners:coIds||null, updated_at:new Date().toISOString()};
+    var res = await state.sb.from('tasks').update(upd).eq('id',taskId);
+    if(res.error) throw res.error;
+    var mainOwner = (state.owners||[]).find(function(o){return o.id===mainId;});
+    ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
+      var t2=(state[k]||[]).find(function(t){return t.id===taskId;});
+      if(t2){t2.owner_id=mainId;t2.co_owners=coIds||null;if(mainOwner)t2.owners={name:mainOwner.name,team:mainOwner.team||''};}
+    });
+    var task2=(state.tasks||[]).find(function(t){return t.id===taskId;});
+    var dispEl=document.querySelector('.owner-multi-cell[data-task-id="'+taskId+'"] .owner-multi-display');
+    if(dispEl&&task2){var names=getTaskOwnerNames(task2);dispEl.textContent=names||'-';dispEl.title=names;}
+    popup.remove();
+    if(task2&&task2.kpi_id){
+      var _gEl=document.querySelector('[data-gauge-kpi="'+task2.kpi_id+'"]');
+      if(_gEl){var _gK=(state._lastKpis||[]).find(function(k){return k.id===task2.kpi_id;});
+        var _gT=(state.tasks||[]).filter(function(t){return t.kpi_id===task2.kpi_id;});
+        if(_gK)_gEl.innerHTML=renderKpiGauge(_gK,_gT);}
+    }
+    if(state._activeKpiModal&&typeof refreshKpiDetailModal==='function')refreshKpiDetailModal();
+  } catch(e){alert('저장 실패: '+(e.message||String(e)));console.error(e);}
 }
 
 function computeSummary(tasks, kpis) {
@@ -5326,11 +5417,21 @@ function renderDrawerEditForm(task) {
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div>
-          <label class="field-label">담당자</label>
+          <label class="field-label">주담당자</label>
           <select id="de_owner" style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)">
             <option value="">미지정</option>
             ${owners.map(n=>`<option value="${n}" ${(task.owners?.name||task.owner_name)===n?'selected':''}>${n}</option>`).join('')}
           </select>
+        </div>
+        <div>
+          <label class="field-label">공동담당자 <span style="font-size:9px;color:#8a8278">(Ctrl/Cmd+클릭으로 복수 선택)</span></label>
+          <select id="de_co_owners" multiple style="width:100%;border:1px solid var(--line);border-radius:4px;padding:4px 6px;font-size:12px;font-family:var(--font-body);min-height:70px">${(function(){
+              var _co=task.co_owners?String(task.co_owners).split(',').map(function(c){return c.trim();}).filter(Boolean):[];
+              return (state.owners||[]).map(function(o){
+                var sel=_co.indexOf(o.id)>=0||_co.indexOf(o.name)>=0;
+                return '<option value="'+esc(o.id)+'"'+(sel?' selected':'')+'>'+esc(o.name)+'</option>';
+              }).join('');
+            })()}</select>
         </div>
         <div>
           <label class="field-label">마감일</label>
