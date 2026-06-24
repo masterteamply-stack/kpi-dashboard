@@ -3056,7 +3056,7 @@ function renderKPIAccordion(kpis, tasks) {
       rowEl.classList.add('expanded');
     });
   }
-  renderTop7KPI(kpis, tasks);
+  renderTop7KPI(kpis, state.tasks && state.tasks.length > 0 ? state.tasks : tasks);
   renderThemeInteractiveChart(kpis, tasks);
   renderRegionOrderChart(tasks, state._lastKpis||[]);
   renderActivityTypeChartWithBudget(kpis, tasks);
@@ -4248,36 +4248,40 @@ function renderTop7KPI(kpis, tasks) {
     return new Intl.NumberFormat('ko-KR').format(n);
   };
 
-  // 현재 분기 달성률 기반 계산 (Q1~Q4 순서로 가장 최근 결과 우선)
-  const parseResult = v => {
-    if(!v || String(v).trim()==='' || String(v)==='nan') return null;
-    const m = String(v).replace(/,/g,'').match(/[\d.]+/);
-    return m ? Number(m[0]) : null;
-  };
-
-  const getTaskByQ = kpi => {
-    const kt=tasks.filter(t=>t.kpi_id===kpi.id);
-    const bq={q1:0,q2:0,q3:0,q4:0};
-    kt.forEach(t=>{const q=parseQuarterKey(t.quarter)||'q2';
-      bq[q]+=Number(t._progressRaw!=null?t._progressRaw:t.progress||0);});
-    return {byQ:bq, total:bq.q1+bq.q2+bq.q3+bq.q4, taskCnt:kt.length};
-  };
-  const getAchievementRate = (kpi, byQ, totalActual) => {
-    const annTgt=parseResult(kpi.q4_target)||['q1','q2','q3','q4'].reduce((s,q)=>s+(Number(kpi[q+'_target'])||0),0)||0;
-    if(totalActual>0&&annTgt>0) return {rate:Math.min(100,Math.round(totalActual/annTgt*100)),result:totalActual,target:annTgt,hasData:true};
-    const curQ=new Date().getMonth()<3?'q1':new Date().getMonth()<6?'q2':new Date().getMonth()<9?'q3':'q4';
-    const qA=byQ[curQ]||0, qT=parseResult(kpi[curQ+'_target']);
-    if(qA>0&&qT&&qT>0) return {rate:Math.min(100,Math.round(qA/qT*100)),result:qA,target:qT,hasData:true};
-    for(const q of [curQ,'q2','q1','q3','q4']){
-      const r=parseResult(kpi[q+'_result']),t=Number(kpi[q+'_target'])||0;
-      if(r!==null&&t>0) return {rate:Math.round(r/t*100),result:r,target:t,hasData:true};
-    }
-    return {rate:0,result:null,target:null,hasData:false};
-  };
+  // calcKpiModalProgress 와 동일한 로직으로 진척도 계산
   const scores = kpis.map(kpi => {
-    const {byQ,total,taskCnt}=getTaskByQ(kpi);
-    const {rate,result,target,hasData}=getAchievementRate(kpi,byQ,total);
-    return {kpi,rate,result,target,hasData,taskCnt};
+    const kt = tasks.filter(t => t.kpi_id === kpi.id);
+    const taskCnt = kt.length;
+
+    // calcKpiModalProgress 호출로 일관된 계산
+    const _kmp = calcKpiModalProgress(kpi, kt);
+    const rate = _kmp.avgProg;
+
+    // 표시용 목표/실적 결정
+    const _pN = v => {
+      if(!v||String(v).trim()===''||String(v)==='nan') return null;
+      const m=String(v).replace(/,/g,'').match(/[\d.]+/);
+      return m?Number(m[0]):null;
+    };
+    const annTgt = _pN(kpi.q4_target) ||
+      ['q1','q2','q3','q4'].reduce((s,q)=>s+(_pN(kpi[q+'_target'])||0),0) || null;
+    const unit2 = (kpi.unit||'').trim();
+    const isPct2 = (unit2==='%') || (annTgt===100);
+
+    let result, target;
+    if(isPct2) {
+      // % KPI: 진척도 % 자체가 실적
+      target = 100;
+      result = rate;
+    } else {
+      // 수치 KPI: raw 합산이 실적
+      const rawSum = kt.reduce((s,t)=>s+Number(t._progressRaw!=null?t._progressRaw:t.progress||0),0);
+      target = annTgt;
+      result = rawSum > 0 ? rawSum : null;
+    }
+
+    const hasData = taskCnt > 0 || result != null;
+    return {kpi, rate, result, target, hasData, taskCnt};
   });
 
   // 달성률 기준 정렬
@@ -4309,7 +4313,7 @@ function renderTop7KPI(kpis, tasks) {
         <div style="padding-left:24px">
           <div class="top7-kpi-owner">${esc(owners||'-')} · Task ${taskCnt}건</div>
           <div style="font-size:10px;color:#8a8278;margin:2px 0">
-            목표 ${targetLabel} ${esc(unit)} ${hasData?'· 실적 '+_fmtT(result):''}
+            목표 ${targetLabel}${unit?' ('+esc(unit)+')':''} ${(hasData&&result!=null)?'· 실적 '+_fmtT(result):''}
           </div>
           <div class="top7-bar-wrap">
             <div class="top7-bar" style="width:${barW}%;background:${color}"></div>
