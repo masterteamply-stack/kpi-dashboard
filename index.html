@@ -3756,12 +3756,8 @@ function openKpiDetail(kpiId) {
       return _n(kpi2.q4_target)||['q1','q2','q3','q4'].reduce(function(s,q){
         return s+(_n(kpi2[q+'_target'])||0);},0)||null;
     })();
-    var avgProg=(function(){
-      if(_annTgt2&&_annTgt2>0&&_totAct2>0)
-        return Math.min(100,Math.round(_totAct2/_annTgt2*100));
-      return tasks2.length?Math.round(
-        tasks2.filter(function(t){return t.status==='done';}).length/tasks2.length*100):0;
-    })();
+    var _kmp=calcKpiModalProgress(kpi2, tasks2);
+    var avgProg=_kmp.avgProg;
     var totalBudget = tasks2.reduce(function(s,t){return s+Number(t.allocated_budget||0);},0);
     var totalSpend  = tasks2.reduce(function(s,t){return s+Number(t.spend||0);},0);
     var execRate = totalBudget>0 ? Math.round(totalSpend/totalBudget*100) : 0;
@@ -3915,6 +3911,47 @@ function openKpiDetail(kpiId) {
   });
 }
 
+// KPI 모달 진척도 계산 (renderKpiGauge와 동일한 로직)
+function calcKpiModalProgress(kpi2, tasks2) {
+  var _pN=function(v){if(!v||String(v).trim()===''||String(v)==='nan')return null;var m=String(v).replace(/,/g,'').match(/[\d.]+/);return m?Number(m[0]):null;};
+  var unit2 = kpi2.unit||'';
+  var annTgt = _pN(kpi2.q4_target)||['q1','q2','q3','q4'].reduce(function(s,q){return s+(_pN(kpi2[q+'_target'])||0);},0)||null;
+  var isPct = (unit2==='%') || (annTgt===100);
+  var total2 = tasks2.length;
+
+  if(isPct) {
+    // % 기반: progress 평균 또는 status 가중 평균
+    if(total2===0) return {avgProg:0, label:'태스크 없음', doneCnt:0};
+    var hasInput = tasks2.some(function(t){return Number(t.progress||0)>0;});
+    var dn2 = tasks2.filter(function(t){return t.status==='done';}).length;
+    var ip2 = tasks2.filter(function(t){return t.status==='in_progress';}).length;
+    var bl2 = tasks2.filter(function(t){return t.status==='blocked';}).length;
+    var avg2;
+    if(hasInput) {
+      var sum2=tasks2.reduce(function(s,t){return s+Math.min(100,Math.max(0,Number(t.progress||0)));},0);
+      avg2=Math.round(sum2/total2);
+    } else {
+      avg2=Math.round((dn2*100+ip2*50+bl2*25)/total2);
+    }
+    return {avgProg:Math.min(100,avg2), label:'완료 '+dn2+'/'+total2+'건', doneCnt:dn2, isPct:true, dn:dn2, ip:ip2, bl:bl2, total:total2};
+  } else {
+    // 수치 기반: _progressRaw 합산 vs 연간목표
+    var byQ2={q1:0,q2:0,q3:0,q4:0};
+    tasks2.forEach(function(t){
+      var _q2=(t.quarter||'').toLowerCase().replace(/[^q1-4]/g,'').slice(0,2)||'q1';
+      byQ2[_q2]+=Number(t._progressRaw!=null?t._progressRaw:(t.progress||0));
+    });
+    var totAct2=byQ2.q1+byQ2.q2+byQ2.q3+byQ2.q4;
+    var dn3=tasks2.filter(function(t){return t.status==='done';}).length;
+    if(annTgt&&annTgt>0&&totAct2>0) {
+      return {avgProg:Math.min(100,Math.round(totAct2/annTgt*100)), label:'누적 실적', doneCnt:dn3, totAct:totAct2, annTgt:annTgt};
+    }
+    // fallback: 완료 비율
+    var fb=total2?Math.round(dn3/total2*100):0;
+    return {avgProg:fb, label:'완료 '+dn3+'/'+total2+'건', doneCnt:dn3};
+  }
+}
+
 // KPI 상세 모달 실시간 갱신
 function refreshKpiDetailModal() {
   if(!state._activeKpiModal || !state._activeKpiModal.kpiId) return;
@@ -3940,8 +3977,8 @@ function refreshKpiDetailModal() {
   var _annTgtR=(function(){var _n=function(v){if(!v||String(v).trim()===''||String(v)==='nan')return null;
     var _m=String(v).replace(/,/g,'').match(/[\d.]+/);return _m?Number(_m[0]):null;};
     return _n(kpi2.q4_target)||['q1','q2','q3','q4'].reduce(function(s,q){return s+(_n(kpi2[q+'_target'])||0);},0)||null;})();
-  var avgProg=(_annTgtR&&_annTgtR>0&&_totActR>0)?Math.min(100,Math.round(_totActR/_annTgtR*100)):
-    (tasks2.length?Math.round(tasks2.filter(function(t){return t.status==='done';}).length/tasks2.length*100):0);
+  var _kmpR=calcKpiModalProgress(kpi2, tasks2);
+  var avgProg=_kmpR.avgProg;
   var totalBudget = tasks2.reduce(function(s,t){return s+Number(t.allocated_budget||0);},0);
   var totalSpend  = tasks2.reduce(function(s,t){return s+Number(t.spend||0);},0);
   var execRate = totalBudget>0 ? Math.round(totalSpend/totalBudget*100) : 0;
