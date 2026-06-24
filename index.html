@@ -6142,14 +6142,22 @@ function renderKpiPanelForTheme(theme, kpis, tasks) {
   const filtered = kpis.filter(k => shortTheme(k.strategic_theme)===theme)
     .sort((a,b)=>(a.kpi_key||'').localeCompare(b.kpi_key||''));
 
+  // selectTheme 호출 시 최신 state.tasks 사용
+  const _panelTasks = state.tasks && state.tasks.length > 0 ? state.tasks : tasks;
+
   panel.innerHTML = filtered.map(kpi => {
-    const kt  = tasks.filter(t=>t.kpi_id===kpi.id);
-    // KPI 달성률 계산
-    const parseR = v => { if(!v||String(v).trim()===''||String(v)==='nan') return null; const m=String(v).replace(/,/g,'').match(/[\d.]+/); return m?Number(m[0]):null; };
-    const qPairs = [{r:kpi.q2_result,t:kpi.q2_target},{r:kpi.q1_result,t:kpi.q1_target}];
-    let rate = 0, hasRate = false;
-    for(const {r,t} of qPairs) { const rv=parseR(r); const tv=Number(t)||0; if(rv!==null&&tv>0){rate=Math.round(rv/tv*100);hasRate=true;break;} }
-    const owners = (kpi.owners||'').split(',').slice(0,2).map(o=>o.trim()).filter(Boolean).join(', ');
+    const kt  = _panelTasks.filter(t=>t.kpi_id===kpi.id);
+    // calcKpiModalProgress로 일관된 진척도 계산 (태스크 기반)
+    const _kmp = calcKpiModalProgress(kpi, kt);
+    const rate = Math.min(100, _kmp.avgProg);
+    const hasRate = kt.length > 0;
+    // 담당자: kpi.owners 텍스트 우선, 없으면 태스크에서 추출
+    const _kpiOwners = (kpi.owners||'').split(',').slice(0,2).map(o=>o.trim()).filter(Boolean);
+    const _taskOwners = kt.map(t=>t.owners&&t.owners.name?t.owners.name:
+      ((state.owners||[]).find(o=>o.id===t.owner_id)||{}).name||'')
+      .filter(Boolean);
+    const _uniqueOwners = [...new Set([..._kpiOwners, ..._taskOwners])].slice(0,2);
+    const owners = _uniqueOwners.join(', ');
     const sc  = {'진행 중':'active','완료':'done','시작 전':'pending','보류':'pending'}[kpi.progress_status]||'pending';
     const barColor = rate>=80?'#5c6b4a':rate>=50?'#b8962e':'#9e4a3a';
     const barW = Math.min(rate, 100);
