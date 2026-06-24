@@ -3436,10 +3436,16 @@ function renderKpiGauge(kpi, taskList) {
         } else {
           label='누적 실적';
         }
-      } else if(dbRes){
-        actualVal=dbRes.val; targetVal=annualTarget;
-        achvPct=Math.round(dbRes.val/annualTarget*100);
-        label=dbRes.q.toUpperCase()+' 실적';
+      } else {
+        // raw 실적 없어도: 모든 태스크 완료면 100%
+        var _allDone=taskList.length>0&&taskList.every(function(t){return t.status==='done';});
+        if(_allDone) {
+          actualVal=annualTarget; targetVal=annualTarget; achvPct=100; label='전체 완료';
+        } else if(dbRes){
+          actualVal=dbRes.val; targetVal=annualTarget;
+          achvPct=Math.round(dbRes.val/annualTarget*100);
+          label=dbRes.q.toUpperCase()+' 실적';
+        }
       }
     } else {
       var qT2=parseN(kpi[curQ+'_target']);
@@ -3778,15 +3784,20 @@ function openKpiDetail(kpiId) {
     // 분기별 표시값: % KPI는 완료/총수 비율, 수치 KPI는 raw 합산
     function _qResult(qd, qTarget) {
       if(!qd||qd.total===0) return null;
+      var _tgt=_pN2(qTarget);
       if(_isPct2) {
-        // % KPI: 태스크 완료 비율 (목표 max로 cap)
-        var _tgt=_pN2(qTarget)||100;
+        // % KPI: 태스크 완료 비율 → 목표 기준 달성값 (목표 20이면 최대 20)
+        var _tgtV=_tgt||100;
         var _pct=Math.round(qd.done/qd.total*100);
-        // 분기 카드 실적은 목표 기준 달성값으로 표시 (목표가 20이면 최대 20)
-        return Math.min(_tgt, Math.round(_pct/100*_tgt));
+        return Math.min(_tgtV, Math.round(_pct/100*_tgtV));
       } else {
-        // 수치 KPI: raw 합산
-        return qd.raw>0?qd.raw:null;
+        // 수치 KPI: raw 합산 우선
+        if(qd.raw>0) return qd.raw;
+        // raw 없으면: 완료 태스크가 있으면 분기 목표를 달성 비율로 계산
+        if(qd.done>0 && _tgt&&_tgt>0) {
+          return Math.round(qd.done/qd.total*_tgt);
+        }
+        return null;
       }
     }
 
@@ -3983,18 +3994,29 @@ function calcKpiModalProgress(kpi2, tasks2) {
     };
   } else {
     // ── 수치 기반 ──
-    // 각 태스크의 _progressRaw 합산 vs 연간목표
+    if(total2===0) return {avgProg:0, label:'태스크 없음', doneCnt:0};
+
+    // 각 태스크의 _progressRaw 합산
     var byQ2={q1:0,q2:0,q3:0,q4:0};
     tasks2.forEach(function(t){
       var _q2=(t.quarter||'').toLowerCase().replace(/[^q1-4]/g,'').slice(0,2)||'q1';
-      byQ2[_q2]+=Number(t._progressRaw!=null?t._progressRaw:(t.progress||0));
+      var raw=Number(t._progressRaw!=null?t._progressRaw:(t.progress||0));
+      byQ2[_q2]+=raw;
     });
     var totAct=byQ2.q1+byQ2.q2+byQ2.q3+byQ2.q4;
+
+    // 1순위: raw 실적 합산 vs 연간목표
     if(annTgt&&annTgt>0&&totAct>0) {
       return {avgProg:Math.min(100,Math.round(totAct/annTgt*100)), label:'누적 실적', doneCnt:dn, totAct:totAct, annTgt:annTgt};
     }
-    // fallback: 완료 비율
-    var fb=total2?Math.round(dn/total2*100):0;
+
+    // 2순위: 모든 태스크가 완료 → 100%
+    if(dn===total2 && total2>0) {
+      return {avgProg:100, label:'완료 '+dn+'/'+total2+'건', doneCnt:dn, totAct:annTgt, annTgt:annTgt};
+    }
+
+    // 3순위: status 가중 평균 (done=100, in_progress=50, blocked=25)
+    var fb=Math.min(100, Math.round((dn*100+ip*50+bl*25)/total2));
     return {avgProg:fb, label:'완료 '+dn+'/'+total2+'건', doneCnt:dn};
   }
 }
