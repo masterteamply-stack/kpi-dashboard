@@ -3913,12 +3913,8 @@ function openKpiDetail(kpiId) {
         var _pct=Math.round(qd.done/qd.total*100);
         return Math.min(_tgtV, Math.round(_pct/100*_tgtV));
       } else {
-        // 수치 KPI: raw 합산 우선
+        // 수치 KPI: raw 합산만 사용 (역산 제거 - 실 입력값만 표시)
         if(qd.raw>0) return qd.raw;
-        // raw 없으면: 완료 태스크가 있으면 분기 목표를 달성 비율로 계산
-        if(qd.done>0 && _tgt&&_tgt>0) {
-          return Math.round(qd.done/qd.total*_tgt);
-        }
         return null;
       }
     }
