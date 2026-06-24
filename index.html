@@ -1856,7 +1856,7 @@ async function hydrateFilters() {
   };
   var _rsDB=[...new Set((data||[]).map(function(r){return _normalizeRegion(r.region);}).filter(Boolean))];
   try{var _rsRev=Object.keys(JSON.parse(localStorage.getItem('revenue_by_region')||'{}'));}catch(e){var _rsRev=[];}
-  var _rsStd=['ASIA','CIS','EUROPE','GLOBAL','KOREA','LATAM','MENA','NA','OCEANIA','RUS'];
+  var _rsStd=['ASIA','ASEAN','CIS','EUROPE','GLOBAL','LATAM','MENA','NA','RUS'];
   // KR 제거 (GLOBAL로 통합), 중복 제거 후 정렬
   var rs=[...new Set([..._rsDB,..._rsRev,..._rsStd].map(function(r){return r.trim().toUpperCase();}).filter(function(r){return r&&r!=='KR';})  )].sort();
 
@@ -5576,7 +5576,7 @@ function renderRegionOrderChart(tasks, kpis) {
   const spendByRegion = {};
   for(const t of tasks) {
     var _r=((t.region||'').trim().toUpperCase()||'GLOBAL');
-    if(_r==='KR'||_r==='DOMESTIC') _r='KOREA';
+    if(_r==='KR'||_r==='DOMESTIC') _r='ASEAN';
     const v=Number(t.spend||t.allocated_budget||0);
     if(v>0) spendByRegion[_r]=(spendByRegion[_r]||0)+v;
   }
@@ -5584,8 +5584,19 @@ function renderRegionOrderChart(tasks, kpis) {
   // Choice Kit 지역별 오더 금액
   const ckByRegion = (state.choiceKitOrder&&state.choiceKitOrder.byRegion) ? state.choiceKitOrder.byRegion : {};
 
-  // Choice Kit 마케팅 집행 예산 (BizRewards/choice 관련 task)
-  const ckBudByRegion = {};
+  // CK 마케팅예산(₩) — 법인/지사/영업 광고선전비 예산 시트 기준
+  // Promo + BizRewards 합계 (KRW)
+  const ckBudByRegion = {
+    'NA':     23646400,   // Promo 14,034,400 + BizRewards 9,612,000
+    'LATAM':  24845200,   // Promo 15,179,200 + BizRewards 9,666,000
+    'MENA':   22170000,   // Promo 12,720,000 + BizRewards 9,450,000
+    'EUROPE':  4823000,   // Promo 4,823,000 + BizRewards 0
+    'CIS':    28037600,   // Promo 17,129,600 + BizRewards 10,908,000
+    'ASIA':   26467800,   // Promo 15,613,800 + BizRewards 10,854,000
+    'ASEAN':   8810000,   // Promo 5,300,000 + BizRewards 3,510,000 (호주+한국 포함)
+    'GLOBAL': 34700000,   // Reserve: Promo 21,200,000 + BizRewards 13,500,000
+  };
+  // CK 집행비: 태스크 기반
   const ckSpendByRegion = {};
   for(const t of tasks) {
     const kpi = kpis.find(function(k){return k.id===t.kpi_id;});
@@ -5594,9 +5605,9 @@ function renderRegionOrderChart(tasks, kpis) {
                  (kpi&&((kpi.kpi_key||'').toLowerCase().includes('choice')||(kpi.title||'').toLowerCase().includes('choice')));
     if(!isCk) continue;
     var _rb=((t.region||'').trim().toUpperCase()||'GLOBAL');
-    if(_rb==='KR'||_rb==='DOMESTIC') _rb='KOREA';
-    const bv=Number(t.spend||t.allocated_budget||0);
-    if(bv>0) ckBudByRegion[_rb]=(ckBudByRegion[_rb]||0)+bv;
+    if(_rb==='KR'||_rb==='DOMESTIC') _rb='ASEAN';
+    const bv=Number(t.spend||0);
+    if(bv>0) ckSpendByRegion[_rb]=(ckSpendByRegion[_rb]||0)+bv;
   }
 
   const _KRW_USD=1502;
@@ -5605,12 +5616,12 @@ function renderRegionOrderChart(tasks, kpis) {
   const fmtP=function(v){return v===null?'–':(v>=0?'+':'')+v.toFixed(0)+'%';};
   const rCol=function(v){return v===null?'#8a8278':v>=0?'#2a7c2a':'#c0392b';};
 
-  const allR=new Set([...Object.keys(revByRegion),...Object.keys(spendByRegion),...Object.keys(ckByRegion),...Object.keys(ckBudByRegion)]);
+  const allR=new Set([...Object.keys(revByRegion),...Object.keys(spendByRegion),...Object.keys(ckByRegion),...Object.keys(ckBudByRegion),...Object.keys(ckSpendByRegion)]);
   const rows=[];
   for(const r of allR){
     const rev=revByRegion[r]||0,spK=spendByRegion[r]||0,ckA=ckByRegion[r]||0,ckB=ckBudByRegion[r]||0;
     const ckSp=ckSpendByRegion[r]||0;
-    if(rev>0||spK>0||ckA>0||ckB>0||ckSp>0) rows.push({r,rev,spK,ckA,ckB,ckSp});
+    const ckB2=ckBudByRegion[r]||0; if(rev>0||spK>0||ckA>0||ckB2>0||ckSp>0) rows.push({r,rev,spK,ckA,ckB:ckB2,ckSp});
   }
   var _rf=(state.filters&&state.filters.region&&state.filters.region!=='all')?state.filters.region.toUpperCase():null;
   if(_rf) rows=rows.filter(function(d){return d.r.toUpperCase()===_rf;});
@@ -5619,7 +5630,7 @@ function renderRegionOrderChart(tasks, kpis) {
   const totRev=rows.reduce(function(s,d){return s+d.rev;},0);
   const totSpK=rows.reduce(function(s,d){return s+d.spK;},0);
   const totCkA=rows.reduce(function(s,d){return s+d.ckA;},0);
-  const totCkB=rows.reduce(function(s,d){return s+d.ckB;},0);
+  const totCkB=Object.values(ckBudByRegion).reduce(function(s,v){return s+v;},0); // 전체 예산 합계
   const totCkSp=rows.reduce(function(s,d){return s+(d.ckSp||0);},0);
   const totSpU=totSpK/_KRW_USD;
   const totRoi=totSpU>0?(totRev-totSpU)/totSpU*100:null;
@@ -5680,7 +5691,7 @@ function renderRegionOrderChart(tasks, kpis) {
   h+='<td style="'+tdS+';text-align:right;color:#7c5a3a">'+(totCkSp>0?fmtK(totCkSp):'–')+'</td>';
   h+='<td style="'+tdS+';text-align:right;font-weight:800;color:'+rCol(totPromoRoi)+'">'+fmtP(totPromoRoi)+'</td>';
   h+='</tr></tbody></table>';
-  h+='<div style="text-align:right;font-size:8px;color:#b0a898;margin-top:4px">4월 기준 · ROI=(매출−집행)/집행 · KRW÷1,502 · CK: choicekit-dashboard</div>';
+  h+='<div style="text-align:right;font-size:8px;color:#b0a898;margin-top:4px">ROI=(매출−집행)/집행 · KRW÷1,502 · CK예산: 법인/지사 광고선전비 (Promo+BizRewards) · ASEAN=호주+한국 포함</div>';
   el.innerHTML = h;
 }
 
