@@ -3338,6 +3338,30 @@ function renderKpiGauge(kpi, taskList) {
       +'<div style="font-size:7px;color:#a89f94;margin-top:2px">점선=월별목표 · 색상: 녹색≥80% / 노란색≥50% / 빨간색&lt;50%</div>';
   }
 
+  // ── 0순위: KPI 완료 상태면 실제 달성률 또는 100% ──
+  if(kpi.progress_status==='완료') {
+    var _annT0=parseN(kpi.q4_target)||['q1','q2','q3','q4'].reduce(function(s,q){return s+(parseN(kpi[q+'_target'])||0);},0)||null;
+    var _rawSum0=taskList.reduce(function(s,t){return s+Number(t._progressRaw!=null?t._progressRaw:(t.progress||0));},0);
+    var _rate0, _act0, _tgt0;
+    if(_annT0&&_annT0>0&&_rawSum0>0&&_annT0!==100) {
+      _rate0=Math.round(_rawSum0/_annT0*100); _act0=_rawSum0; _tgt0=_annT0;
+    } else {
+      _rate0=100; _act0=_annT0; _tgt0=_annT0;
+    }
+    var _cc0=_rate0>=100?'':_rate0>=80?'':_rate0>=50?'warn':'danger';
+    var _bw0=Math.min(100,_rate0);
+    return '<div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px">'
+      +'<span class="kpi-gauge-pct">'+_rate0+'%</span>'
+      +'<span style="font-size:9px;color:#5c6b4a;font-weight:700;background:#e4f0dd;padding:1px 5px;border-radius:3px">✅ KPI 완료</span>'
+      +'</div>'
+      +'<div class="kpi-gauge-outer"><div class="kpi-gauge-bar '+_cc0+'" style="width:'+_bw0+'%"></div></div>'
+      +(_tgt0?'<div style="font-size:10px;color:#6b6259;margin-top:3px">'
+        +'<span style="color:#5c6b4a;font-weight:700">'+fmtV(_act0||_tgt0)+'</span>'
+        +'<span style="color:#8a8278"> / 목표 '+fmtV(_tgt0)+'</span>'
+        +(unit?'<span style="color:#8a8278;margin-left:2px">'+unit+'</span>':'')
+        +'</div>':'');
+  }
+
   // 연간 목표
   var annualTarget=parseN(kpi.q4_target)||null;
   if(!annualTarget){annualTarget=['q1','q2','q3','q4'].reduce(function(s,q){return s+(parseN(kpi[q+'_target'])||0);},0)||null;}
@@ -3962,6 +3986,24 @@ function calcKpiModalProgress(kpi2, tasks2) {
   var unit2 = (kpi2.unit||'').trim();
   var stmt  = (kpi2.statement||kpi2.title||'').toLowerCase();
   var annTgt = _pN(kpi2.q4_target)||['q1','q2','q3','q4'].reduce(function(s,q){return s+(_pN(kpi2[q+'_target'])||0);},0)||null;
+
+  // ── 0순위: KPI 완료 상태면 실제 달성률 계산 후 반환 ──
+  // progress_status === '완료'이면 실적 합산/목표로 실제 달성률 표시 (100% 이상 가능)
+  if(kpi2.progress_status === '완료') {
+    var _totRaw = (tasks2||[]).reduce(function(s,t){
+      return s + Number(t._progressRaw!=null?t._progressRaw:(t.progress||0));
+    }, 0);
+    var _dn0 = (tasks2||[]).filter(function(t){return t.status==='done';}).length;
+    // 수치 KPI이고 실적 있으면 실제 달성률
+    if(annTgt&&annTgt>0&&_totRaw>0&&annTgt!==100) {
+      var _realRate = Math.round(_totRaw/annTgt*100);
+      return {avgProg:_realRate, label:'KPI 완료 · 달성률', doneCnt:_dn0,
+              totAct:_totRaw, annTgt:annTgt, kpiDone:true};
+    }
+    // % KPI이거나 실적 없으면 100% 반환
+    return {avgProg:100, label:'KPI 완료', doneCnt:_dn0,
+            totAct:annTgt, annTgt:annTgt, kpiDone:true};
+  }
 
   // % KPI 판별: unit='%' 또는 목표=100만
   var isPct = (unit2==='%') || (annTgt===100);
