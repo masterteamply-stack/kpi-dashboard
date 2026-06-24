@@ -4054,11 +4054,19 @@ function refreshKpiDetailModal() {
   if(titleEl) titleEl.textContent = '관련 Task ('+tasks2.length+'건)';
 
   var statusLbl = function(s){return s==='done'?'완료':s==='in_progress'?'진행중':s==='blocked'?'차단':'대기';};
-  var fmtProg = function(t){
-    var v=Number(t._progressRaw!=null?t._progressRaw:t.progress||0);
+  var fmtProg = function(t, kpiUnit, annTgt2) {
+    var _isPctT = (kpiUnit==='%') || (annTgt2===100);
+    var v;
+    if(_isPctT) {
+      // % KPI: done=100, 그 외 progress(0~100)
+      v = t.status==='done' ? 100 : Math.min(100,Math.max(0,Number(t.progress||0)));
+    } else {
+      // 수치 KPI: raw 수치
+      v = Number(t._progressRaw!=null?t._progressRaw:t.progress||0);
+    }
     if(!v||v<=0) return '0';
-    if(v>=1000000) return (v/1000000).toFixed(1)+'M';
-    if(v>=1000) return (v/1000).toFixed(0)+'K';
+    if(!_isPctT&&v>=1000000) return (v/1000000).toFixed(1)+'M';
+    if(!_isPctT&&v>=1000) return (v/1000).toFixed(0)+'K';
     return String(Math.round(v));
   };
 
@@ -6041,14 +6049,15 @@ function renderThemeInteractiveChart(kpis, tasks) {
   const themeMap = {};
   for(const kpi of kpis) {
     const th = shortTheme(kpi.strategic_theme);
-    if(!themeMap[th]) themeMap[th] = { budget:0, spend:0, progs:[], done:0, total:0, kpis:[] };
+    if(!themeMap[th]) themeMap[th] = { budget:0, spend:0, done:0, inProg:0, blocked:0, total:0, kpis:[] };
     const kt = tasks.filter(t=>t.kpi_id===kpi.id);
     kt.forEach(t => {
       themeMap[th].budget += Number(t.allocated_budget||0);
       themeMap[th].spend  += Number(t.spend||0);
-      themeMap[th].progs.push(Number(t.progress||0));
       themeMap[th].total++;
-      if(t.status==='done') themeMap[th].done++;
+      if(t.status==='done')        themeMap[th].done++;
+      if(t.status==='in_progress') themeMap[th].inProg++;
+      if(t.status==='blocked')     themeMap[th].blocked++;
     });
     themeMap[th].kpis.push(kpi);
   }
@@ -6056,8 +6065,11 @@ function renderThemeInteractiveChart(kpis, tasks) {
   const themes = Object.entries(themeMap).sort((a,b)=>b[1].total-a[1].total);
 
   wrap.innerHTML = themes.map(([name, v]) => {
-    const avg    = v.progs.length ? Math.round(v.progs.reduce((a,b)=>a+b,0)/v.progs.length) : 0;
-    const exec   = v.budget>0 ? Math.round(v.spend/v.budget*100) : 0;
+    // status 기반 가중 평균 (done=100, in_progress=50, blocked=25, todo=0)
+    const avg = v.total > 0
+      ? Math.min(100, Math.round((v.done*100 + v.inProg*50 + v.blocked*25) / v.total))
+      : 0;
+    const exec   = v.budget>0 ? Math.min(100, Math.round(v.spend/v.budget*100)) : 0;
     const col    = THEME_COLORS[name] || { bg:'#8a8278', light:'rgba(138,130,120,.12)', text:'#5a5148' };
     const isAct  = _selectedTheme === name;
     const kpiCnt = v.kpis.length;
@@ -6090,7 +6102,7 @@ function renderThemeInteractiveChart(kpis, tasks) {
 function selectTheme(themeName) {
   _selectedTheme = _selectedTheme === themeName ? null : themeName;
   const kpis  = state._lastKpis||[];
-  const tasks = state._lastKpiTasks||[];
+  const tasks = state.tasks||state._lastKpiTasks||[];
   renderThemeInteractiveChart(kpis, tasks);
   if(_selectedTheme) {
     renderKpiPanelForTheme(_selectedTheme, kpis, tasks);
@@ -6163,7 +6175,7 @@ function resetKpiPanel() {
   if(backBtn) backBtn.style.display = 'none';
   if(summary) summary.style.display = '';
   if(panel)   panel.style.display   = 'none';
-  renderThemeInteractiveChart(state._lastKpis||[], state._lastKpiTasks||[]);
+  renderThemeInteractiveChart(state._lastKpis||[], state.tasks||state._lastKpiTasks||[]);
 }
 
 // ── Marketing Activity Trend Chart ──
