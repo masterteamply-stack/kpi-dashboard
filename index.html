@@ -5567,7 +5567,7 @@ function renderRegionOrderChart(tasks, kpis) {
 
   const revByRegion = {};
   for(const r of new Set([...Object.keys(b2bData),...Object.keys(ecomData)])) {
-    var _rk = (r==='Domestic'||r==='KR')?'GLOBAL':r;
+    var _rk = r==='KR'?'GLOBAL':r==='Domestic'?'ASEAN':r;
     const b2b  = Object.values(b2bData[r]||{}).reduce(function(s,v){return s+Number(v||0);},0);
     const ecom = Object.values(ecomData[r]||{}).reduce(function(s,v){return s+Number(v||0);},0);
     revByRegion[_rk] = (revByRegion[_rk]||0)+b2b+ecom;
@@ -5576,7 +5576,7 @@ function renderRegionOrderChart(tasks, kpis) {
   const spendByRegion = {};
   for(const t of tasks) {
     var _r=((t.region||'').trim().toUpperCase()||'GLOBAL');
-    if(_r==='KR'||_r==='DOMESTIC') _r='GLOBAL';
+    if(_r==='KR') _r='GLOBAL'; else if(_r==='DOMESTIC') _r='ASEAN';
     const v=Number(t.spend||t.allocated_budget||0);
     if(v>0) spendByRegion[_r]=(spendByRegion[_r]||0)+v;
   }
@@ -5605,7 +5605,7 @@ function renderRegionOrderChart(tasks, kpis) {
                  (kpi&&((kpi.kpi_key||'').toLowerCase().includes('choice')||(kpi.title||'').toLowerCase().includes('choice')));
     if(!isCk) continue;
     var _rb=((t.region||'').trim().toUpperCase()||'GLOBAL');
-    if(_rb==='KR'||_rb==='DOMESTIC') _rb='GLOBAL';
+    if(_rb==='KR') _rb='GLOBAL'; else if(_rb==='DOMESTIC') _rb='ASEAN';
     const bv=Number(t.spend||0);
     if(bv>0) ckSpendByRegion[_rb]=(ckSpendByRegion[_rb]||0)+bv;
   }
