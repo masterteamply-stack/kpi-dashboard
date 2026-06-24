@@ -3516,6 +3516,37 @@ async function saveTaskSelectEdit(el) {
 
 
 function _syncAfterTaskChange(task, changedFields) {
+  // 인라인 셀 DOM 갱신 (드로어 저장 외 경로에서도 일치 보장)
+  if(task && task.id) {
+    var _r2 = document.querySelector('tr[data-task-id="'+task.id+'"]');
+    if(_r2) {
+      var _pc = _r2.querySelector('[data-field="progress"]');
+      if(_pc) {
+        var _pv2 = task._progressRaw!=null ? task._progressRaw : (task.progress||0);
+        _pv2 = Number(_pv2)||0;
+        _pc.textContent = _pv2>0
+          ? (_pv2>=1000000?(_pv2/1000000).toFixed(1)+'M'
+          : _pv2>=1000?(_pv2/1000).toFixed(0)+'K'
+          : String(Math.round(_pv2))) : '0';
+      }
+      if((changedFields||[]).includes('task_type')) {
+        var _tc = _r2.querySelector('[data-field="task_type"]');
+        if(_tc) _tc.value = task.task_type||'';
+      }
+      if((changedFields||[]).includes('status')) {
+        var _sc = _r2.querySelector('[data-field="status"]');
+        if(_sc) _sc.value = task.status||'';
+      }
+      if((changedFields||[]).includes('allocated_budget')) {
+        var _bc = _r2.querySelector('[data-field="allocated_budget"]');
+        if(_bc) _bc.textContent = (task.allocated_budget||0)>0 ? fmtKRW(task.allocated_budget) : '₩0';
+      }
+      if((changedFields||[]).includes('spend')) {
+        var _spc = _r2.querySelector('[data-field="spend"]');
+        if(_spc) _spc.textContent = (task.spend||0)>0 ? fmtKRW(task.spend) : '₩0';
+      }
+    }
+  }
   if(!task) return;
   changedFields = changedFields || [];
   var _ae=typeof document!=='undefined'?document.activeElement:null;
@@ -5258,14 +5289,12 @@ async function saveDrawerEdit(taskId) {
     // 2. _progressRaw localStorage 저장 (실제 입력값 유지)
     try { localStorage.setItem('task_praw_'+taskId, String(progressRaw)); } catch(_e2) {}
 
-    // 3. 모든 state 배열 즉시 동기화 (_lastKpiTasks 포함 - 이전 버전에서 누락됨)
-    // updatesWithRaw: progress는 클램핑값, _progressRaw는 원본 raw값
+    // 3. 모든 state 배열 즉시 동기화
     var updatesWithRaw = Object.assign({}, updates, {_progressRaw: progressRaw, progress: progressDb});
     ['tasks','_lastKpiTasks','_lastKpiTasksRaw','_allTasks','_allKpiTasks'].forEach(function(k) {
       var t2 = (state[k]||[]).find(function(t){return t.id===taskId;});
       if(t2) Object.assign(t2, updatesWithRaw);
     });
-    // drawer.task도 동기화
     Object.assign(task, updatesWithRaw);
 
     // 4. KPI 분기 목표 변경 시 업데이트
@@ -5278,7 +5307,39 @@ async function saveDrawerEdit(taskId) {
       if(formEl) formEl.dataset.origTarget = String(newTarget);
     }
 
-    // 5. KPI 게이지 즉시 갱신
+    // 5. 인라인 셀 DOM 즉시 업데이트 (재렌더 없이 해당 행만 갱신)
+    var _row = document.querySelector('tr[data-task-id="'+taskId+'"]')
+             || document.querySelector('[data-task-id="'+taskId+'"]')?.closest('tr');
+    if(_row) {
+      // 실적 셀
+      var _progCell = _row.querySelector('[data-field="progress"]');
+      if(_progCell) {
+        var _pv = progressRaw;
+        _progCell.textContent = _pv > 0
+          ? (_pv >= 1000000 ? (_pv/1000000).toFixed(1)+'M'
+          : _pv >= 1000    ? (_pv/1000).toFixed(0)+'K'
+          : String(Math.round(_pv))) : '0';
+      }
+      // 상태 셀
+      var _stCell = _row.querySelector('[data-field="status"]');
+      if(_stCell) _stCell.value = updates.status;
+      // 유형 셀
+      var _ttCell = _row.querySelector('[data-field="task_type"]');
+      if(_ttCell) _ttCell.value = updates.task_type || '';
+      // 예산 셀
+      var _budCell = _row.querySelector('[data-field="allocated_budget"]');
+      if(_budCell) _budCell.textContent = updates.allocated_budget > 0
+        ? fmtKRW(updates.allocated_budget) : '₩0';
+      // 집행 셀
+      var _spCell = _row.querySelector('[data-field="spend"]');
+      if(_spCell) _spCell.textContent = updates.spend > 0
+        ? fmtKRW(updates.spend) : '₩0';
+      // 마감일 셀
+      var _duCell = _row.querySelector('[data-field="due_date"]');
+      if(_duCell) _duCell.value = updates.due_date || '';
+    }
+
+    // 6. KPI 게이지 즉시 갱신
     if(task.kpi_id) {
       var _gEl = document.querySelector('[data-gauge-kpi="'+task.kpi_id+'"]');
       if(_gEl) {
@@ -5288,12 +5349,23 @@ async function saveDrawerEdit(taskId) {
       }
     }
 
-    // 6. accordion 즉시 재렌더 (task_type, region 등 즉시 반영)
-    renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||[]);
+    // 7. KPI 아코디언 내 해당 태스크 행 제목/담당자만 갱신 (전체 재렌더 금지)
+    var _trow = document.querySelector('.kpi-task-row[data-task-id="'+taskId+'"]');
+    if(_trow) {
+      var _titleEl = _trow.querySelector('.task-title-main');
+      if(_titleEl) _titleEl.textContent = updates.title;
+    } else {
+      // 행이 없으면 전체 재렌더 (최초 추가 등)
+      renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||[]);
+    }
 
-    // 7. summary/차트 갱신
+    // 8. 드로어 타이틀 갱신
+    var _dTitle = document.getElementById('drawerTitle');
+    if(_dTitle) _dTitle.textContent = updates.title;
+
+    // 9. summary/차트 갱신
     _syncAfterTaskChange(task, Object.keys(updates));
-    if(state._activeKpiModal&&typeof refreshKpiDetailModal==='function') refreshKpiDetailModal();
+    if(state._activeKpiModal && typeof refreshKpiDetailModal==='function') refreshKpiDetailModal();
 
     if(btn) { btn.textContent='✅ 저장됨'; setTimeout(function(){btn.textContent='저장';}, 1500); }
 
