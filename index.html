@@ -333,6 +333,12 @@
     .spend-cell:focus{ background:#fff;border-bottom-color:#5c6b4a;outline:none; }
 
     .kpi-owner-chip{font-size:10px;padding:2px 7px;border-radius:10px;background:#e4e0d8;color:#1a1714;font-weight:600;white-space:nowrap;display:inline-block;}
+    .task-owner-chip{display:inline-flex;align-items:center;gap:2px;font-size:10px;padding:2px 6px;border-radius:10px;background:#e4e0d8;border:1px solid #ccc8bf;color:#1a1714;font-weight:600;white-space:nowrap;flex-shrink:0;}
+    .task-owner-chip-del{background:none;border:none;cursor:pointer;font-size:10px;color:#8a8278;padding:0;line-height:1;margin-left:1px;display:inline-flex;align-items:center;}
+    .task-owner-chip-del:hover{color:#c0392b;}
+    .task-owner-add{display:inline-flex;align-items:center;font-size:10px;padding:2px 6px;border-radius:10px;border:1px dashed #aaa89e;color:#8a8278;cursor:pointer;white-space:nowrap;flex-shrink:0;background:none;}
+    .task-owner-add:hover{background:#f0ede6;border-color:#8a8278;}
+    .task-owner-chips-wrap{display:flex;flex-wrap:wrap;gap:3px;align-items:center;}
     .owner-trigger{display:flex;flex-wrap:wrap;gap:3px;align-items:center;}
     .owner-edit-icon{font-size:9px;color:#b0a898;margin-left:1px;}
     .owner-empty{font-size:10px;color:#b0a898;}
@@ -1984,6 +1990,65 @@ function getTaskOwnerNames(t) {
   return names.join(', ');
 }
 
+// ── 태스크 담당자 칩 렌더 ──
+function renderTaskOwnerChips(t) {
+  var names = [];
+  var mainName = (t.owners&&t.owners.name) ? t.owners.name
+    : ((state.owners||[]).find(function(o){return o.id===t.owner_id;})||{}).name||'';
+  if(mainName) names.push({name:mainName, ref:t.owner_id||mainName});
+  if(t.co_owners) {
+    String(t.co_owners).split(',').map(function(c){return c.trim();}).filter(Boolean).forEach(function(cid){
+      var ow=(state.owners||[]).find(function(o){return o.id===cid||o.name===cid;});
+      var n=ow?ow.name:cid;
+      if(n&&n!==mainName) names.push({name:n, ref:cid});
+    });
+  }
+  var chips=names.map(function(o){
+    return '<span class="task-owner-chip">'+esc(o.name)
+      +'<button class="task-owner-chip-del" title="담당자 제거" onclick="event.stopPropagation();removeTaskOwner(\''+esc(t.id)+'\',\''+esc(o.ref)+'\')">×</button>'
+      +'</span>';
+  }).join('');
+  chips+='<span class="task-owner-add" title="담당자 추가" onclick="event.stopPropagation();toggleOwnerPickerByCell(event,this,\''+esc(t.id)+'\')">＋</span>';
+  return '<div class="task-owner-chips-wrap">'+chips+'</div>';
+}
+
+function toggleOwnerPickerByCell(e, el, taskId) {
+  var cell=el.closest('.owner-multi-cell');
+  toggleOwnerPicker(e, cell||el, taskId);
+}
+
+async function removeTaskOwner(taskId, ownerRef) {
+  var task=(state.tasks||[]).find(function(t){return t.id===taskId;})
+          ||(state._lastKpiTasks||[]).find(function(t){return t.id===taskId;});
+  if(!task) return;
+  var mainOw=(state.owners||[]).find(function(o){return o.id===task.owner_id;});
+  var isMain=(task.owner_id===ownerRef)||(mainOw&&mainOw.name===ownerRef);
+  var coArr=task.co_owners?String(task.co_owners).split(',').map(function(c){return c.trim();}).filter(Boolean):[];
+  var newOwner_id=task.owner_id, newCo=coArr;
+  if(isMain) {
+    // 메인 삭제 → 첫 번째 co_owner를 메인으로 승격
+    if(coArr.length>0){newOwner_id=coArr[0];newCo=coArr.slice(1);}
+    else{newOwner_id=null;newCo=[];}
+  } else {
+    newCo=coArr.filter(function(c){return c!==ownerRef;});
+  }
+  try {
+    var upd={owner_id:newOwner_id,co_owners:newCo.length>0?newCo.join(','):null,updated_at:new Date().toISOString()};
+    var res=await state.sb.from('tasks').update(upd).eq('id',taskId);
+    if(res.error) throw res.error;
+    var newMainOw=(state.owners||[]).find(function(o){return o.id===newOwner_id;});
+    ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
+      var t2=(state[k]||[]).find(function(t){return t.id===taskId;});
+      if(t2){t2.owner_id=newOwner_id;t2.co_owners=upd.co_owners;if(newMainOw)t2.owners={name:newMainOw.name,team:newMainOw.team||''};}
+    });
+    var task2=(state.tasks||[]).find(function(t){return t.id===taskId;})
+             ||(state._lastKpiTasks||[]).find(function(t){return t.id===taskId;});
+    var cellEl=document.querySelector('.owner-multi-cell[data-task-id="'+taskId+'"]');
+    if(cellEl&&task2) cellEl.innerHTML=renderTaskOwnerChips(task2);
+    if(state._activeKpiModal&&typeof refreshKpiDetailModal==='function') refreshKpiDetailModal();
+  } catch(e){alert('저장 실패: '+(e.message||String(e)));}
+}
+
 // 담당자 다중 선택 피커
 function toggleOwnerPicker(e, displayEl, taskId) {
   e.stopPropagation();
@@ -2043,8 +2108,8 @@ async function applyOwnerPicker(popup, taskId) {
       if(t2){t2.owner_id=mainId;t2.co_owners=coIds||null;if(mainOwner)t2.owners={name:mainOwner.name,team:mainOwner.team||''};}
     });
     var task2=(state.tasks||[]).find(function(t){return t.id===taskId;});
-    var dispEl=document.querySelector('.owner-multi-cell[data-task-id="'+taskId+'"] .owner-multi-display');
-    if(dispEl&&task2){var names=getTaskOwnerNames(task2);dispEl.textContent=names||'-';dispEl.title=names;}
+    var cellEl=document.querySelector('.owner-multi-cell[data-task-id="'+taskId+'"]');
+    if(cellEl&&task2){cellEl.innerHTML=renderTaskOwnerChips(task2);}
     popup.remove();
     if(task2&&task2.kpi_id){
       var _gEl=document.querySelector('[data-gauge-kpi="'+task2.kpi_id+'"]');
@@ -2879,12 +2944,9 @@ function renderKPIAccordion(kpis, tasks) {
             >${esc((t.notes||'').slice(0,80))}${(t.notes||'').length>80?'…':''}</span>
           </div>` : ''}
         </td>
-        <td onclick="event.stopPropagation()">
+        <td onclick="event.stopPropagation()" style="min-width:120px">
           <div class="owner-multi-cell" data-task-id="${t.id}" style="position:relative">
-            <div class="owner-multi-display" onclick="toggleOwnerPicker(event,this,t.id)"
-              style="font-size:10px;padding:2px 6px;min-width:60px;max-width:110px;background:#fdfcf9;border:1px solid #e0dbd2;border-radius:3px;cursor:pointer;color:#1a1714;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
-              title="${getTaskOwnerNames(t)||'담당자 선택'}"
-            >${getTaskOwnerNames(t)||'-'}</div>
+            ${renderTaskOwnerChips(t)}
           </div>
         </td>
         <td>
