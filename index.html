@@ -4315,36 +4315,60 @@ function renderStrategicThemeChart(kpis, tasks) {
   const themeMap = {};
   for(const kpi of kpis) {
     const th = shortTheme(kpi.strategic_theme);
-    if(!themeMap[th]) themeMap[th] = { budget:0, spend:0, prog:[], done:0, total:0 };
+    if(!themeMap[th]) themeMap[th] = { budget:0, spend:0, done:0, total:0, kpis:[] };
     const kt = tasks.filter(t=>t.kpi_id===kpi.id);
+    themeMap[th].kpis.push({kpi, tasks: kt});
     kt.forEach(t => {
       themeMap[th].budget += Number(t.allocated_budget||0);
       themeMap[th].spend  += Number(t.spend||0);
-      themeMap[th].prog.push(Number(t.progress||0));
       themeMap[th].total++;
       if(t.status==='done') themeMap[th].done++;
     });
   }
 
   const themes = Object.entries(themeMap).sort((a,b)=>b[1].total-a[1].total);
-  const maxBudget = Math.max(...themes.map(([,v])=>v.budget), 1);
 
   wrap.innerHTML = themes.map(([name, v]) => {
-    const avg  = v.prog.length ? Math.round(v.prog.reduce((a,b)=>a+b,0)/v.prog.length) : 0;
-    const exec = v.budget>0 ? Math.round(v.spend/v.budget*100) : 0;
+    // 진척도: 완료 태스크 비율 기반 (status 기준, progress raw 수치 사용 안함)
+    // done=100, in_progress=50, blocked=25, todo=0
+    const _tasks = v.kpis.flatMap(x => x.tasks);
+    const _dn = _tasks.filter(t=>t.status==='done').length;
+    const _ip = _tasks.filter(t=>t.status==='in_progress').length;
+    const _bl = _tasks.filter(t=>t.status==='blocked').length;
+    const _tot = _tasks.length;
+    // progress 필드에 0~100 값이 입력된 경우 활용
+    const _hasProgInput = _tasks.some(t => {
+      const p = Number(t.progress||0);
+      return p > 0 && p <= 100;
+    });
+    let avg;
+    if(_tot === 0) {
+      avg = 0;
+    } else if(_hasProgInput) {
+      // % 입력값 기반 평균
+      const _sumP = _tasks.reduce((s,t) => {
+        if(t.status==='done') return s+100;
+        const p = Number(t.progress||0);
+        return s + (p <= 100 ? Math.max(0,p) : 0);
+      }, 0);
+      avg = Math.min(100, Math.round(_sumP/_tot));
+    } else {
+      // status 가중 평균
+      avg = Math.min(100, Math.round((_dn*100+_ip*50+_bl*25)/_tot));
+    }
+    const exec = v.budget>0 ? Math.min(100, Math.round(v.spend/v.budget*100)) : 0;
     const col  = COLORS[name] || '#8a8278';
-    const barW = avg;
     return `
       <div style="margin-bottom:12px">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
           <span style="font-size:12px;font-weight:700;color:#1a1714">${esc(name)}</span>
-          <span style="font-size:11px;color:#6b6259">${v.done}/${v.total} 완료 · 집행 ${exec}%</span>
+          <span style="font-size:11px;color:#6b6259">${avg}% 진척 · 집행 ${exec}% · <b style="color:#5c6b4a">${_dn}</b>/${_tot} Task</span>
         </div>
         <div style="display:grid;grid-template-columns:1fr 40px;gap:8px;align-items:center">
           <div style="height:18px;background:#eceae3;border-radius:3px;overflow:hidden">
-            <div style="height:100%;width:${barW}%;background:${col};border-radius:3px;
+            <div style="height:100%;width:${avg}%;background:${col};border-radius:3px;
               display:flex;align-items:center;padding-left:6px;transition:width .6s ease">
-              ${barW>12?`<span style="font-size:10px;font-weight:700;color:#fff">${avg}%</span>`:''}
+              ${avg>12?`<span style="font-size:10px;font-weight:700;color:#fff">${avg}%</span>`:''}
             </div>
           </div>
           <span style="font-size:12px;font-weight:700;color:${col};text-align:right">${avg}%</span>
@@ -4353,7 +4377,7 @@ function renderStrategicThemeChart(kpis, tasks) {
           <div style="height:100%;width:${exec}%;background:${col};opacity:.45;border-radius:2px"></div>
         </div>
         <div style="font-size:10px;color:#8a8278;margin-top:3px">
-          예산 ${fmtKRW(v.budget)} → 집행 ${fmtKRW(v.spend)}
+          완료 ${_dn}건 · 진행중 ${_ip}건 · 대기 ${_tot-_dn-_ip-_bl}건 | 예산 ${fmtKRW(v.budget)} → 집행 ${fmtKRW(v.spend)}
         </div>
       </div>`;
   }).join('');
@@ -4521,16 +4545,18 @@ function renderDkpiSheetBody(kpiKey) {
   // ── 월 누적 데이터 배너 (상단) ──
   const _data  = getDkpiMonthly(kpiKey);
   const _months = Object.keys(_data).filter(k => !isNaN(Number(k.split('-')[1]))).sort();
-  const _curMo  = '2026-0' + new Date().getMonth() + 1; // 현재 월
-  const _lastMo = _months.length ? _months[_months.length-1] : null;
 
-  // 누적 actual 합계
-  const _sumActual   = _months.reduce((s,k) => s + Number(_data[k]?.actual||0), 0);
-  // 누적 target 합계
-  const _sumTarget   = _months.reduce((s,k) => s + Number(_data[k]?.target||0), 0);
-  // 이달 실적
-  const _thisMonthAct= _lastMo ? Number(_data[_lastMo]?.actual||0) : 0;
-  const _thisMonthTgt= _lastMo ? Number(_data[_lastMo]?.target||0) : 0;
+  // 누적 actual 합계 (실적 있는 월만)
+  const _sumActual = _months.reduce((s,k) => s + Number(_data[k]?.actual||0), 0);
+  // 누적 target 합계 (실적 있는 월만)
+  const _sumTarget = _months.reduce((s,k) => s + Number(_data[k]?.target||0), 0);
+  // 실적이 있는 가장 마지막 월 (없으면 null)
+  const _lastMoWithData = [..._months].reverse().find(k => Number(_data[k]?.actual||0) > 0) || null;
+  // 표시할 마지막 월: 실적 있는 마지막 월 우선
+  const _lastMo = _lastMoWithData || (_months.length ? _months[_months.length-1] : null);
+  // 이달 실적 (실적 있는 마지막 달)
+  const _thisMonthAct = _lastMo ? Number(_data[_lastMo]?.actual||0) : 0;
+  const _thisMonthTgt = _lastMo ? Number(_data[_lastMo]?.target||0) : 0;
   // 달성률
   const _achvRate = _sumTarget>0 ? Math.round(_sumActual/_sumTarget*100) : null;
   const _achvColor= _achvRate===null?'#8a8278':_achvRate>=100?'#2a7c2a':_achvRate>=70?'#c17f3a':'#c0392b';
