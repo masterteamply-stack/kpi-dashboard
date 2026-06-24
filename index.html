@@ -3102,44 +3102,22 @@ async function refreshDashboard() {
       fetchTasks(),
       fetchKpisWithTasks().catch(e => { console.warn('KPI fetch:', e); return { kpis:[], tasks:[] }; })
     ]);
-    // progress 정규화: DB에 raw 수치(100 초과)가 저장된 경우 _progressRaw로 보존하고
-    // progress 자체는 0~100으로 클램핑 → avgProg 등 % 집계에 오염 방지
+    // progress: DB에서 받은 raw 수치 그대로 유지 (_progressRaw 동기화만)
     tasksData.forEach(function(t) {
-      var raw = Number(t.progress || 0);
       if (t._progressRaw == null) {
-        // localStorage에 저장된 raw값 복원 시도
-        try {
-          var ls = localStorage.getItem('task_praw_' + t.id);
-          if (ls !== null) raw = Number(ls);
-        } catch(_e) {}
-        t._progressRaw = raw;
+        t._progressRaw = Number(t.progress || 0);
       }
-      t.progress = Math.min(100, Math.max(0, Math.round(raw)));
     });
     state.tasks = tasksData;
     state._allTasks = [...tasksData]; // 원본 전체 보존
 
-    // DB progress 100 초과 태스크 자동 fix (백그라운드, 오류 무시)
-    (async function _fixProgressInDB() {
-      try {
-        var dirty = tasksData.filter(function(t) {
-          return (t._progressRaw != null ? t._progressRaw : Number(t.progress||0)) > 100;
-        });
-        for(var _di=0; _di<dirty.length; _di++) {
-          var _dt = dirty[_di];
-          var _clamped = Math.min(100, Math.max(0, Math.round(Number(_dt.progress||0))));
-          await state.sb.from('tasks').update({progress: _clamped}).eq('id', _dt.id);
-        }
-      } catch(_fixE) { /* 무시 */ }
-    })();
+    // DB progress: raw 수치 그대로 유지 (KPI 유형별 계산은 렌더링 시 처리)
 
 
     // KPI accordion 렌더 → state._lastKpis / state._lastKpiTasks 세팅
-    // kpiResult.tasks도 동일하게 progress 정규화
+    // kpiResult.tasks _progressRaw 동기화
     (kpiResult.tasks||[]).forEach(function(t) {
-      var raw = Number(t.progress || 0);
-      if (t._progressRaw == null) t._progressRaw = raw;
-      t.progress = Math.min(100, Math.max(0, Math.round(raw)));
+      if (t._progressRaw == null) t._progressRaw = Number(t.progress || 0);
     });
     renderKPIAccordion(kpiResult.kpis, kpiResult.tasks);
     state._allKpiTasks = [...(kpiResult.tasks||[])]; // 원본 전체 보존
@@ -3643,20 +3621,15 @@ async function saveTaskCellEdit(el) {
   if(!task) return;
   var _oldVal=task[field];
   var _fmtV=function(v){if(!v||v<=0)return '0';if(v>=1000000)return (v/1000000).toFixed(1)+'M';if(v>=1000)return (v/1000).toFixed(0)+'K';return String(Math.round(v));};
-  // progress: _progressRaw에 raw값 보존, progress 자체는 0~100 클램핑
+  // progress: raw 수치 그대로 저장 (_progressRaw와 동일)
+  // % / 수치 KPI 구분은 renderKpiGauge/calcKpiModalProgress에서 처리
   task[field]=newVal;
-  if(field==='progress'){
-    task._progressRaw=newVal;
-    task.progress=Math.min(100,Math.max(0,Math.round(Number(newVal)||0)));
-  }
+  if(field==='progress') task._progressRaw=newVal;
   ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
     var t2=(state[k]||[]).find(function(t){return t.id===taskId;});
     if(t2){
       t2[field]=newVal;
-      if(field==='progress'){
-        t2._progressRaw=newVal;
-        t2.progress=Math.min(100,Math.max(0,Math.round(Number(newVal)||0)));
-      }
+      if(field==='progress') t2._progressRaw=newVal;
     }
   });
   if(dtype==='number') el.textContent=_fmtV(newVal);
@@ -5248,8 +5221,9 @@ async function saveDrawerEdit(taskId) {
 
   // 실적 수치: 실제 입력값(_progressRaw) + DB용 클램핑
   var progressRaw = parseFloat((document.getElementById('de_progress') && document.getElementById('de_progress').value)||0)||0;
-  // progressDb: DB 저장용 (0~100 클램핑), _progressRaw: 실제 입력값 보존용
-  var progressDb  = Math.min(100, Math.max(0, Math.round(progressRaw)));
+  // progressDb: DB에 raw 수치 그대로 저장, _progressRaw와 동일
+  // % KPI/수치 KPI 구분은 renderKpiGauge/calcKpiModalProgress에서 처리
+  var progressDb = progressRaw;
 
   var updates = {
     title:    (document.getElementById('de_title') && document.getElementById('de_title').value.trim()) || task.title,
