@@ -5546,16 +5546,26 @@ async function saveDrawerEdit(taskId) {
     var ow = (state.owners||[]).find(function(o){return o.name===ownerName;});
     if(ow) {
       updates.owner_id = ow.id;
-      // task.owners 동기화 (모달 태스크 목록에 즉시 반영)
       task.owners = {name:ow.name, team:ow.team||''};
-      // 모든 state 배열에도 owners 동기화
       ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
         var t2=(state[k]||[]).find(function(t){return t.id===task.id;});
         if(t2) t2.owners={name:ow.name,team:ow.team||''};
       });
     }
   }
-
+  // 공동담당자 저장
+  var _coSel = document.getElementById('de_co_owners');
+  if(_coSel) {
+    var _coIds = Array.from(_coSel.selectedOptions).map(function(o){return o.value;}).filter(Boolean);
+    var _mainOw2 = ownerName ? (state.owners||[]).find(function(o){return o.name===ownerName;}) : null;
+    if(_mainOw2) _coIds = _coIds.filter(function(id){return id!==_mainOw2.id;});
+    updates.co_owners = _coIds.length>0 ? _coIds.join(',') : null;
+    task.co_owners = updates.co_owners;
+    ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
+      var t2=(state[k]||[]).find(function(t){return t.id===task.id;});
+      if(t2) t2.co_owners=updates.co_owners;
+    });
+  }
   var btn = document.querySelector('#drawerTabEdit .btn-primary');
   try {
     // 1. Task DB 저장
