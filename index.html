@@ -3735,7 +3735,8 @@ function openKpiDetail(kpiId) {
   function buildContent() {
     // 최신 데이터 재취득
     var kpi2 = (state._lastKpis||[]).find(function(k){return k.id===kpiId;})||kpi;
-    var allSources2 = [state._lastKpiTasks, state.tasks, state._allTasks, state._allKpiTasks].filter(Boolean);
+    var _pSrc2 = state.tasks || state._lastKpiTasks || [];
+    var allSources2 = [_pSrc2, state._lastKpiTasks, state._allTasks, state._allKpiTasks].filter(Boolean);
     var tasks2 = [];
     for(var _si2=0; _si2<allSources2.length; _si2++) {
       var found2 = allSources2[_si2].filter(function(t){return t.kpi_id===kpiId;});
