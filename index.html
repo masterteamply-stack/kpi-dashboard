@@ -3352,67 +3352,143 @@ function renderKpiGauge(kpi, taskList) {
   var annualTarget=parseN(kpi.q4_target)||null;
   if(!annualTarget){annualTarget=['q1','q2','q3','q4'].reduce(function(s,q){return s+(parseN(kpi[q+'_target'])||0);},0)||null;}
 
-  // 태스크 실적 분기별 합산 (_progressRaw 우선)
+  // ── KPI 유형 판별 ──
+  // unit이 '%' 이거나 연간목표가 100이면 → % 기반 (태스크 progress 평균)
+  // 그 외 → 수치 기반 (태스크 _progressRaw 합산 vs 목표)
+  var isPctKpi = (unit==='%') || (annualTarget===100);
+
+  var actualVal=null, targetVal=null, achvPct=null, label='';
   var byQ={q1:0,q2:0,q3:0,q4:0};
-  for(var _i=0;_i<taskList.length;_i++){
-    var _t=taskList[_i];
-    var _q=parseQuarterKey(_t.quarter)||curQ;
-    byQ[_q]+=Number(_t._progressRaw!=null?_t._progressRaw:(_t.progress||0));
-  }
-  var totalActual=byQ.q1+byQ.q2+byQ.q3+byQ.q4;
-  var taskHasData=totalActual>0;
 
-  // DB 수동 실적 (태스크 데이터 없을 때만 fallback)
-  var dbRes=null;
-  if(!taskHasData){
-    var qOrder=[curQ,'q4','q3','q2','q1'];
-    for(var _qi=0;_qi<qOrder.length;_qi++){
-      var _qk=qOrder[_qi];var _r=parseN(kpi[_qk+'_result']);
-      if(_r!==null&&_r>0){dbRes={val:_r,q:_qk};break;}
-    }
-  }
+  if(isPctKpi) {
+    // ── % 기반 KPI: 태스크별 진척도(0~100) 평균 ──
+    // 1순위: 완료된 태스크 비율 (status=done)
+    // 2순위: progress 필드 평균 (100입력=완료, 0=미착수)
+    var totalTasks = taskList.length;
+    var doneTasks  = taskList.filter(function(t){return t.status==='done';}).length;
+    var inProgTasks= taskList.filter(function(t){return t.status==='in_progress';}).length;
+    var blockedTasks=taskList.filter(function(t){return t.status==='blocked';}).length;
 
-  var actualVal=null,targetVal=null,achvPct=null,label='';
+    if(totalTasks > 0) {
+      // progress 필드 입력값 확인 (100 입력된 태스크 있는지)
+      var hasProgressInput = taskList.some(function(t){
+        return Number(t.progress||0) > 0;
+      });
 
-  if(annualTarget&&annualTarget>0){
-    if(taskHasData){
-      actualVal=totalActual; targetVal=annualTarget;
-      achvPct=Math.round(totalActual/annualTarget*100);
-      var curQActual=byQ[curQ]||0;
-      var curQTarget=parseN(kpi[curQ+'_target'])||null;
-      if(curQActual>0&&curQTarget&&curQTarget>0){
-        label=curQ.toUpperCase()+' '+Math.round(curQActual/curQTarget*100)+'%';
+      var avgProg;
+      if(hasProgressInput) {
+        // progress 필드 입력값 기반 평균 (0~100)
+        var sumProg = taskList.reduce(function(s,t){
+          return s + Math.min(100, Math.max(0, Number(t.progress||0)));
+        }, 0);
+        avgProg = Math.round(sumProg / totalTasks);
       } else {
-        label='누적 실적';
+        // status 기반 가중 평균
+        avgProg = Math.round((doneTasks*100 + inProgTasks*50 + blockedTasks*25) / totalTasks);
       }
-    } else if(dbRes){
-      actualVal=dbRes.val; targetVal=annualTarget;
-      achvPct=Math.round(dbRes.val/annualTarget*100);
-      label=dbRes.q.toUpperCase()+' 실적';
+
+      actualVal  = avgProg;
+      targetVal  = 100;
+      achvPct    = avgProg;
+
+      // 완료 태스크 수 표시
+      var doneRatio = doneTasks+'/'+totalTasks;
+      label = '완료 '+doneRatio+'건';
+    } else {
+      // 태스크 없으면 DB 실적 fallback
+      var qOrder0=[curQ,'q4','q3','q2','q1'];
+      for(var _qi0=0;_qi0<qOrder0.length;_qi0++){
+        var _qk0=qOrder0[_qi0];var _r0=parseN(kpi[_qk0+'_result']);
+        if(_r0!==null){actualVal=_r0;achvPct=_r0;targetVal=100;label=_qk0.toUpperCase()+' 실적';break;}
+      }
     }
+
+    if(achvPct===null){return '<div class="kpi-gauge-pct">-</div><div class="kpi-gauge-outer"><div class="kpi-gauge-bar" style="width:0%"></div></div><div style="font-size:9px;color:#b0a898;margin-top:2px">실적 미입력</div>';}
+    var cc=achvPct>=80?'':achvPct>=50?'warn':'danger';
+    var bw=Math.min(100,achvPct);
+
+    // 태스크 상세 (완료/진행중/대기)
+    var taskDetail='';
+    if(taskList.length>0){
+      taskDetail='<div style="font-size:9px;color:#8a8278;margin-top:2px">'
+        +'완료 <b style="color:#5c9c3a">'+doneTasks+'</b>'
+        +' · 진행중 <b style="color:#b8962e">'+inProgTasks+'</b>'
+        +' · 대기 <b style="color:#a89f94">'+(totalTasks-doneTasks-inProgTasks-blockedTasks)+'</b>'
+        +' / 전체 '+totalTasks+'건'
+        +'</div>';
+    }
+
+    return '<div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px">'
+      +'<span class="kpi-gauge-pct">'+achvPct+'%</span>'
+      +'<span style="font-size:9px;color:#8a8278;font-weight:600">'+label+'</span>'
+      +'</div>'
+      +'<div class="kpi-gauge-outer"><div class="kpi-gauge-bar '+cc+'" style="width:'+bw+'%"></div></div>'
+      +'<div style="font-size:10px;color:#6b6259;margin-top:3px">'
+        +'<span style="color:#5c6b4a;font-weight:700">'+actualVal+'%</span>'
+        +'<span style="color:#8a8278"> / 목표 100%</span>'
+      +'</div>'
+      +taskDetail;
+
   } else {
-    var qT2=parseN(kpi[curQ+'_target']);
-    if(qT2&&qT2>0&&byQ[curQ]>0){actualVal=byQ[curQ];targetVal=qT2;achvPct=Math.round(byQ[curQ]/qT2*100);label=curQ.toUpperCase();}
-    else if(dbRes){actualVal=dbRes.val;targetVal=null;achvPct=null;label=dbRes.q.toUpperCase()+' 실적';}
-  }
-
-  if(achvPct===null){return '<div class="kpi-gauge-pct">-</div><div class="kpi-gauge-outer"><div class="kpi-gauge-bar" style="width:0%"></div></div><div style="font-size:9px;color:#b0a898;margin-top:2px">실적 미입력</div>';}
-  var cc=achvPct>=80?'':achvPct>=50?'warn':'danger';
-  var bw=Math.min(100,achvPct);
-
-  var qDetail=[];
-  ['q1','q2','q3','q4'].forEach(function(q){
-    if(byQ[q]>0){
-      var qt=parseN(kpi[q+'_target']);
-      qDetail.push(q.toUpperCase()+':'+fmtV(byQ[q])+(qt?'/'+fmtV(qt):''));
+    // ── 수치 기반 KPI: 태스크 _progressRaw 합산 vs 연간목표 ──
+    for(var _i=0;_i<taskList.length;_i++){
+      var _t=taskList[_i];
+      var _q=parseQuarterKey(_t.quarter)||curQ;
+      byQ[_q]+=Number(_t._progressRaw!=null?_t._progressRaw:(_t.progress||0));
     }
-  });
-  var detailStr=qDetail.length?'<div style="font-size:9px;color:#8a8278;margin-top:2px">'+qDetail.join(' · ')+'</div>':'';
+    var totalActual=byQ.q1+byQ.q2+byQ.q3+byQ.q4;
+    var taskHasData=totalActual>0;
 
-  return '<div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px"><span class="kpi-gauge-pct">'+achvPct+'%</span><span style="font-size:9px;color:#8a8278;font-weight:600">'+label+'</span></div>'
-    +'<div class="kpi-gauge-outer"><div class="kpi-gauge-bar '+cc+'" style="width:'+bw+'%"></div></div>'
-    +'<div style="font-size:10px;color:#6b6259;margin-top:3px"><span style="color:#5c6b4a;font-weight:700">'+fmtV(actualVal)+'</span><span style="color:#8a8278"> / 연간목표 '+fmtV(targetVal)+'</span>'+(unit?'<span style="color:#8a8278;margin-left:2px">'+unit+'</span>':'')+'</div>'
-    +detailStr;
+    // DB 수동 실적 (태스크 데이터 없을 때만 fallback)
+    var dbRes=null;
+    if(!taskHasData){
+      var qOrder=[curQ,'q4','q3','q2','q1'];
+      for(var _qi=0;_qi<qOrder.length;_qi++){
+        var _qk=qOrder[_qi];var _r=parseN(kpi[_qk+'_result']);
+        if(_r!==null&&_r>0){dbRes={val:_r,q:_qk};break;}
+      }
+    }
+
+    if(annualTarget&&annualTarget>0){
+      if(taskHasData){
+        actualVal=totalActual; targetVal=annualTarget;
+        achvPct=Math.round(totalActual/annualTarget*100);
+        var curQActual=byQ[curQ]||0;
+        var curQTarget=parseN(kpi[curQ+'_target'])||null;
+        if(curQActual>0&&curQTarget&&curQTarget>0){
+          label=curQ.toUpperCase()+' '+Math.round(curQActual/curQTarget*100)+'%';
+        } else {
+          label='누적 실적';
+        }
+      } else if(dbRes){
+        actualVal=dbRes.val; targetVal=annualTarget;
+        achvPct=Math.round(dbRes.val/annualTarget*100);
+        label=dbRes.q.toUpperCase()+' 실적';
+      }
+    } else {
+      var qT2=parseN(kpi[curQ+'_target']);
+      if(qT2&&qT2>0&&byQ[curQ]>0){actualVal=byQ[curQ];targetVal=qT2;achvPct=Math.round(byQ[curQ]/qT2*100);label=curQ.toUpperCase();}
+      else if(dbRes){actualVal=dbRes.val;targetVal=null;achvPct=null;label=dbRes.q.toUpperCase()+' 실적';}
+    }
+
+    if(achvPct===null){return '<div class="kpi-gauge-pct">-</div><div class="kpi-gauge-outer"><div class="kpi-gauge-bar" style="width:0%"></div></div><div style="font-size:9px;color:#b0a898;margin-top:2px">실적 미입력</div>';}
+    var cc=achvPct>=80?'':achvPct>=50?'warn':'danger';
+    var bw=Math.min(100,achvPct);
+
+    var qDetail=[];
+    ['q1','q2','q3','q4'].forEach(function(q){
+      if(byQ[q]>0){
+        var qt=parseN(kpi[q+'_target']);
+        qDetail.push(q.toUpperCase()+':'+fmtV(byQ[q])+(qt?'/'+fmtV(qt):''));
+      }
+    });
+    var detailStr=qDetail.length?'<div style="font-size:9px;color:#8a8278;margin-top:2px">'+qDetail.join(' · ')+'</div>':'';
+
+    return '<div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px"><span class="kpi-gauge-pct">'+achvPct+'%</span><span style="font-size:9px;color:#8a8278;font-weight:600">'+label+'</span></div>'
+      +'<div class="kpi-gauge-outer"><div class="kpi-gauge-bar '+cc+'" style="width:'+bw+'%"></div></div>'
+      +'<div style="font-size:10px;color:#6b6259;margin-top:3px"><span style="color:#5c6b4a;font-weight:700">'+fmtV(actualVal)+'</span><span style="color:#8a8278"> / 연간목표 '+fmtV(targetVal)+'</span>'+(unit?'<span style="color:#8a8278;margin-left:2px">'+unit+'</span>':'')+'</div>'
+      +detailStr;
+  }
 }
 
 // ── KPI 상세 모달 ──
