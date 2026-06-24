@@ -3848,7 +3848,7 @@ function openKpiDetail(kpiId) {
         ' onfocus="this.dataset.orig=this.textContent"'+
         ' style="display:block;min-width:0">'+esc(t.title||'')+'</span>'+
         '</div>'+
-        '<div class="kpi-detail-task-meta">'+esc(t.owners&&t.owners.name?t.owners.name:'')+(mo?' · '+mo:'')+' '+esc(qtr)+'</div>'+
+        '<div class="kpi-detail-task-meta">'+(function(){var _on=t.owners&&t.owners.name?t.owners.name:((state.owners||[]).find(function(o){return o.id===t.owner_id;})||{}).name||'';return esc(_on);})()+(mo?' · '+mo:'')+' '+esc(qtr)+'</div>'+
         '</div>'+
         '<div><select class="cell-select" data-task-id="'+esc(t.id)+'" data-field="status"'+
         ' onchange="saveTaskSelectEdit(this)" onclick="event.stopPropagation()"'+
@@ -4104,7 +4104,7 @@ function refreshKpiDetailModal() {
         '<span class="cell-editable" contenteditable="true" data-task-id="'+esc(t.id)+'" data-field="title"'+
         ' onblur="saveTaskCellEdit(this)" onkeydown="handleCellKeydown(event,this)" onfocus="this.dataset.orig=this.textContent"'+
         ' style="display:block;min-width:0">'+esc(t.title||'')+'</span></div>'+
-        '<div class="kpi-detail-task-meta">'+esc(t.owners&&t.owners.name?t.owners.name:'')+(mo?' · '+mo:'')+' '+esc(qtr)+'</div></div>'+
+        '<div class="kpi-detail-task-meta">'+(function(){var _on=t.owners&&t.owners.name?t.owners.name:((state.owners||[]).find(function(o){return o.id===t.owner_id;})||{}).name||'';return esc(_on);})()+(mo?' · '+mo:'')+' '+esc(qtr)+'</div></div>'+
         '<div><select class="cell-select" data-task-id="'+esc(t.id)+'" data-field="status"'+
         ' onchange="saveTaskSelectEdit(this)" onclick="event.stopPropagation()"'+
         ' style="font-size:11px;width:100%;padding:3px 4px;border-radius:4px;background:#fdfcf9;border:1px solid #e0dbd2;color:#1a1714;cursor:pointer">'+
@@ -5347,7 +5347,13 @@ async function saveDrawerEdit(taskId) {
     var ow = (state.owners||[]).find(function(o){return o.name===ownerName;});
     if(ow) {
       updates.owner_id = ow.id;
+      // task.owners 동기화 (모달 태스크 목록에 즉시 반영)
       task.owners = {name:ow.name, team:ow.team||''};
+      // 모든 state 배열에도 owners 동기화
+      ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
+        var t2=(state[k]||[]).find(function(t){return t.id===task.id;});
+        if(t2) t2.owners={name:ow.name,team:ow.team||''};
+      });
     }
   }
 
