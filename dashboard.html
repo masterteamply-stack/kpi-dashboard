@@ -2636,6 +2636,8 @@ function renderChart(tasks) {
 function renderOwnerTable(tasks, kpis) {
   const rows = buildOwnerSummary(tasks, kpis||state._lastKpis||[]);
   if(!rows.length) { el.ownerTableBody.innerHTML=`<tr><td colspan="12" class="empty">데이터가 없습니다.</td></tr>`; return; }
+  // 전체 KPI 배분 예산 합계 계산
+  const totalKpiBudget = rows.reduce((sum, r) => sum + (r.kpiBudget || 0), 0);
   el.ownerTableBody.innerHTML = rows.map(r=>{
     // KPI 배분 예산 툴팁 (항목별 상세)
     const detailLines = r.kpiDetail.map(d=>
@@ -2644,8 +2646,15 @@ function renderOwnerTable(tasks, kpis) {
     const budgetTooltip = r.kpiDetail.length
       ? `title="${detailLines.replace(/"/g,'&quot;')}"`
       : '';
+    // 배분 비율 계산
+    const budgetRatioPct = (totalKpiBudget > 0 && r.kpiBudget > 0)
+      ? ((r.kpiBudget / totalKpiBudget) * 100).toFixed(1) + '%'
+      : null;
+    const budgetRatioTag = budgetRatioPct
+      ? `<span style="display:inline-block;margin-left:5px;font-size:10px;font-weight:700;background:rgba(92,107,74,.12);color:#5c6b4a;border-radius:3px;padding:1px 5px;vertical-align:middle;">${budgetRatioPct}</span>`
+      : '';
     const budgetCell = r.kpiBudget > 0
-      ? `<span style="color:var(--primary);font-weight:600" ${budgetTooltip}>${fmtKRW(r.kpiBudget)}</span>`
+      ? `<span style="color:var(--primary);font-weight:600" ${budgetTooltip}>${fmtKRW(r.kpiBudget)}</span>${budgetRatioTag}`
         + (r.taskBudget > 0
           ? `<div style="font-size:10px;color:#8a8278;margin-top:1px">task ${fmtKRW(r.taskBudget)}</div>`
           : '')
@@ -7476,3 +7485,4 @@ var CK_TARGET_BY_REGION = {
 </script>
 </body>
 </html>
+
