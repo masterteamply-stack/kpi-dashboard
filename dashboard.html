@@ -1393,7 +1393,7 @@
           <tr>
             <th>담당자</th><th>팀</th><th>전체</th><th>완료</th>
             <th>진행중</th><th>지연</th><th>평균진척도</th>
-            <th>KPI 배분 예산</th><th>집행</th><th>매출</th><th>ROI</th>
+            <th>KPI 배분 예산</th><th>집행</th><th>ROI</th>
           </tr>
         </thead>
         <tbody id="ownerTableBody"></tbody>
@@ -2675,7 +2675,6 @@ function renderOwnerTable(tasks, kpis) {
       </td>
       <td>${budgetCell}</td>
       <td>${fmtKRW(r.spend)}</td>
-      <td style="color:var(--green)">${fmtKRW(r.revenue)}</td>
       <td style="color:${r.roi>=0?"var(--green)":"var(--red)"}">${fmtPct(r.roi)}</td>
     </tr>`;
   }).join("");
