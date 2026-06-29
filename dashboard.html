@@ -4362,15 +4362,16 @@ function renderDkpiSheetBody(kpiKey) {
   // ── 월 누적 데이터 배너 (상단) ──
   const _data  = getDkpiMonthly(kpiKey);
   const _months = Object.keys(_data).filter(k => !isNaN(Number(k.split('-')[1]))).sort();
-  const _curMo  = '2026-0' + new Date().getMonth() + 1; // 현재 월
+  const _mo = new Date().getMonth() + 1; // 현재 월 (1-based)
+  const _curMo  = '2026-' + String(_mo).padStart(2,'0');
   const _lastMo = _months.length ? _months[_months.length-1] : null;
 
-  // 누적 actual 합계
-  const _sumActual   = _months.reduce((s,k) => s + Number(_data[k]?.actual||0), 0);
+  // 누적 actual 합계 (actual 또는 result 키 모두 허용)
+  const _sumActual   = _months.reduce((s,k) => s + Number(_data[k]?.actual ?? _data[k]?.result ?? 0), 0);
   // 누적 target 합계
   const _sumTarget   = _months.reduce((s,k) => s + Number(_data[k]?.target||0), 0);
   // 이달 실적
-  const _thisMonthAct= _lastMo ? Number(_data[_lastMo]?.actual||0) : 0;
+  const _thisMonthAct= _lastMo ? Number(_data[_lastMo]?.actual ?? _data[_lastMo]?.result ?? 0) : 0;
   const _thisMonthTgt= _lastMo ? Number(_data[_lastMo]?.target||0) : 0;
   // 달성률
   const _achvRate = _sumTarget>0 ? Math.round(_sumActual/_sumTarget*100) : null;
