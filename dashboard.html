@@ -6738,7 +6738,7 @@ window.debugBudgetPlan = function() {
 // ── 디지털 KPI 기본 데이터 초기화 ──
 function initDkpiDefaultData() {
   // 이미 데이터가 있으면 건너뜀
-  if(localStorage.getItem('dkpi_initialized')==='v7') return;
+  if(localStorage.getItem('dkpi_initialized')==='v8') return;
   try {
     const eng  = {"2026-01": {"target": 4277306, "result": 4381186}, "2026-02": {"target": 9980381, "result": 5685770}, "2026-03": {"target": 9980381, "result": 6128704}, "2026-04": {"target": 9980381, "result": 2719065}, "2026-05": {"target": 11406149, "result": null}, "2026-06": {"target": 11406149, "result": null}, "2026-07": {"target": 11406149, "result": null}, "2026-08": {"target": 11406149, "result": null}, "2026-09": {"target": 12119034, "result": null}, "2026-10": {"target": 12119034, "result": null}, "2026-11": {"target": 19960761, "result": null}, "2026-12": {"target": 18534993, "result": null}};
     const clk  = {"2026-01": {"target": 83604, "result": 97900}, "2026-02": {"target": 125405, "result": 105568}, "2026-03": {"target": 209009, "result": 141947}, "2026-04": {"target": 334414, "result": 177904}, "2026-05": {"target": 334414, "result": 698696}, "2026-06": {"target": 376216, "result": null}, "2026-07": {"target": 376216, "result": null}, "2026-08": {"target": 418018, "result": null}, "2026-09": {"target": 418018, "result": null}, "2026-10": {"target": 418018, "result": null}, "2026-11": {"target": 543423, "result": null}, "2026-12": {"target": 543423, "result": null}};
@@ -6765,7 +6765,7 @@ function initDkpiDefaultData() {
     const revenueData = {"ASIA": {"2026-01": 720738.83, "2026-02": 360079.47, "2026-03": 529373.18, "2026-04": 818848.14}, "CIS": {"2026-01": 2848036.64, "2026-02": 2186313.65, "2026-03": 2853069.52, "2026-04": 1931563.17}, "KR": {"2026-01": 315608.02, "2026-02": 240597.92, "2026-03": 223410.0, "2026-04": 158136.28}, "EUROPE": {"2026-01": 673877.76, "2026-02": 599096.89, "2026-03": 364919.85, "2026-04": 852498.4}, "LATAM": {"2026-01": 1800763.05, "2026-02": 1281384.7, "2026-03": 1549639.89, "2026-04": 1897274.26}, "MENA": {"2026-01": 1398148.95, "2026-02": 585233.0, "2026-03": 204853.22, "2026-04": 516776.4}, "NA": {"2026-01": 906690.97, "2026-02": 764536.01, "2026-03": 1163940.62, "2026-04": 732667.7}, "RUS": {"2026-01": 2961612.21, "2026-02": 7758612.92, "2026-03": 8937232.11, "2026-04": 10594022.77}};
     localStorage.setItem('revenue_by_region', JSON.stringify(revenueData));
     localStorage.setItem('revenue_monthly_total', JSON.stringify({"2026-01": 11471137, "2026-02": 13162466, "2026-03": 15198838, "2026-04": 17498960}));
-    localStorage.setItem('dkpi_initialized', 'v7');
+    localStorage.setItem('dkpi_initialized', 'v8');
     console.log('[DKPI] 기본 데이터 초기화 완료');
   } catch(e) { console.warn('DKPI init failed:', e); }
 }
