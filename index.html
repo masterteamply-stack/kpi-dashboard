@@ -2489,9 +2489,7 @@ function renderSummary(s) {
     var subNetStr = (isSub && subNetMoNum)
       ? subNetMoNum+'\uc6d4 \uc21c\uc99d '+(subNetMo>=0?'+':'')+Number(subNetMo).toLocaleString('ko-KR')
       : '';
-    var subTgtStr = (isSub && subAnnualTgt>0)
-      ? ' / \ubaa9\ud45c '+fN(subAnnualTgt)
-      : '';
+
     var bottomLine = isSub
       ? (subNetStr
           ? '<div style="font-size:10px;color:#6b6259;display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
