@@ -2435,8 +2435,9 @@ function renderSummary(s) {
 
     var isSub = (kpiKey === 'channel_discriber');
 
-    // ── 구독자 전용: region_sub_net에서 이달 순증 및 목표 달성률 계산 ──
-    var subNetMo = 0, subNetMoNum = 0, subAnnualTgt = 0, subTotalAct = fallbackVal || 0;
+    // ── 구독자 전용: 이달 순증 + 전체 % 증가 ──
+    var subNetMo = 0, subNetMoNum = 0, subTotalAct = fallbackVal || 0;
+    var subGrowthPct = null; // 이달 순증 / 총 구독자 × 100
     if(isSub) {
       try {
         var _net = JSON.parse(localStorage.getItem('region_sub_net')||'{}');
@@ -2446,27 +2447,17 @@ function renderSummary(s) {
           subNetMo    = Number(_net[_lastNetKey]||0);
           subNetMoNum = parseInt(_lastNetKey.split('-')[1]);
         }
-        // 연간 순증 누적
-        var _netTotal = _netKeys.reduce(function(s,k){return s+Number(_net[k]||0);},0);
-        // KPI DB에서 channel_discriber 연간 목표 (q4_target 사용)
-        var _cdKpi = (state._lastKpis||[]).find(function(k){return k.kpi_key==='channel_discriber';});
-        subAnnualTgt = _cdKpi ? (Number(_cdKpi.q4_target||0)||Number(_cdKpi.annual_target||0)) : 0;
+        // 전체 % 증가 = 이달 순증 / (총구독자 - 이달순증) × 100
+        var _prevTotal = subTotalAct - subNetMo;
+        if(_prevTotal > 0) subGrowthPct = (_prevTotal > 0) ? (subNetMo / _prevTotal * 100) : null;
       } catch(e) {}
     }
 
-    // 전월 대비 성장률 (구독자 전용 상단 뱃지)
-    var momRate = (isSub && prevAct>0 && lastAct>0) ? Math.round((lastAct-prevAct)/prevAct*100) : null;
+    // 목표 달성률 (구독자 제외, 일반 카드용)
+    var allRate = (!isSub && allAct>0 && allTgt>0) ? Math.round(allAct/allTgt*100) : null;
+    var arc = allRate===null?'#8a8278':allRate>=100?'#2a7c2a':allRate>=70?'#c17f3a':'#c0392b';
 
-    // 목표 달성률
-    var allRate, arc;
-    if(isSub) {
-      allRate = (subAnnualTgt>0 && subTotalAct>0) ? Math.round(subTotalAct/subAnnualTgt*100) : null;
-    } else {
-      allRate = (!isSub && allAct>0 && allTgt>0) ? Math.round(allAct/allTgt*100) : null;
-    }
-    arc = allRate===null?'#8a8278':allRate>=100?'#2a7c2a':allRate>=70?'#c17f3a':'#c0392b';
-
-    // 전월 대비 등락
+    // 전월 대비 등락 (일반 카드용)
     var diff  = (prevAct>0 && lastAct>0) ? lastAct-prevAct : null;
     var diffP = prevAct>0 ? Math.round((lastAct-prevAct)/prevAct*100) : null;
     var dc    = diff===null?'#8a8278':diff>=0?'#2a7c2a':'#c0392b';
@@ -2476,11 +2467,15 @@ function renderSummary(s) {
       ? (subTotalAct>0 ? fN(subTotalAct) : '\u2013')
       : (allAct>0 ? fN(allAct) : (fallbackVal!=null ? fN(fallbackVal) : '\u2013'));
 
-    // 상단 뱃지: 구독자는 달성률%, 없으면 –
+    // 상단 뱃지: 구독자 = 전체 % 증가 / 일반 = 목표 달성률
+    var subGrowthColor = subGrowthPct===null?'#8a8278':subGrowthPct>=0?'#2a7c2a':'#c0392b';
+    var subGrowthStr = subGrowthPct!==null
+      ? (subGrowthPct>=0?'+':'')+subGrowthPct.toFixed(2)+'%'
+      : null;
     var topBadge = isSub
-      ? (allRate!==null
-          ? '<span style="font-size:11px;font-weight:700;color:'+arc+'">'+allRate+'%</span>'
-          : '<span style="font-size:10px;color:#b0a898">목표미설정</span>')
+      ? (subGrowthStr
+          ? '<span style="font-size:11px;font-weight:700;color:'+subGrowthColor+'">'+subGrowthStr+'</span>'
+          : '')
       : (allRate!==null
           ? '<span style="font-size:11px;font-weight:700;color:'+arc+'">'+allRate+'%</span>'
           : '');
@@ -2489,9 +2484,10 @@ function renderSummary(s) {
     var moRate = (!isSub && lastAct>0 && lastTgt>0) ? Math.round(lastAct/lastTgt*100) : null;
     var moArc  = moRate===null?'#8a8278':moRate>=100?'#2a7c2a':moRate>=70?'#c17f3a':'#c0392b';
     var moLabel = moNum ? moNum+'\uc6d4 '+fN(lastAct)+(lastAct===0?' (\uc9c0\ub09c\ub2ec\uae30\uc900)':'') : '';
-    // 구독자 하단: 이달 순증 표시
+    // 구독자 하단: 이달 순증
+    var subNetColor = subNetMo>=0?'#2a7c2a':'#c0392b';
     var subNetStr = (isSub && subNetMoNum)
-      ? subNetMoNum+'\uc6d4 \uc21c\uc99d '+(subNetMo>=0?'+':'')+fN(subNetMo)
+      ? subNetMoNum+'\uc6d4 \uc21c\uc99d '+(subNetMo>=0?'+':'')+Number(subNetMo).toLocaleString('ko-KR')
       : '';
     var subTgtStr = (isSub && subAnnualTgt>0)
       ? ' / \ubaa9\ud45c '+fN(subAnnualTgt)
@@ -2499,8 +2495,7 @@ function renderSummary(s) {
     var bottomLine = isSub
       ? (subNetStr
           ? '<div style="font-size:10px;color:#6b6259;display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
-            + '<span style="font-weight:600;color:'+(subNetMo>=0?'#2a7c2a':'#c0392b')+'">'+subNetStr+'</span>'
-            + (subTgtStr ? '<span style="font-size:9px;color:#8a8278">'+subTgtStr+'</span>' : '')
+            + '<span style="font-weight:600;color:'+subNetColor+'">'+subNetStr+'</span>'
             + '</div>'
           : '')
       : (moNum
