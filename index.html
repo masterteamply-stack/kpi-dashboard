@@ -1250,6 +1250,37 @@
 })();
 </script>
 <script>
+// ── ChoiceKit 오더 데이터 강제 주입 (orders.csv 기준, 2026 상반기) ──
+(function(){
+  try {
+    var ckCache = {
+      total:   1248144,
+      count:   4209,
+      monthly: {
+        "2026-01": 10154,
+        "2026-02": 893,
+        "2026-03": 198126,
+        "2026-04": 227469,
+        "2026-05": 377131,
+        "2026-06": 434372
+      },
+      byRegion: {
+        "CIS":     513067,
+        "ASIA":    468449,
+        "LATAM":   154455,
+        "NA":      67377,
+        "KOREA":   32267,
+        "MENA":    9199,
+        "OCEANIA": 3331
+      },
+      lastUpdated: new Date().toISOString()
+    };
+    localStorage.setItem('ck_order_cache',        JSON.stringify(ckCache));
+    localStorage.setItem('ck_order_cache_backup', JSON.stringify(ckCache));
+  } catch(e) { console.warn('ck order inject failed:', e); }
+})();
+</script>
+<script>
 // ── Survey 리드 데이터 강제 주입 (CTR 중국차 부품 시장 인사이트) ──
 (function(){
   try {
@@ -3514,7 +3545,18 @@ async function refreshDashboard() {
     setStatus(`마지막 업데이트: ${new Date().toLocaleTimeString('ko-KR')}`);
   } catch(e) {
     console.error('refreshDashboard error:', e);
-    setStatus(`⚠️ 오류: ${e.message||String(e)}`, true);
+    setStatus(`⚠️ Supabase 연결 오류 - 로컬 데이터로 표시 중`, true);
+    // ── Supabase 실패 시 로컬 데이터로 fallback 렌더링 ──
+    try {
+      renderSummary(computeSummary(state.tasks||[], state._lastKpis||[]));
+      fetchChoiceKitOrders().catch(function(){});
+      fetchWebLeadData().catch ? fetchWebLeadData().catch(function(){}) : fetchWebLeadData();
+      setTimeout(function(){
+        try{ renderRegionSubChart(); }catch(_e){}
+        try{ renderDigitalKpiCharts(state._lastKpis||[], state._lastKpiTasks||[]); }catch(_e){}
+        try{ updateOrderMiniChart(); }catch(_e){}
+      }, 1500);
+    } catch(_fe) { console.warn('fallback render failed:', _fe); }
   }
 }
 
@@ -7225,8 +7267,9 @@ function refreshOwnerFilterOptions() {
 
 // ── ChoiceKit 관련 오더 실시간 데이터 ──
 async function fetchChoiceKitOrders() {
-  // 항상 최신 CSV에서 로드 (캐시 미사용)
-  try { localStorage.removeItem('ck_order_cache'); } catch(_e0){}
+  // 항상 최신 CSV에서 로드 (캐시는 fallback용으로 유지)
+  var _ckBackup = null;
+  try { _ckBackup = localStorage.getItem('ck_order_cache_backup') || localStorage.getItem('ck_order_cache'); } catch(_e0){}
 
   // 파싱 함수
   async function _parse(res) {
@@ -7377,8 +7420,19 @@ async function fetchChoiceKitOrders() {
       console.warn('[CK] err:',_err.message);
     }
   }
-  console.error('[CK] All URLs failed');
-  if(!state.choiceKitOrder||!state.choiceKitOrder.total) state.choiceKitOrder={total:null,count:null,lastUpdated:null};
+  console.warn('[CK] All URLs failed - using backup cache');
+  // CSV fetch 실패 시 백업 캐시로 복원
+  try {
+    var _fb = _ckBackup ? JSON.parse(_ckBackup) : null;
+    if(_fb && _fb.total) {
+      state.choiceKitOrder = _fb;
+      renderSummary(computeSummary(state.tasks||[], state._lastKpis||[]));
+    } else {
+      if(!state.choiceKitOrder||!state.choiceKitOrder.total) state.choiceKitOrder={total:null,count:null,lastUpdated:null};
+    }
+  } catch(_fbe) {
+    if(!state.choiceKitOrder||!state.choiceKitOrder.total) state.choiceKitOrder={total:null,count:null,lastUpdated:null};
+  }
   updateOrderMiniChart();
 }
 
@@ -7527,6 +7581,18 @@ initDkpiDefaultData();
     var cs = computeSummary(state.tasks||[], state._lastKpis||[]);
     renderSummary(cs);
   } catch(e) {}
+})();
+// ChoiceKit 캐시에서 즉시 state 세팅 (Supabase 무관)
+(function(){
+  try {
+    var _ckC = JSON.parse(localStorage.getItem('ck_order_cache_backup')||'{}');
+    if(_ckC && _ckC.total) {
+      state.choiceKitOrder = _ckC;
+      var cs = computeSummary(state.tasks||[], state._lastKpis||[]);
+      renderSummary(cs);
+      setTimeout(function(){ try{ updateOrderMiniChart(); }catch(_e){} }, 100);
+    }
+  } catch(_e) {}
 })();
 // ChoiceKit 오더 데이터 독립 로드 (Supabase 연결 여부와 무관하게)
 (function(){
