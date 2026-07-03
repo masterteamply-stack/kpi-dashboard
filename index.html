@@ -1249,6 +1249,26 @@
   } catch(e) { console.warn('revenue inject failed:', e); }
 })();
 </script>
+<script>
+// ── Survey 리드 데이터 강제 주입 (CTR 중국차 부품 시장 인사이트) ──
+(function(){
+  try {
+    var surveyData = {
+      total: 4753,
+      countries: 70,
+      groups: 5,
+      monthly: {
+        "2026-06": 4753
+      },
+      byRegion: {
+        "China": 4753
+      },
+      detail: []
+    };
+    localStorage.setItem('survey_lead_data', JSON.stringify(surveyData));
+  } catch(e) { console.warn('survey inject failed:', e); }
+})();
+</script>
 </head>
 <body>
 <div class="container">
@@ -2639,8 +2659,12 @@ function renderSummary(s) {
   h += '<div style="font-size:8px;color:#3a4a8a;font-weight:700">📋 Survey</div>';
   h += '<a href="https://ctr-cn-survey.gorddaru.workers.dev/" target="_blank" style="font-size:7px;background:#dde0f5;border:1px solid #b0b8e0;border-radius:2px;padding:1px 4px;color:#3a4a8a;text-decoration:none">분석↗</a>';
   h += '</div>';
+  var _surveyMeta=(function(){try{var d=JSON.parse(localStorage.getItem('survey_lead_data')||'{}');return {countries:d.countries||0,groups:d.groups||0};}catch(e){return {countries:0,groups:0};}})();
   h += '<div style="font-size:13px;font-weight:800;color:#3a4a8a">' + fmtNum(ml.totalSurvey||0) + '</div>';
-  h += '<div style="font-size:9px;color:#8a8278">이번달 ' + fmtNum(_thisSurvey) + '</div></div>';
+  h += '<div style="font-size:9px;color:#8a8278">';
+  if(_surveyMeta.countries>0) h += _surveyMeta.countries + '개국';
+  if(_surveyMeta.groups>0) h += ' · ' + _surveyMeta.groups + '개 응답군';
+  h += '</div></div>';
   h += '</div></div>';
   h += '</div>';
 
