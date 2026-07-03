@@ -7408,6 +7408,12 @@ async function fetchChoiceKitOrders() {
         _cacheDate:new Date().toISOString().slice(0,10),
         _src:_url.split('/')[2],
         _campStarts:_campStarts};
+      // head 주입 캐시가 있으면 total/monthly/byRegion만 병합 (덮어쓰지 않음)
+      var _hc=null;try{_hc=JSON.parse(localStorage.getItem('ck_order_cache_backup')||'null');}catch(_e3){}
+      if(_hc&&_hc.total&&(!_nd.total||_nd.total<_hc.total)){
+        _nd.total=_hc.total;_nd.count=_hc.count||_nd.count;
+        _nd.monthly=_hc.monthly||_nd.monthly;_nd.byRegion=_hc.byRegion||_nd.byRegion;
+      }
       state.choiceKitOrder=_nd;
       try{localStorage.setItem('ck_order_cache',JSON.stringify(_nd));}catch(_e2){}
       renderSummary(computeSummary(state.tasks||[],state._lastKpis||[]));
@@ -7588,9 +7594,19 @@ initDkpiDefaultData();
     var _ckC = JSON.parse(localStorage.getItem('ck_order_cache_backup')||'{}');
     if(_ckC && _ckC.total) {
       state.choiceKitOrder = _ckC;
-      var cs = computeSummary(state.tasks||[], state._lastKpis||[]);
-      renderSummary(cs);
-      setTimeout(function(){ try{ updateOrderMiniChart(); }catch(_e){} }, 100);
+      // DOM 준비 후 렌더링
+      function _ckRender() {
+        try {
+          var cs = computeSummary(state.tasks||[], state._lastKpis||[]);
+          renderSummary(cs);
+          updateOrderMiniChart();
+        } catch(_e) {}
+      }
+      if(document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function(){ setTimeout(_ckRender, 300); });
+      } else {
+        setTimeout(_ckRender, 300);
+      }
     }
   } catch(_e) {}
 })();
