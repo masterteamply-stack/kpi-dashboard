@@ -7504,6 +7504,18 @@ initDkpiDefaultData();
     renderSummary(cs);
   } catch(e) {}
 })();
+// ChoiceKit 오더 데이터 독립 로드 (Supabase 연결 여부와 무관하게)
+(function(){
+  try {
+    fetchChoiceKitOrders().then(function(){
+      try {
+        var cs = computeSummary(state.tasks||[], state._lastKpis||[]);
+        renderSummary(cs);
+        setTimeout(function(){ try{ renderRegionOrderBarChart(); }catch(e){} }, 500);
+      } catch(e) {}
+    }).catch(function(e){ console.warn('fetchChoiceKitOrders standalone failed:', e); });
+  } catch(e) {}
+})();
 // Channel Discriber 수동값 복원
 try {
   const saved = localStorage.getItem('channelDiscriber_manual');
