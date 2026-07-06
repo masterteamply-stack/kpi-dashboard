@@ -1529,7 +1529,7 @@
           <tr>
             <th>담당자</th><th>팀</th><th>전체</th><th>완료</th>
             <th>진행중</th><th>지연</th><th>평균진척도</th>
-            <th>KPI 배분 예산</th><th>집행</th><th>매출</th><th>ROI</th>
+            <th>KPI 배분 예산</th><th>집행</th><th>매출</th><th>ROMI</th>
           </tr>
         </thead>
         <tbody id="ownerTableBody"></tbody>
@@ -2805,7 +2805,7 @@ function renderSummary(s) {
   h += '<div style="font-size:11px;color:#6b6259;line-height:1.8;padding-top:2px">';
   h += '완료율 <strong style="color:var(--green)">' + fmtPct(s.compRate) + '</strong>';
   h += ' · 지연 <strong style="color:var(--red)">' + s.delayed + '건</strong>';
-  h += ' · ROI <strong style="color:var(--primary)">' + fmtPct(s.roi) + '</strong>';
+  h += ' · ROMI <strong style="color:var(--primary)">' + fmtPct(s.roi) + '</strong>';
   h += '</div>';
 
   h += '</div>';
@@ -5886,7 +5886,7 @@ function renderDrawerEditForm(task) {
           <label class="field-label">집행 비용 (원화)</label>
           <input type="number" id="de_spend" value="${task.spend!=null?task.spend:0}" min="0" step="1000"
             style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)"/>
-          <div style="font-size:9px;color:#8a8278;margin-top:2px">KRW · 지역별 ROI 집행비에 반영</div>
+          <div style="font-size:9px;color:#8a8278;margin-top:2px">KRW · 지역별 ROMI 집행비에 반영</div>
         </div>
         <div>
           <label class="field-label">배정 예산 (원화)</label>
@@ -6509,13 +6509,13 @@ function renderRegionOrderChart(tasks, kpis) {
   h+='<th style="text-align:left;'+thS+'">지역</th>';
   h+='<th style="text-align:right;'+thS+'">매출(USD)</th>';
   h+='<th style="text-align:right;'+thS+'">집행비(₩)</th>';
-  h+='<th style="text-align:right;'+thS+'">ROI</th>';
+  h+='<th style="text-align:right;'+thS+'">ROMI</th>';
 
   h+='<th style="text-align:right;'+thS+'">집행비중</th>';
   h+='<th style="text-align:right;'+thS+'">CK Order($)</th>';
   h+='<th style="text-align:right;'+thS+'">CK 마케팅예산(₩)</th>';
   h+='<th style="text-align:right;'+thS+'">CK 집행비(₩)</th>';
-  h+='<th style="text-align:right;'+thS+'">CK ROI</th>';
+  h+='<th style="text-align:right;'+thS+'">CK ROMI</th>';
   h+='</tr></thead><tbody>';
 
   var _totSpKAll=rows.reduce(function(s,d){return s+d.spK;},0);
@@ -6550,7 +6550,7 @@ function renderRegionOrderChart(tasks, kpis) {
   h+='<td style="'+tdS+';text-align:right;color:#7c5a3a">'+(totCkSp>0?fmtK(totCkSp):'–')+'</td>';
   h+='<td style="'+tdS+';text-align:right;font-weight:800;color:'+rCol(totPromoRoi)+'">'+fmtP(totPromoRoi)+'</td>';
   h+='</tr></tbody></table>';
-  h+='<div style="text-align:right;font-size:8px;color:#b0a898;margin-top:4px">ROI=(매출−집행)/집행 · KRW÷1,502 · CK예산: 법인/지사 광고선전비 (Promo+BizRewards) · ASEAN=호주+한국 포함</div>';
+  h+='<div style="text-align:right;font-size:8px;color:#b0a898;margin-top:4px">ROMI=(매출−집행)/집행 · KRW÷1,502 · CK예산: 법인/지사 광고선전비 (Promo+BizRewards) · ASEAN=호주+한국 포함</div>';
   el.innerHTML = h;
 }
 
