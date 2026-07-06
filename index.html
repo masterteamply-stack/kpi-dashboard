@@ -1288,58 +1288,76 @@
 // ── Survey 리드 데이터 강제 주입 (CTR 중국차 부품 시장 인사이트) ──
 (function(){
   try {
-    // Survey 페이지에서 최신 수치 자동 fetch (iframe postMessage 방식)
-    // 현재 알려진 최신값으로 초기 주입 (없을 때만)
-    var _sv = null;
-    try { _sv = JSON.parse(localStorage.getItem('survey_lead_data')||'null'); } catch(_e){}
-    var _svNeedsUpdate = !_sv || !_sv.total || _sv.total < 8100;
-    if(_svNeedsUpdate) {
-      var surveyData = {
-        total: 8100,
-        countries: 116,
-        groups: 5,
-        monthly: { "2026-06": 8100 },
-        byRegion: { "China": 8100 },
-        detail: [],
-        _updated: "2026-07-06"
-      };
-      localStorage.setItem('survey_lead_data', JSON.stringify(surveyData));
-    }
-    // Survey 페이지 iframe으로 로드해서 최신 수치 파싱 시도
-    setTimeout(function(){
+    // Survey /api/stats 자동 fetch (페이지 로드 시 + 1시간 주기)
+    var SURVEY_API = 'https://ctr-cn-survey.gorddaru.workers.dev/api/stats';
+    var SURVEY_LS_KEY = 'survey_lead_data';
+    var SURVEY_CACHE_MIN = 60; // 최소 갱신 간격(분)
+
+    function _applySurveyData(d) {
+      // 렌더링 반영
       try {
-        var _ifr = document.createElement('iframe');
-        _ifr.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px';
-        _ifr.src = 'https://ctr-cn-survey.gorddaru.workers.dev/';
-        _ifr.onload = function(){
-          try {
-            // iframe 로드 후 내용에서 수치 파싱 시도
-            var _doc = _ifr.contentDocument || _ifr.contentWindow.document;
-            var _txt = _doc.body ? _doc.body.innerText : '';
-            var _totalMatch = _txt.match(/([0-9,]+)\s*(?:총\s*응답|Total|Responses)/i)
-                           || _txt.match(/^([\d,]+)$/m);
-            var _cntMatch   = _txt.match(/(\d+)개국/);
-            var _grpMatch   = _txt.match(/(\d+)개\s*응답군/);
-            if(_totalMatch) {
-              var _t = parseInt(_totalMatch[1].replace(/,/g,''));
-              var _cur = null;
-              try { _cur = JSON.parse(localStorage.getItem('survey_lead_data')||'null'); } catch(_e){}
-              if(_t > 0 && (!_cur || _t > (_cur.total||0))) {
-                _cur = _cur || {};
-                _cur.total = _t;
-                if(_cntMatch) _cur.countries = parseInt(_cntMatch[1]);
-                if(_grpMatch) _cur.groups    = parseInt(_grpMatch[1]);
-                _cur._updated = new Date().toISOString().slice(0,10);
-                localStorage.setItem('survey_lead_data', JSON.stringify(_cur));
-                console.log('[Survey] 자동 갱신:', _t);
-              }
-            }
-          } catch(_ie) { /* cross-origin blocked - expected */ }
-          try { document.body.removeChild(_ifr); } catch(_e){}
-        };
-        document.body.appendChild(_ifr);
+        var cs = computeSummary(state.tasks||[], state._lastKpis||[]);
+        renderSummary(cs);
       } catch(_e) {}
-    }, 2000);
+    }
+
+    function _fetchSurveyStats(force) {
+      try {
+        var _cur = null;
+        try { _cur = JSON.parse(localStorage.getItem(SURVEY_LS_KEY)||'null'); } catch(_e){}
+        // 최소 갱신 간격 체크 (force=true면 무조건 fetch)
+        if(!force && _cur && _cur._fetchedAt) {
+          var _age = (Date.now() - new Date(_cur._fetchedAt).getTime()) / 60000;
+          if(_age < SURVEY_CACHE_MIN) return; // 아직 캐시 유효
+        }
+        fetch(SURVEY_API, { cache: 'no-cache' })
+          .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
+          .then(function(d){
+            var _data = {
+              total:     d.total     || d.count    || 0,
+              countries: d.countries || d.country_count || 0,
+              groups:    d.groups    || d.group_count   || 5,
+              monthly:   d.monthly   || (_cur && _cur.monthly) || {},
+              byRegion:  d.byRegion  || (_cur && _cur.byRegion) || {},
+              detail:    d.detail    || [],
+              _fetchedAt: new Date().toISOString(),
+              _updated:   d.updated  || new Date().toISOString().slice(0,10)
+            };
+            localStorage.setItem(SURVEY_LS_KEY, JSON.stringify(_data));
+            console.log('[Survey] /api/stats 갱신:', _data.total, '건 /', _data.countries, '개국');
+            _applySurveyData(_data);
+          })
+          .catch(function(err){
+            console.warn('[Survey] /api/stats fetch 실패:', err);
+            // 실패 시 기존 캐시 유지
+          });
+      } catch(_e) { console.warn('[Survey] fetch 오류:', _e); }
+    }
+
+    // 초기값: 캐시 없으면 마지막으로 알려진 수치로 주입
+    (function(){
+      var _sv = null;
+      try { _sv = JSON.parse(localStorage.getItem(SURVEY_LS_KEY)||'null'); } catch(_e){}
+      if(!_sv || !_sv.total) {
+        localStorage.setItem(SURVEY_LS_KEY, JSON.stringify({
+          total: 8100, countries: 116, groups: 5,
+          monthly: { "2026-07": 8100 },
+          byRegion: { "China": 8100 },
+          _fetchedAt: null, _updated: "2026-07-06"
+        }));
+      }
+    })();
+
+    // DOM 준비 후 즉시 fetch + 1시간 주기 갱신
+    if(document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function(){
+        _fetchSurveyStats(false);
+        setInterval(function(){ _fetchSurveyStats(false); }, 60 * 60 * 1000);
+      });
+    } else {
+      _fetchSurveyStats(false);
+      setInterval(function(){ _fetchSurveyStats(false); }, 60 * 60 * 1000);
+    }
   } catch(e) { console.warn('survey inject failed:', e); }
 })();
 </script>
