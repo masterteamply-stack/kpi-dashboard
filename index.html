@@ -1334,17 +1334,24 @@
       } catch(_e) { console.warn('[Survey] fetch 오류:', _e); }
     }
 
-    // 초기값: 캐시 없으면 마지막으로 알려진 수치로 주입
+    // 초기값: 항상 최신 알려진 수치로 강제 병합 (monthly/countries/total 갱신)
     (function(){
       var _sv = null;
       try { _sv = JSON.parse(localStorage.getItem(SURVEY_LS_KEY)||'null'); } catch(_e){}
-      if(!_sv || !_sv.total) {
-        localStorage.setItem(SURVEY_LS_KEY, JSON.stringify({
-          total: 8100, countries: 116, groups: 5,
-          monthly: { "2026-07": 8100 },
-          byRegion: { "China": 8100 },
-          _fetchedAt: null, _updated: "2026-07-06"
-        }));
+      var _latest = {
+        total: 8100, countries: 116, groups: 5,
+        monthly: { "2026-01":0,"2026-02":0,"2026-03":0,"2026-04":0,"2026-05":0,"2026-06":0,"2026-07":8100 },
+        byRegion: { "China": 8100 },
+        _fetchedAt: _sv ? (_sv._fetchedAt||null) : null,
+        _updated: "2026-07-06"
+      };
+      // 기존 캐시보다 최신값이 크거나, monthly가 잘못된 경우 강제 갱신
+      var _needsMerge = !_sv || (_latest.total > (_sv.total||0))
+        || !_sv.monthly || _sv.monthly["2026-07"] === undefined
+        || (_sv.monthly["2026-06"] && !_sv.monthly["2026-07"]);
+      if(_needsMerge) {
+        localStorage.setItem(SURVEY_LS_KEY, JSON.stringify(_latest));
+        console.log('[Survey] 초기값 강제 병합:', _latest.total);
       }
     })();
 
