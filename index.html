@@ -5126,6 +5126,18 @@ function switchDkpiSheet(kpiKey) {
   const map = {'B2D-10':'dkpiSheet10Btn','B2D-11':'dkpiSheet11Btn',
     'channel_discriber':'dkpiSheetCDBtn','region_sub':'dkpiSheetRegBtn','revenue':'dkpiSheetRevBtn'};
   document.getElementById(map[kpiKey])?.classList.add('active');
+  // revenue 아닌 탭 전환 시 thead를 기본(월) 헤더로 복원
+  if(kpiKey !== 'revenue') {
+    const tbl = document.querySelector('#dkpiSheetTable');
+    if(tbl) {
+      const thead = tbl.querySelector('thead');
+      const moLabels = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+      if(thead) thead.innerHTML = '<tr style="background:#eceae3">'
+        + '<th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:#8a8278">월</th>'
+        + moLabels.map(m=>'<th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:#8a8278">'+m+'</th>').join('')
+        + '</tr>';
+    }
+  }
   renderDkpiSheetBody(kpiKey);
 }
 
@@ -5236,25 +5248,36 @@ function renderDkpiSheetBody(kpiKey) {
       + '<th style="padding:5px 8px;font-size:10px;text-align:right">연간합계</th>'
       + moLabels.map(m=>'<th style="padding:5px 4px;font-size:10px;text-align:right">'+m+'</th>').join('')
       + '</tr>';
+    // 달러 포맷 (revenue 전용)
+    const fmtUSD = v => v >= 1000000 ? '$'+(v/1000000).toFixed(2)+'M'
+                      : v >= 1000    ? '$'+new Intl.NumberFormat('en-US').format(Math.round(v))
+                      : v > 0        ? '$'+v.toFixed(0)
+                      : '–';
     const rows = regions.map(r => {
       const rdata = saved[r]||{};
       const annualSum = months.reduce((s,mm)=>s+(rdata[`2026-${mm}`]||0),0);
       const cells = months.map(mm => {
         const key='2026-'+mm; const v=rdata[key]!=null?rdata[key]:'';
-        return '<td style="padding:2px 3px;text-align:right"><input type="number" min="0" data-region="'+r+'" data-month="'+key+'" class="revenueInput" value="'+(v||'')+'" style="width:72px;text-align:right;border:1px solid #b8d4b8;border-radius:2px;padding:2px 3px;font-size:10px"/></td>';
+        return '<td style="padding:2px 3px;text-align:right"><input type="number" min="0" data-region="'+r+'" data-month="'+key+'" class="revenueInput" value="'+(v||'')+'" style="width:78px;text-align:right;border:1px solid #b8d4b8;border-radius:2px;padding:2px 3px;font-size:10px"/></td>';
       }).join('');
       return '<tr style="border-bottom:1px solid #eef4ee">'
         +'<td style="padding:5px 10px;font-size:11px;font-weight:700;white-space:nowrap">'+r+'</td>'
-        +'<td style="padding:3px 8px;text-align:right;font-size:11px;font-weight:700;color:#3a6b3a">'+(annualSum>0?fmtKRW(annualSum):'–')+'</td>'
+        +'<td style="padding:3px 8px;text-align:right;font-size:11px;font-weight:700;color:#3a6b3a">'+(annualSum>0?fmtUSD(annualSum):'–')+'</td>'
         + cells +'</tr>';
     }).join('');
     // 합계 행
     const totalRow = '<tr style="background:#e8f4e8;border-top:2px solid #a8d4a8">'
       +'<td style="padding:5px 10px;font-size:11px;font-weight:700">합계</td>'
-      +'<td style="padding:3px 8px;text-align:right;font-size:11px;font-weight:700;color:#3a6b3a">'+fmtKRW(regions.reduce((s,r)=>s+months.reduce((s2,mm)=>s2+((saved[r]||{})[`2026-${mm}`]||0),0),0))+'</td>'
-      + months.map(mm=>'<td style="padding:3px 4px;text-align:right;font-size:10px;font-weight:700;color:#3a6b3a">'+(regions.reduce((s,r)=>s+((saved[r]||{})[`2026-${mm}`]||0),0)>0?fmtKRW(regions.reduce((s,r)=>s+((saved[r]||{})[`2026-${mm}`]||0),0)):'')+'</td>').join('')
+      +'<td style="padding:3px 8px;text-align:right;font-size:11px;font-weight:700;color:#3a6b3a">'+fmtUSD(regions.reduce((s,r)=>s+months.reduce((s2,mm)=>s2+((saved[r]||{})[`2026-${mm}`]||0),0),0))+'</td>'
+      + months.map(mm=>{ const moSum=regions.reduce((s,r)=>s+((saved[r]||{})[`2026-${mm}`]||0),0); return '<td style="padding:3px 4px;text-align:right;font-size:10px;font-weight:700;color:#3a6b3a">'+(moSum>0?fmtUSD(moSum):'')+'</td>';}).join('')
       +'</tr>';
-    tbody.innerHTML = hdr + rows + totalRow;
+    // thead를 revenue 전용으로 교체 (권역/연간합계 헤더)
+    const tbl = tbody.closest('table');
+    if(tbl) {
+      const thead = tbl.querySelector('thead');
+      if(thead) thead.innerHTML = hdr;
+    }
+    tbody.innerHTML = rows + totalRow;
     return;
   }
 
