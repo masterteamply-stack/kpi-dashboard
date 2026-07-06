@@ -2365,7 +2365,32 @@ function renderKPICards(s) {
     { label:"완료율",      value:fmtPct(s.compRate),
       sub:`KPI 완료 ${fmtNum(s.kpiDone||0)}개 · 진행중 ${fmtNum(s.inProg)}건`,   icon:"✅" },
     { label:"평균 진척도", value:fmtPct(Math.min(100,Math.max(0,s.avgProg||0))),   sub:`완료 ${fmtNum(s.done)}건 / 전체 ${fmtNum(s.total)}건`,    icon:"📈" },
-    { label:"지연 업무",   value:fmtNum(s.delayed),   sub:`대기 ${fmtNum(s.todo)}건`,       icon:"⚠️" },
+    { label:"Marketing Lead", value: (function(){
+        var _ml = computeMarketingLeads();
+        return fmtNum(_ml.total);
+      })(),
+      sub: (function(){
+        var _ml = computeMarketingLeads();
+        var _now = new Date();
+        var _curKey  = _now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0');
+        var _prevKey = (function(){ var d=new Date(_now.getFullYear(),_now.getMonth()-1,1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); })();
+        // 이달 합계
+        var _curCh  = (_ml.channelMonthly[_curKey]  ? (_ml.channelMonthly[_curKey].total||0)  : 0);
+        var _curO2o = (_ml.o2oMonthly[_curKey]       || 0);
+        var _curSv  = ((_ml.surveyMonthly||{})[_curKey] || 0);
+        var _curTot = _curCh + _curO2o + _curSv;
+        // 지난달 합계
+        var _prvCh  = (_ml.channelMonthly[_prevKey] ? (_ml.channelMonthly[_prevKey].total||0) : 0);
+        var _prvO2o = (_ml.o2oMonthly[_prevKey]      || 0);
+        var _prvSv  = ((_ml.surveyMonthly||{})[_prevKey] || 0);
+        var _prvTot = _prvCh + _prvO2o + _prvSv;
+        // 상승분
+        var _diff = _curTot - _prvTot;
+        var _diffStr = (_diff >= 0 ? '▲' : '▼') + fmtNum(Math.abs(_diff));
+        var _mo = _now.getMonth()+1;
+        return (_prvTot > 0 ? '지난달 '+fmtNum(_prvTot)+' · ' : '') + _mo+'월 '+fmtNum(_curTot)+' ('+_diffStr+')';
+      })(),
+      icon:"🎯" },
     { label:"총 집행",     value:fmtKRW(s.spendKrw||s.spend*1502),     sub:`배정 ${fmtKRW(s.budget)}`,       icon:"💰" },
     { label:"마케팅 ROI", value: s.spend>0 ? fmtPct(s.roi) : (s.revenue>0 ? "+INF" : "N/A"), sub: "매출 $" + (s.revenue/1000000).toFixed(2) + "M"     + (s.spendKrw>0 ? " / 집행 " + fmtKRW(s.spendKrw) : (s.spend>0 ? " / 집행 $" + (s.spend/1000).toFixed(0) + "K" : "")), icon:"📈" }
   ];
