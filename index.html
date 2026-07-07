@@ -2308,7 +2308,7 @@ function buildOwnerSummary(tasks, kpis) {
 
   for(const t of tasks) {
     const name=t.owners?.name||'미지정', team=t.owners?.team||'-', key=name;
-    if(!map.has(key)) map.set(key,{name,team,total:0,done:0,inProg:0,delayed:0,blocked:0,taskBudget:0,spend:0,revenue:0,_tc:{},tasks:[],progressSum:0});
+    if(!map.has(key)) map.set(key,{name,team,total:0,done:0,inProg:0,delayed:0,blocked:0,todo:0,taskBudget:0,spend:0,revenue:0,_tc:{},tasks:[],progressSum:0});
     const r=map.get(key);
     if(team&&team!=='-') r._tc[team]=(r._tc[team]||0)+1;
     r.total++;
@@ -2318,6 +2318,7 @@ function buildOwnerSummary(tasks, kpis) {
     r.spend+=Number(t.spend||0); r.revenue+=Number(t.revenue||0);
     if(t.status==="done") r.done++;
     if(t.status==="in_progress") r.inProg++;
+    if(t.status==="todo") r.todo++;
     if(t.status==="blocked") r.blocked++;
     if(t.status!=="done"&&t.due_date&&new Date(t.due_date)<today) r.delayed++;
   }
@@ -3140,7 +3141,7 @@ function renderOwnerTable(tasks, kpis) {
       + '<div style="background:#f5f2ed;border-radius:4px;padding:4px 2px"><div style="font-size:13px;font-weight:700;color:#1a1714">' + r.total + '</div><div style="font-size:9px;color:#8a8278">전체</div></div>'
       + '<div style="background:#e8f4e8;border-radius:4px;padding:4px 2px"><div style="font-size:13px;font-weight:700;color:#2a7c2a">' + r.done + '</div><div style="font-size:9px;color:#8a8278">완료</div></div>'
       + '<div style="background:#e8f0f8;border-radius:4px;padding:4px 2px"><div style="font-size:13px;font-weight:700;color:#2a5fa5">' + r.inProg + '</div><div style="font-size:9px;color:#8a8278">진행</div></div>'
-      + '<div style="background:#faeaea;border-radius:4px;padding:4px 2px"><div style="font-size:13px;font-weight:700;color:#c0392b">' + r.delayed + '</div><div style="font-size:9px;color:#8a8278">지연</div></div>'
+      + '<div style="background:#faf5e8;border-radius:4px;padding:4px 2px"><div style="font-size:13px;font-weight:700;color:#b87800">' + r.todo + '</div><div style="font-size:9px;color:#8a8278">대기</div></div>'
       + '</div>'
 
       // KPI 배분
