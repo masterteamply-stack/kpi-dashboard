@@ -2363,14 +2363,10 @@ function renderKPICards(s) {
     { label:"평균 진척도", value:fmtPct(Math.min(100,Math.max(0,s.avgProg||0))),   sub:`완료 ${fmtNum(s.done)}건 / 전체 ${fmtNum(s.total)}건`,    icon:"📈" },
     { label:"Marketing Lead", value: (function(){
         var _ml = computeMarketingLeads();
-        return fmtNum(_ml.total);
-      })(),
-      sub: (function(){
-        var _ml = computeMarketingLeads();
         var _now = new Date();
         var _curKey  = _now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0');
         var _prevKey = (function(){ var d=new Date(_now.getFullYear(),_now.getMonth()-1,1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); })();
-        // 이달 합계
+        // 이달 합계 (소스별)
         var _curCh  = (_ml.channelMonthly[_curKey]  ? (_ml.channelMonthly[_curKey].total||0)  : 0);
         var _curO2o = (_ml.o2oMonthly[_curKey]       || 0);
         var _curSv  = ((_ml.surveyMonthly||{})[_curKey] || 0);
@@ -2380,11 +2376,15 @@ function renderKPICards(s) {
         var _prvO2o = (_ml.o2oMonthly[_prevKey]      || 0);
         var _prvSv  = ((_ml.surveyMonthly||{})[_prevKey] || 0);
         var _prvTot = _prvCh + _prvO2o + _prvSv;
-        // 상승분
         var _diff = _curTot - _prvTot;
         var _diffStr = (_diff >= 0 ? '▲' : '▼') + fmtNum(Math.abs(_diff));
         var _mo = _now.getMonth()+1;
-        return (_prvTot > 0 ? '지난달 '+fmtNum(_prvTot)+' · ' : '') + _mo+'월 '+fmtNum(_curTot)+' ('+_diffStr+')';
+        // sub를 window에 임시 저장해 value와 공유
+        window._mlCardSub = (_prvTot > 0 ? '지난달 '+fmtNum(_prvTot)+' · ' : '') + _mo+'월 '+fmtNum(_curTot)+' ('+_diffStr+')';
+        return fmtNum(_ml.total);  // 하단과 동일한 total
+      })(),
+      sub: (function(){
+        return window._mlCardSub || '';
       })(),
       icon:"🎯" },
     { label:"총 집행",     value:fmtKRW(s.spendKrw||s.spend*1502),     sub:`배정 ${fmtKRW(s.budget)}`,       icon:"💰" },
