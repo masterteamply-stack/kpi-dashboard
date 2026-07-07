@@ -3178,22 +3178,33 @@ function openOwnerPanel(evt, ownerName) {
 
   // 이미 선택된 담당자 클릭 → 필터 해제
   var ownerSel = el.ownerFilter || document.getElementById('ownerFilter');
-  if (ownerSel && ownerSel.value === ownerName) {
-    ownerSel.value = 'all';
+  var currentOwner = (state.filters && state.filters.owner) || 'all';
+  if (currentOwner === ownerName) {
+    state.filters.owner = 'all';
+    if (ownerSel) ownerSel.value = 'all';
     applyFilters();
-    // 카드 강조 해제
     document.querySelectorAll('#_ownerCardGrid > div').forEach(function(c) {
       c.style.outline = 'none';
-      c.style.boxShadow = 'none';
     });
+    var ab = document.getElementById('_ownerActionBar');
+    if (ab) ab.remove();
     return;
   }
 
-  // ownerFilter에 해당 담당자 설정
+  // state.filters.owner 직접 세팅 후 재렌더
+  state.filters = state.filters || {};
+  state.filters.owner = ownerName;
+  // select UI도 동기화
   if (ownerSel) {
+    // option이 없으면 동적 추가
+    if (!Array.from(ownerSel.options).some(function(o){ return o.value === ownerName; })) {
+      var opt = document.createElement('option');
+      opt.value = ownerName; opt.textContent = ownerName;
+      ownerSel.appendChild(opt);
+    }
     ownerSel.value = ownerName;
-    applyFilters();
   }
+  applyFilters();
 
   // 클릭한 카드 강조
   document.querySelectorAll('#_ownerCardGrid > div').forEach(function(c) {
