@@ -1322,6 +1322,8 @@
             };
             localStorage.setItem(SURVEY_LS_KEY, JSON.stringify(_data));
             console.log('[Survey] /api/stats 갱신:', _data.total, '건 /', _data.countries, '개국');
+            // 카드 재렌더링
+            try { var _scs=computeSummary(state.tasks||[],state._lastKpis||[]); renderKPICards(_scs); } catch(_e){}
             _applySurveyData(_data);
           })
           .catch(function(err){
@@ -7572,7 +7574,9 @@ async function fetchChoiceKitOrders() {
       }
       state.choiceKitOrder=_nd;
       try{localStorage.setItem('ck_order_cache',JSON.stringify(_nd));}catch(_e2){}
-      renderSummary(computeSummary(state.tasks||[],state._lastKpis||[]));
+      var _ckS=computeSummary(state.tasks||[],state._lastKpis||[]);
+      renderKPICards(_ckS);
+      renderSummary(_ckS);
       await renderRegionOrderChart(state._lastKpiTasks||state.tasks||[],state._lastKpis||[]);
       renderRegionOrderBarChart();
       updateOrderMiniChart();
@@ -7714,6 +7718,7 @@ async function fetchWebLeadData() {
 
     // 요약 UI 즉시 갱신
     const s2 = computeSummary(state.tasks||[], state._lastKpis||[]);
+    renderKPICards(s2);
     renderSummary(s2);
   } catch(e) {
     console.warn('WebLead fetch error:', e.message);
