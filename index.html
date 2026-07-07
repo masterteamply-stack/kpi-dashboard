@@ -1522,18 +1522,9 @@
       <a id="webLeadSection"></a><h3 style="margin-bottom:0">담당자별 업무 현황</h3>
       <button class="panel-collapse-btn" onclick="togglePanel('ownerPanel',this)">−</button>
     </div>
-    <div id="ownerContent" class="panel-content"><div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>담당자</th><th>팀</th><th>전체</th><th>완료</th>
-            <th>진행중</th><th>지연</th><th>평균진척도</th>
-            <th>KPI 배분 예산</th><th>집행</th><th>매출</th><th>ROMI</th>
-          </tr>
-        </thead>
-        <tbody id="ownerTableBody"></tbody>
-      </table>
-    </div>
+    <div id="ownerContent" class="panel-content" style="overflow:visible">
+      <div id="_ownerCardGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;padding:4px 0 8px;overflow:visible"></div>
+      <div style="display:none"><table><tbody id="ownerTableBody"></tbody></table></div>
   </section>
 
   <!-- Task table -->
@@ -3107,17 +3098,8 @@ function renderChart(tasks) {
 
 function renderOwnerTable(tasks, kpis) {
   const rows = buildOwnerSummary(tasks, kpis||state._lastKpis||[]);
-  // 테이블 숨기기
-  const tableEl = el.ownerTableBody.closest('table');
-  if(tableEl) tableEl.style.display = 'none';
-
-  let cardGrid = document.getElementById('_ownerCardGrid');
-  if(!cardGrid) {
-    cardGrid = document.createElement('div');
-    cardGrid.id = '_ownerCardGrid';
-    tableEl ? tableEl.parentElement.insertBefore(cardGrid, tableEl) : el.ownerTableBody.parentElement.appendChild(cardGrid);
-  }
-  cardGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;padding:4px 0 12px';
+  const cardGrid = document.getElementById('_ownerCardGrid');
+  if(!cardGrid) return;
 
   if(!rows.length) {
     cardGrid.innerHTML = '<div style="color:#8a8278;font-size:13px;padding:12px">데이터가 없습니다.</div>';
@@ -3129,7 +3111,7 @@ function renderOwnerTable(tasks, kpis) {
     const pct      = Math.min(100, Math.round(r.avgProg||0));
     const pColor   = pct>=70?'#2a7c2a':pct>=40?'#2a5fa5':'#c0392b';
     const budgetPct= totalBudget>0&&r.kpiBudget>0 ? Math.round(r.kpiBudget/totalBudget*100) : null;
-    return `<div style="background:#fff;border:1px solid #e8e4dc;border-radius:10px;padding:12px 14px;cursor:pointer;transition:box-shadow .15s"
+    return `<div style="background:#fff;border:1px solid #e8e4dc;border-radius:10px;padding:12px 14px;cursor:pointer;transition:box-shadow .15s;min-width:0;word-break:keep-all;overflow:hidden"
       onmouseenter="this.style.boxShadow='0 2px 12px rgba(0,0,0,.1)'"
       onmouseleave="this.style.boxShadow='none'"
       onclick="openOwnerPanel(event,'${r.name.replace(/'/g,"\\'")}')">
