@@ -2286,12 +2286,21 @@ function computeSummary(tasks, kpis) {
   const blocked  = tasks.filter(t=>t.status==="blocked").length;
   const todo     = tasks.filter(t=>t.status==="todo").length;
   const delayed  = tasks.filter(t=>t.status!=="done"&&t.due_date&&new Date(t.due_date)<today).length;
-  const budget   = tasks.reduce((s,t)=>s+Number(t.allocated_budget||0),0);
+  // 배정 예산: 광고선전비 기준 (없으면 tasks.allocated_budget 합산)
+  const _taskBudgetKrw = tasks.reduce((s,t)=>s+Number(t.allocated_budget||0),0);
   // tasks.spend = KRW 원화 → 금일 환율(1USD=1,502KRW)로 USD 환산
   const _KRW_USD = 1502; // 2026-05-29 환율
   const _spendKrwRaw = tasks.reduce((s,t)=>s+Number(t.spend||0),0);
-  const _mktSpendManual = (() => { try { return parseFloat(localStorage.getItem('marketing_spend_usd')||'0')||0; } catch(e){return 0;} })();
-  const spend = _mktSpendManual > 0 ? _mktSpendManual : (_spendKrwRaw > 0 ? _spendKrwRaw / _KRW_USD : 0);
+  // xlsx Marketing Cost 실집행 (KRW) - Material Support / Ambassador / Promotion / Local Marketing
+  const _xlsxSpendKrw = (()=>{ try { var d=JSON.parse(sessionStorage.getItem('mkt_cost_xlsx')||'null'); return d ? Object.values(d.by_region||{}).reduce(function(s,v){return s+(v||0);},0) : 0; } catch(e){return 0;} })();
+  // marketing.csv 실집행 (KRW) - SNS / BizRewards 등
+  const _csvSpendKrw = (()=>{ try { var d=JSON.parse(sessionStorage.getItem('mkt_csv_cache')||'null'); return d && d.data ? Object.values(d.data.spend||{}).reduce(function(s,v){return s+(v||0);},0) : 0; } catch(e){return 0;} })();
+  // 전체 집행 = tasks.spend + xlsx + csv (KRW 합산 후 USD 변환)
+  const _totalSpendKrw = _spendKrwRaw + _xlsxSpendKrw + _csvSpendKrw;
+  const _mktSpendManual = (()=>{ try { return parseFloat(localStorage.getItem('marketing_spend_usd')||'0')||0; } catch(e){return 0;} })();
+  const spend = _mktSpendManual > 0 ? _mktSpendManual : (_totalSpendKrw > 0 ? _totalSpendKrw / _KRW_USD : 0);
+  // 배정 예산 (광고선전비 기준) KRW
+  const _budgetPlanAnnual = (()=>{ try { var d=JSON.parse(sessionStorage.getItem('budget_plan_annual')||'null'); return d ? Object.values(d).reduce(function(s,v){return s+(v||0);},0) : 0; } catch(e){return 0;} })();
   // revenue = localStorage 권역별 매출 월합계 우선
   const _revMonthly = (() => { try { return JSON.parse(localStorage.getItem('revenue_monthly_total')||'{}'); } catch(e){return {};} })();
   const _revTotal   = Object.values(_revMonthly).reduce((s,v)=>s+Number(v||0),0);
@@ -2317,7 +2326,8 @@ function computeSummary(tasks, kpis) {
   const kpiTotal = kpiList.length;
   const kpiDone  = kpiList.filter(k=>k.progress_status==='완료').length;
   const avgProgCapped = Math.min(100, Math.max(0, avgProg||0));
-  return { total,done,inProg,blocked,todo,delayed,budget,spend,spendKrw:_spendKrwRaw,revenue,leads,avgProg:avgProgCapped,compRate,roi,kpiTotal,kpiDone,thisMonthRev:_thisMonthRev };
+    const budget   = _budgetPlanAnnual > 0 ? _budgetPlanAnnual : _taskBudgetKrw;
+  return { total,done,inProg,blocked,todo,delayed,budget,spend,spendKrw:_totalSpendKrw,revenue,leads,avgProg:avgProgCapped,compRate,roi,kpiTotal,kpiDone,thisMonthRev:_thisMonthRev };
 }
 
 function buildOwnerSummary(tasks, kpis) {
@@ -6713,13 +6723,20 @@ async function renderRegionOrderChart(tasks, kpis) {
     revByRegion[_rk] = (revByRegion[_rk]||0)+b2b+ecom;
   }
 
+  // spendByRegion: tasks.spend + xlsx 실집행 합산 (KRW 기준)
   const spendByRegion = {};
   for(const t of tasks) {
     var _r=((t.region||'').trim().toUpperCase()||'GLOBAL');
     if(_r==='KR') _r='GLOBAL'; else if(_r==='DOMESTIC') _r='ASEAN';
-    const v=Number(t.spend||t.allocated_budget||0);
+    const v=Number(t.spend||0);
     if(v>0) spendByRegion[_r]=(spendByRegion[_r]||0)+v;
   }
+  // xlsx 실집행 합산 (marketing.csv의 ckSpendByRegion과 별도로 spendByRegion에도 반영)
+  var _xlsxRegSpend={}; try{var _xd=JSON.parse(sessionStorage.getItem('mkt_cost_xlsx')||'null');if(_xd)_xlsxRegSpend=_xd.by_region||{};}catch(_e){}
+  Object.keys(_xlsxRegSpend).forEach(function(r){if(_xlsxRegSpend[r]>0) spendByRegion[r]=(spendByRegion[r]||0)+_xlsxRegSpend[r];});
+  // marketing.csv 집행 합산
+  var _csvRegSpend={}; try{var _cd=JSON.parse(sessionStorage.getItem('mkt_csv_cache')||'null');if(_cd&&_cd.data)_csvRegSpend=_cd.data.spend||{};}catch(_e){}
+  Object.keys(_csvRegSpend).forEach(function(r){if(_csvRegSpend[r]>0) spendByRegion[r]=(spendByRegion[r]||0)+_csvRegSpend[r];});
 
   // Choice Kit 지역별 오더 금액
   const ckByRegion = (state.choiceKitOrder&&state.choiceKitOrder.byRegion) ? state.choiceKitOrder.byRegion : {};
@@ -6837,7 +6854,10 @@ async function renderRegionOrderChart(tasks, kpis) {
   const totRev=rows.reduce(function(s,d){return s+d.rev;},0);
   const totSpK=rows.reduce(function(s,d){return s+d.spK;},0);
   const totCkA=rows.reduce(function(s,d){return s+d.ckA;},0);
-  const totCkB=Object.values(ckBudFromCsv).reduce(function(s,v){return s+v;},0); // 전체 예산 합계
+  // 전체 예산 합계: 광고선전비 기준 (head 주입) 우선
+  var _planAnnualHQ=null; try{_planAnnualHQ=JSON.parse(sessionStorage.getItem('budget_plan_annual')||'null');}catch(_e){}
+  const totCkB = _planAnnualHQ ? Object.values(_planAnnualHQ).reduce(function(s,v){return s+(v||0);},0)
+               : Object.values(ckBudFromCsv).reduce(function(s,v){return s+v;},0);
   const totCkSp=rows.reduce(function(s,d){return s+(d.ckSp||0);},0);
   const totSpU=totSpK/_KRW_USD;
   const totRoi=totSpU>0?(totRev-totSpU)/totSpU*100:null;
