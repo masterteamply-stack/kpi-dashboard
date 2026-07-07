@@ -1286,7 +1286,7 @@
 (function(){
   try {
     // Survey /api/stats 자동 fetch (페이지 로드 시 + 1시간 주기)
-    var SURVEY_API = 'https://ctr-cn-survey.gorddaru.workers.dev/api/stats';
+    var SURVEY_API = 'https://raw.githubusercontent.com/masterteamply-stack/kpi-dashboard/main/survey-stats.json';
     var SURVEY_LS_KEY = 'survey_lead_data';
     var SURVEY_CACHE_MIN = 60; // 최소 갱신 간격(분)
 
@@ -1302,10 +1302,10 @@
       try {
         var _cur = null;
         try { _cur = JSON.parse(localStorage.getItem(SURVEY_LS_KEY)||'null'); } catch(_e){}
-        // 최소 갱신 간격 체크 (force=true면 무조건 fetch)
+        // 최소 갱신 간격 체크 (force=true면 무조건 fetch), 10분 캐시
         if(!force && _cur && _cur._fetchedAt) {
           var _age = (Date.now() - new Date(_cur._fetchedAt).getTime()) / 60000;
-          if(_age < SURVEY_CACHE_MIN) return; // 아직 캐시 유효
+          if(_age < 10) return; // 10분 이내면 캐시 사용
         }
         fetch(SURVEY_API, { cache: 'no-cache' })
           .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
@@ -1343,9 +1343,8 @@
         _updated: "2026-07-06"
       };
       // 기존 캐시보다 최신값이 크거나, monthly가 잘못된 경우 강제 갱신
-      var _needsMerge = !_sv || (_latest.total > (_sv.total||0))
-        || !_sv.monthly || _sv.monthly["2026-07"] === undefined
-        || (_sv.monthly["2026-06"] && !_sv.monthly["2026-07"]);
+      // fetch로 최신값을 가져오므로 초기값은 캐시가 없을 때만 주입
+      var _needsMerge = !_sv || !_sv.total || !_sv._fetchedAt;
       if(_needsMerge) {
         localStorage.setItem(SURVEY_LS_KEY, JSON.stringify(_latest));
         console.log('[Survey] 초기값 강제 병합:', _latest.total);
