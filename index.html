@@ -3441,7 +3441,14 @@ function renderKPIAccordion(kpis, tasks) {
     </div>`;
 
   const rows = kpis.map(kpi => {
-    const taskList = byKpi[kpi.id] || [];
+    const taskList = (byKpi[kpi.id] || []).slice().sort((a, b) => {
+      const da = a.started_at || a.due_date || '';
+      const db = b.started_at || b.due_date || '';
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+      return db.localeCompare(da);
+    });
     const taskCount = taskList.length;
     // KPI 담당 = 하위 태스크 담당자 합집합 (taskOwners 우선, 없으면 kpi.owners fallback)
     const _kpiOwners = (kpi.owners||'').split(',').map(o=>o.trim()).filter(Boolean);
