@@ -3535,7 +3535,7 @@ function renderKPIAccordion(kpis, tasks) {
   }
   renderTop7KPI(kpis, state.tasks && state.tasks.length > 0 ? state.tasks : tasks);
   renderThemeInteractiveChart(kpis, tasks);
-  renderRegionOrderChart(tasks, state._lastKpis||[]);
+  await renderRegionOrderChart(tasks, state._lastKpis||[]);
   renderActivityTypeChartWithBudget(kpis, tasks);
   renderActivityTrendChart(tasks);
   renderDigitalKpiCharts(kpis, tasks);
@@ -3622,7 +3622,7 @@ async function refreshDashboard() {
     const kpis  = state._lastKpis||[];
     const tasks2 = state._lastKpiTasks||[];
     renderThemeInteractiveChart(kpis, tasks2);
-    renderRegionOrderChart(tasks2, state._lastKpis||[]);
+    await renderRegionOrderChart(tasks2, state._lastKpis||[]);
     renderRegionBudgetDonut(tasks2, kpis);
     renderActivityTypeChartWithBudget(kpis, tasks2);
     renderActivityTrendChart(tasks2);
@@ -4132,7 +4132,7 @@ function _syncAfterTaskChange(task, changedFields) {
   if(budgetChanged) {
     var allT = state._lastKpiTasks || state.tasks || [];
     var allK = state._lastKpis || [];
-    renderRegionOrderChart(allT, allK);
+    await renderRegionOrderChart(allT, allK);
     if(typeof renderActivityTypeChartWithBudget === 'function') renderActivityTypeChartWithBudget(allK, allT);
     if(typeof renderRegionBudgetDonut === 'function') renderRegionBudgetDonut(allT, allK);
   }
@@ -6413,7 +6413,7 @@ function restorePanelStates() {
 }
 
 // ── Regional Orders & Marketing Cost Chart ──
-function renderRegionOrderChart(tasks, kpis) {
+async function renderRegionOrderChart(tasks, kpis) {
   const el = document.getElementById('regionRoiTable');
   if(!el) return;
   kpis = kpis || state._lastKpis || [];
@@ -6452,10 +6452,63 @@ function renderRegionOrderChart(tasks, kpis) {
     'ASEAN':   8810000,   // Promo 5,300,000 + BizRewards 3,510,000 (호주+한국 포함)
     'GLOBAL': 34700000,   // Reserve: Promo 21,200,000 + BizRewards 13,500,000
   };
-  // CK 집행비: marketing.csv actual_cost 기준 (KRW)
-  const ckSpendByRegion = {"NA":1933131,"LATAM":2488654,"ASIA":81318810,"GLOBAL":3500000};
-  // CK 마케팅예산: marketing.csv expected_cost 기준 (KRW) — 기존 ckBudByRegion 대신 사용
-  const ckBudFromCsv = {"NA":31003131,"CIS":25200000,"LATAM":15712468,"MENA":20355000,"ASIA":81318810,"ASEAN":2000000,"GLOBAL":4000000};
+  // CK 집행비/예산: marketing.csv 실시간 fetch (캐시 30분)
+  const REG_NORM = {
+    'NA':'NA','LATAM':'LATAM','MENA':'MENA','CIS':'CIS',
+    'EUROPE':'EUROPE','ASIA':'ASIA','Korea':'GLOBAL',
+    'Oceania':'ASEAN','ASEAN':'ASEAN','GLOBAL':'GLOBAL',
+  };
+  const _parseMktCsv = function(csvText) {
+    const lines = csvText.trim().split('\n');
+    const hdr   = lines[0].split(',');
+    const iReg  = hdr.indexOf('region');
+    const iAct  = hdr.indexOf('actual_cost');
+    const iExp  = hdr.indexOf('expected_cost');
+    const iCur  = hdr.indexOf('currency');
+    const spend = {}, budget = {};
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',');
+      const reg  = REG_NORM[(cols[iReg]||'').trim()] || (cols[iReg]||'').trim().toUpperCase();
+      const cur  = (cols[iCur]||'KRW').trim();
+      if (cur !== 'KRW') continue;
+      const act  = parseFloat((cols[iAct]||'0').replace(/[^\d.]/g,'')) || 0;
+      const exp  = parseFloat((cols[iExp]||'0').replace(/[^\d.]/g,'')) || 0;
+      if (act > 0) spend[reg]  = (spend[reg]  || 0) + act;
+      if (exp > 0) budget[reg] = (budget[reg] || 0) + exp;
+    }
+    return { spend, budget };
+  };
+  // 캐시 확인 (30분)
+  let _mktCsvParsed = null;
+  try {
+    const _cached = JSON.parse(sessionStorage.getItem('mkt_csv_cache') || 'null');
+    if (_cached && (Date.now() - _cached.ts) < 30 * 60 * 1000) {
+      _mktCsvParsed = _cached.data;
+    }
+  } catch(_e) {}
+  if (!_mktCsvParsed) {
+    try {
+      const _csvRes = await fetch(
+        'https://raw.githubusercontent.com/masterteamply-stack/choicekit-dashboard/main/marketing.csv',
+        { cache: 'no-cache' }
+      );
+      if (_csvRes.ok) {
+        const _csvText = await _csvRes.text();
+        _mktCsvParsed = _parseMktCsv(_csvText);
+        try {
+          sessionStorage.setItem('mkt_csv_cache', JSON.stringify({ ts: Date.now(), data: _mktCsvParsed }));
+        } catch(_e) {}
+        console.log('[MktCSV] fetch 완료:', _mktCsvParsed);
+      }
+    } catch(_fe) {
+      console.warn('[MktCSV] fetch 실패, 기본값 사용:', _fe);
+    }
+  }
+  // fallback: 마지막으로 알려진 값
+  const _fb = { spend:{"NA":1933131,"LATAM":2488654,"ASIA":81318810,"GLOBAL":3500000},
+                budget:{"NA":31003131,"CIS":25200000,"LATAM":15712468,"MENA":20355000,"ASIA":81318810,"ASEAN":2000000,"GLOBAL":4000000} };
+  const ckSpendByRegion = (_mktCsvParsed && Object.keys(_mktCsvParsed.spend).length) ? _mktCsvParsed.spend : _fb.spend;
+  const ckBudFromCsv    = (_mktCsvParsed && Object.keys(_mktCsvParsed.budget).length) ? _mktCsvParsed.budget : _fb.budget;
 
   const _KRW_USD=1502;
   const fmtU=function(v){return v>=1000000?'$'+(v/1000000).toFixed(2)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':v>0?'$'+Math.round(v):'–';};
@@ -7232,7 +7285,7 @@ async function saveBudgetPlan(kpiId) {
 
     if(msg) { msg.style.color='#4a7c59'; msg.textContent='✅ 저장 완료! 차트에 반영됩니다.'; }
     renderActivityTypeChartWithBudget(state._lastKpis||[], state._lastKpiTasks||[]);
-    renderRegionOrderChart(state._lastKpiTasks||[], state._lastKpis||[]);
+    await renderRegionOrderChart(state._lastKpiTasks||[], state._lastKpis||[]);
     // 담당자별 업무 현황 테이블도 즉시 갱신
     renderOwnerTable(state.tasks||[], state._lastKpis||[]);
     setTimeout(()=>{ if(msg) msg.textContent=''; }, 3000);
@@ -7521,7 +7574,7 @@ async function fetchChoiceKitOrders() {
       state.choiceKitOrder=_nd;
       try{localStorage.setItem('ck_order_cache',JSON.stringify(_nd));}catch(_e2){}
       renderSummary(computeSummary(state.tasks||[],state._lastKpis||[]));
-      renderRegionOrderChart(state._lastKpiTasks||state.tasks||[],state._lastKpis||[]);
+      await renderRegionOrderChart(state._lastKpiTasks||state.tasks||[],state._lastKpis||[]);
       renderRegionOrderBarChart();
       updateOrderMiniChart();
       console.log('[CK] Fresh: $'+Math.round(_tot).toLocaleString()+' ('+_cnt+'건, '+_filteredCnt+'건 제외)');
@@ -8315,7 +8368,7 @@ function applyFilters() {
   renderSummary(s);
   renderOwnerTable(state.tasks, kpis);
   renderThemeInteractiveChart(kpis, tasks);
-  renderRegionOrderChart(tasks, kpis);
+  await renderRegionOrderChart(tasks, kpis);
   renderRegionBudgetDonut(tasks, kpis);
   renderActivityTypeChartWithBudget(kpis, tasks);
   renderActivityTrendChart(tasks);
