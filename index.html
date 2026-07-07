@@ -3535,7 +3535,7 @@ function renderKPIAccordion(kpis, tasks) {
   }
   renderTop7KPI(kpis, state.tasks && state.tasks.length > 0 ? state.tasks : tasks);
   renderThemeInteractiveChart(kpis, tasks);
-  await renderRegionOrderChart(tasks, state._lastKpis||[]);
+  renderRegionOrderChart(tasks, state._lastKpis||[]).catch(function(){});
   renderActivityTypeChartWithBudget(kpis, tasks);
   renderActivityTrendChart(tasks);
   renderDigitalKpiCharts(kpis, tasks);
@@ -4132,7 +4132,7 @@ function _syncAfterTaskChange(task, changedFields) {
   if(budgetChanged) {
     var allT = state._lastKpiTasks || state.tasks || [];
     var allK = state._lastKpis || [];
-    await renderRegionOrderChart(allT, allK);
+    renderRegionOrderChart(allT, allK).catch(function(){});
     if(typeof renderActivityTypeChartWithBudget === 'function') renderActivityTypeChartWithBudget(allK, allT);
     if(typeof renderRegionBudgetDonut === 'function') renderRegionBudgetDonut(allT, allK);
   }
@@ -6517,7 +6517,7 @@ async function renderRegionOrderChart(tasks, kpis) {
   const rCol=function(v){return v===null?'#8a8278':v>=0?'#2a7c2a':'#c0392b';};
 
   const allR=new Set([...Object.keys(revByRegion),...Object.keys(spendByRegion),...Object.keys(ckByRegion),...Object.keys(ckBudFromCsv),...Object.keys(ckSpendByRegion)]);
-  const rows=[];
+  let rows=[];
   for(const r of allR){
     const rev=revByRegion[r]||0,spK=spendByRegion[r]||0,ckA=ckByRegion[r]||0;
     const ckB=ckBudFromCsv[r]||0,ckSp=ckSpendByRegion[r]||0;
@@ -8368,7 +8368,7 @@ function applyFilters() {
   renderSummary(s);
   renderOwnerTable(state.tasks, kpis);
   renderThemeInteractiveChart(kpis, tasks);
-  await renderRegionOrderChart(tasks, kpis);
+  renderRegionOrderChart(tasks, kpis).catch(function(){});
   renderRegionBudgetDonut(tasks, kpis);
   renderActivityTypeChartWithBudget(kpis, tasks);
   renderActivityTrendChart(tasks);
