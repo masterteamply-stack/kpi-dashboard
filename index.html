@@ -3598,30 +3598,6 @@ function renderKPIAccordion(kpis, tasks) {
             </div>
         </td>
         <td onclick="event.stopPropagation()"><select class="cell-select" data-task-id="${t.id}" data-field="task_type" onchange="saveTaskSelectEdit(this)" style="font-size:10px;padding:2px 4px;max-width:90px;background:#fdfcf9;border:1px solid #e0dbd2;border-radius:3px;color:#3d5228;font-weight:600;cursor:pointer;outline:none"><option value="">-</option>${(()=>{var _ts=getMktgTypes();var _tv=(t.task_type||'').trim();if(_tv&&!_ts.includes(_tv))_ts=[_tv,..._ts];return _ts.map(tp=>`<option value="${esc(tp)}"${tp===_tv?' selected':''} style="color:#1a1714">${esc(tp)}</option>`).join('');})()}</select></td>
-        <td style="min-width:90px">
-          <span class="cell-editable budget-cell"
-            contenteditable="true"
-            data-task-id="${t.id}"
-            data-field="allocated_budget"
-            onblur="saveBudgetEdit(this)"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
-            onfocus="this.dataset.orig=this.textContent;this.textContent=String(Number(String(this.textContent).replace(/[^0-9.]/g,''))||0)"
-            style="font-size:11px;color:#6b6259;cursor:text;display:inline-block;min-width:60px"
-            title="배정 예산 클릭하여 수정 (원화)"
-          >${(t.allocated_budget||0)>0?fmtKRW(t.allocated_budget||0):'₩0'}</span>
-        </td>
-        <td style="min-width:90px">
-          <span class="cell-editable spend-cell"
-            contenteditable="true"
-            data-task-id="${t.id}"
-            data-field="spend"
-            onblur="saveSpendEdit(this)"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
-            onfocus="this.dataset.orig=this.textContent;this.textContent=String(Number(this.textContent.replace(/[^0-9.]/g,''))||0)"
-            style="font-size:11px;color:#3d3830;font-weight:600;cursor:text;display:inline-block;min-width:60px"
-            title="집행 비용 클릭하여 수정 (원화)"
-          >${(t.spend||0) > 0 ? fmtKRW(t.spend||0) : '₩0'}</span>
-        </td>
         <td>
           <div class="row-actions">
             <button class="btn btn-ghost" style="font-size:10px;padding:3px 6px" onclick="openDetailDrawer('${esc(t.id)}')">수정</button>
@@ -3734,7 +3710,7 @@ function renderKPIAccordion(kpis, tasks) {
           <colgroup><col style="width:28px"><col style="width:36px"><col style="min-width:120px"><col style="width:80px"><col style="width:72px"><col style="width:84px"><col style="width:48px"><col style="width:76px"><col style="width:160px"><col style="width:160px"><col style="width:90px"></colgroup>
           <thead><tr>
             <th>월</th><th>분기</th><th>Task명</th><th>담당자</th>
-            <th>상태</th><th>Deadline</th><th>실적</th><th>유형</th><th>예산</th><th>집행</th><th></th>
+            <th>상태</th><th>Deadline</th><th>실적</th><th>유형</th><th></th>
           </tr></thead>
           <tbody>${taskRows}</tbody>
         </table>
