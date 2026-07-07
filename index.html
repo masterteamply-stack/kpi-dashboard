@@ -2291,12 +2291,23 @@ function computeSummary(tasks, kpis) {
   // tasks.spend = KRW 원화 → 금일 환율(1USD=1,502KRW)로 USD 환산
   const _KRW_USD = 1502; // 2026-05-29 환율
   const _spendKrwRaw = tasks.reduce((s,t)=>s+Number(t.spend||0),0);
-  // xlsx Marketing Cost 실집행 (KRW) - Material Support / Ambassador / Promotion / Local Marketing
+  // xlsx Marketing Cost 실집행 (KRW)
   const _xlsxSpendKrw = (()=>{ try { var d=JSON.parse(sessionStorage.getItem('mkt_cost_xlsx')||'null'); return d ? Object.values(d.by_region||{}).reduce(function(s,v){return s+(v||0);},0) : 0; } catch(e){return 0;} })();
+  // KPI별 월 집행액 합산 (localStorage kpi_spend_{id})
+  const _kpiSpendKrw = (()=>{
+    var total=0;
+    try {
+      (kpis||state._lastKpis||[]).forEach(function(kpi){
+        var d=null; try{d=JSON.parse(localStorage.getItem('kpi_spend_'+kpi.id)||'null');}catch(_e){}
+        if(d) total+=Object.values(d).reduce(function(s,v){return s+(v||0);},0);
+      });
+    } catch(_e){}
+    return total;
+  })();
   // marketing.csv 실집행 (KRW) - SNS / BizRewards 등
   const _csvSpendKrw = (()=>{ try { var d=JSON.parse(sessionStorage.getItem('mkt_csv_cache')||'null'); return d && d.data ? Object.values(d.data.spend||{}).reduce(function(s,v){return s+(v||0);},0) : 0; } catch(e){return 0;} })();
   // 전체 집행 = tasks.spend + xlsx + csv (KRW 합산 후 USD 변환)
-  const _totalSpendKrw = _spendKrwRaw + _xlsxSpendKrw + _csvSpendKrw;
+  const _totalSpendKrw = _spendKrwRaw + _xlsxSpendKrw + _csvSpendKrw + _kpiSpendKrw;
   const _mktSpendManual = (()=>{ try { return parseFloat(localStorage.getItem('marketing_spend_usd')||'0')||0; } catch(e){return 0;} })();
   const spend = _mktSpendManual > 0 ? _mktSpendManual : (_totalSpendKrw > 0 ? _totalSpendKrw / _KRW_USD : 0);
   // 배정 예산 (광고선전비 기준) KRW
@@ -3309,6 +3320,84 @@ function openOwnerPanel(evt, ownerName) {
 }
 
 
+function openKpiSpendModal(kpiId, kpiTitle, kpiType) {
+  var ex = document.getElementById('_kpiSpendModal');
+  if(ex) ex.remove();
+
+  var MONTHS = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem('kpi_spend_'+kpiId)||'{}'); } catch(e){}
+  var totalSaved = Object.values(saved).reduce(function(s,v){return s+(v||0);},0);
+
+  var overlay = document.createElement('div');
+  overlay.id = '_kpiSpendModal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.onclick = function(e){ if(e.target===overlay) overlay.remove(); };
+
+  var box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:12px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;padding:20px';
+
+  var hdrDiv = document.createElement('div');
+  hdrDiv.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px';
+  hdrDiv.innerHTML = '<div>'
+    + '<div style="font-size:14px;font-weight:800;color:#1a1714">💰 월별 집행액 입력</div>'
+    + '<div style="font-size:11px;color:#8a8278;margin-top:2px">' + esc(kpiTitle) + (kpiType?' · '+esc(kpiType):'') + '</div>'
+    + (totalSaved>0?'<div style="font-size:11px;color:#9e4a3a;font-weight:700;margin-top:2px">누적 집행: ₩'+totalSaved.toLocaleString()+'</div>':'')
+    + '</div>'
+    + '<button id="_ksmClose" style="background:none;border:none;font-size:18px;cursor:pointer;color:#8a8278">✕</button>';
+  hdrDiv.querySelector('#_ksmClose').onclick = function(){ overlay.remove(); };
+  box.appendChild(hdrDiv);
+
+  var note = document.createElement('div');
+  note.style.cssText = 'font-size:11px;color:#8a8278;background:#faf8f4;border-radius:6px;padding:6px 10px;margin-bottom:12px';
+  note.textContent = '입력한 금액은 총 집행 · 마케팅 활동 예산 · HQ 지역별 ROMI 분석에 자동 반영됩니다.';
+  box.appendChild(note);
+
+  var tbl = document.createElement('table');
+  tbl.style.cssText = 'width:100%;border-collapse:collapse;font-size:12px';
+  tbl.innerHTML = '<thead><tr style="background:#f0ede6"><th style="padding:6px 8px;text-align:left;border-bottom:2px solid #d8d4cc">월</th><th style="padding:6px 8px;text-align:right;border-bottom:2px solid #d8d4cc">집행액 (KRW)</th></tr></thead>';
+  var tbody = document.createElement('tbody');
+  MONTHS.forEach(function(mm){
+    var mk = '2026-'+mm;
+    var v = saved[mk]||'';
+    var tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid #f0ede6';
+    tr.innerHTML = '<td style="padding:5px 8px;font-weight:600;color:#1a1714">'+parseInt(mm)+'월</td>'
+      +'<td style="padding:4px 4px;text-align:right"><input type="number" data-key="'+mk+'" value="'+v+'" placeholder="0" min="0" step="100000"'
+      +' style="width:140px;text-align:right;border:1px solid #dedad2;border-radius:4px;padding:3px 6px;font-size:11px"></td>';
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  box.appendChild(tbl);
+
+  var saveBtn = document.createElement('button');
+  saveBtn.textContent = '저장 및 반영';
+  saveBtn.style.cssText = 'background:#9e4a3a;color:#fff;border:none;border-radius:6px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-top:14px';
+  saveBtn.onclick = function(){
+    var data = {};
+    box.querySelectorAll('input[data-key]').forEach(function(inp){
+      var v = parseFloat(inp.value)||0;
+      if(v > 0) data[inp.dataset.key] = v;
+    });
+    localStorage.setItem('kpi_spend_'+kpiId, JSON.stringify(data));
+    // 즉시 재렌더링
+    try {
+      var s = computeSummary(state.tasks||[], state._lastKpis||[]);
+      renderKPICards(s); renderSummary(s);
+      renderActivityTypeChartWithBudget(state._lastKpis||[], state.tasks||[]);
+      renderActivityTrendChart(state.tasks||[]);
+      renderRegionOrderChart(state._lastKpiTasks||state.tasks||[], state._lastKpis||[]).catch(function(){});
+      renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||state.tasks||[]);
+    } catch(_e){ console.warn('re-render failed:', _e); }
+    saveBtn.textContent = '✓ 저장됨';
+    saveBtn.style.background = '#2a7c2a';
+    setTimeout(function(){ overlay.remove(); }, 1200);
+  };
+  box.appendChild(saveBtn);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
 function openKpiGoalModal(kpi) {
   var ex = document.getElementById('_kpiGoalModal');
   if (ex) ex.remove();
@@ -3619,7 +3708,13 @@ function renderKPIAccordion(kpis, tasks) {
 
     return `
     <div class="kpi-accordion-row" data-kpi-id="${esc(kpi.id)}" onclick="toggleKpiRow(this)" style="position:relative">
-      <div class="kpi-row-actions"><button class="kpi-del-btn" onclick="event.stopPropagation();deleteKpi('${esc(kpi.id)}','${esc(kpi.title||'')}')" title="KPI 삭제">×</button></div>
+      <div class="kpi-row-actions">
+        <button class="kpi-del-btn" onclick="event.stopPropagation();deleteKpi('${esc(kpi.id)}','${esc(kpi.title||'')}')" title="KPI 삭제">×</button>
+        <button onclick="event.stopPropagation();openKpiSpendModal('${esc(kpi.id)}','${esc(kpi.title||'')}','${esc(kpi.task_type||'')}')"
+          style="font-size:9px;background:#f0ede6;border:1px solid #d8d4cc;border-radius:3px;padding:2px 6px;cursor:pointer;color:#5a5048;margin-right:2px"
+          title="월별 집행액 입력">💰 집행입력</button>
+        ${(()=>{var _ks=0;try{var _kd=JSON.parse(localStorage.getItem('kpi_spend_'+kpi.id)||'null');if(_kd)_ks=Object.values(_kd).reduce(function(s,v){return s+(v||0);},0);}catch(e){}return _ks>0?'<span style="font-size:9px;color:#9e4a3a;font-weight:700">₩'+(_ks>=10000000?(_ks/10000000).toFixed(1)+'천만':_ks>=10000?(_ks/10000).toFixed(0)+'만':_ks.toLocaleString())+'</span>':''})()}
+      </div>
       <div><div class="kpi-chevron">▶</div></div>
       <div class="kpi-name-cell">
         <div class="kpi-name-text">
@@ -6811,6 +6906,17 @@ async function renderRegionOrderChart(tasks, kpis) {
   // marketing.csv 기반 (SNS/BizRewards 등 디지털·오프라인)
   const _csvSpend = (_mktCsvParsed && Object.keys(_mktCsvParsed.spend).length) ? _mktCsvParsed.spend : _fb.spend;
   const _csvBud   = (_mktCsvParsed && Object.keys(_mktCsvParsed.budget).length) ? _mktCsvParsed.budget : _fb.budget;
+
+  // KPI별 집행액을 task_type(또는 kpi 활동유형) 기준으로 합산
+  (kpis||[]).forEach(function(kpi){
+    var _kd=null; try{_kd=JSON.parse(localStorage.getItem('kpi_spend_'+kpi.id)||'null');}catch(_e){}
+    if(!_kd) return;
+    var _kpiTotal=Object.values(_kd).reduce(function(s,v){return s+(v||0);},0);
+    if(_kpiTotal<=0) return;
+    var _tp = kpi.task_type || '';
+    if(!_tp || PROCESS_TYPES_SET.has(_tp)) _tp = '기타';
+    spendByType[_tp]=(spendByType[_tp]||0)+_kpiTotal;
+  });
 
   // xlsx 기반 (Campaign Type: Material Support, Ambassador, Promotion, Local Marketing)
   var _xlsxData = null;
