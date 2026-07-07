@@ -3175,228 +3175,73 @@ function renderOwnerTable(tasks, kpis) {
 
 function openOwnerPanel(evt, ownerName) {
   if (evt) evt.stopPropagation();
-  var existing = document.getElementById('_ownerPanel');
-  if (existing) {
-    if (existing.dataset.owner === ownerName) { existing.remove(); return; }
-    existing.remove();
+
+  // 이미 선택된 담당자 클릭 → 필터 해제
+  var ownerSel = el.ownerFilter || document.getElementById('ownerFilter');
+  if (ownerSel && ownerSel.value === ownerName) {
+    ownerSel.value = 'all';
+    applyFilters();
+    // 카드 강조 해제
+    document.querySelectorAll('#_ownerCardGrid > div').forEach(function(c) {
+      c.style.outline = 'none';
+      c.style.boxShadow = 'none';
+    });
+    return;
   }
 
-  var allTasks  = state._lastKpiTasks || state.tasks || [];
-  var allKpis   = state._lastKpis || [];
-  var ownerTasks = allTasks.filter(function(t) {
-    return (t.owner||t.assigned_to||'') === ownerName;
-  });
-
-  // KPI 목록 (담당자 KPI + 태스크가 속한 KPI)
-  var kpiIds = {};
-  ownerTasks.forEach(function(t) { if (t.kpi_id) kpiIds[t.kpi_id] = true; });
-  var ownerKpis = allKpis.filter(function(k) {
-    return k.owner === ownerName || kpiIds[k.id];
-  });
-
-  // KPI별 태스크 그룹
-  var byKpi = {};
-  ownerTasks.forEach(function(t) {
-    var kid = t.kpi_id || 'none';
-    if (!byKpi[kid]) byKpi[kid] = [];
-    byKpi[kid].push(t);
-  });
-
-  var ST = [
-    {v:'todo',       l:'대기',  c:'#8a8278'},
-    {v:'in_progress',l:'진행중',c:'#2a5fa5'},
-    {v:'done',       l:'완료',  c:'#2a7c2a'},
-    {v:'delayed',    l:'지연',  c:'#c0392b'},
-    {v:'blocked',    l:'중단',  c:'#8a3a8a'}
-  ];
-
-  var panel = document.createElement('div');
-  panel.id = '_ownerPanel';
-  panel.dataset.owner = ownerName;
-  panel.style.cssText = 'background:#fff;border:1px solid #d8d4cc;border-radius:12px;margin-top:10px;overflow:hidden';
-
-  // 헤더
-  panel.innerHTML =
-    '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#f5f2ed;border-bottom:1px solid #e8e4dc">'
-    + '<div style="font-size:14px;font-weight:700;color:#1a1714">📋 ' + esc(ownerName) + ' — KPI·업무 통합 관리</div>'
-    + '<div style="display:flex;gap:8px">'
-    + '<button id="_ownerCommentBtn" style="background:#3a5fa5;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer">💬 코멘트</button>'
-    + '<button id="_ownerSaveBtn" style="background:#2a7c2a;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer">전체 저장</button>'
-    + '<button id="_ownerCloseBtn" style="background:none;border:none;font-size:18px;cursor:pointer;color:#8a8278;line-height:1">✕</button>'
-    + '</div></div>';
-
-  panel.querySelector('#_ownerCloseBtn').onclick = function() { panel.remove(); };
-  panel.querySelector('#_ownerCommentBtn').onclick = function() { openCommentModal(ownerName); };
-
-  // 본문
-  var body = document.createElement('div');
-  body.style.cssText = 'padding:14px 16px;max-height:70vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px';
-
-  // KPI별 섹션
-  ownerKpis.forEach(function(kpi) {
-    var ktasks = (byKpi[kpi.id]||[]).slice().sort(function(a,b) {
-      var o = {delayed:0,blocked:1,in_progress:2,todo:3,done:4};
-      return (o[a.status]||5) - (o[b.status]||5);
-    });
-    var kDone  = ktasks.filter(function(t){return t.status==='done';}).length;
-    var kPct   = ktasks.length ? Math.round(kDone/ktasks.length*100) : 0;
-    var kPc    = kPct>=70?'#2a7c2a':kPct>=40?'#2a5fa5':'#c0392b';
-    var nKey   = 'kpi_note_' + kpi.id;
-    var savedN = localStorage.getItem(nKey)||'';
-
-    var sec = document.createElement('div');
-    sec.style.cssText = 'border:1px solid #e8e4dc;border-radius:8px;overflow:hidden';
-
-    // KPI 헤더
-    var kHdr = document.createElement('div');
-    kHdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f0ede6';
-    kHdr.innerHTML =
-      '<div style="flex:1">'
-      + '<div style="font-size:12px;font-weight:700;color:#1a1714">' + esc(kpi.title||kpi.kpi_key||'KPI') + '</div>'
-      + '<div style="font-size:10px;color:#8a8278">' + esc(kpi.kpi_key||'') + ' · 태스크 '+kDone+'/'+ktasks.length+'완료</div>'
-      + '</div>'
-      + '<div style="display:flex;align-items:center;gap:8px">'
-      + '<button style="font-size:10px;background:#e0ddd8;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;color:#5a5048" data-kpi-id="'+kpi.id+'">목표·성과 편집</button>'
-      + '<span style="font-size:13px;font-weight:700;color:'+kPc+'">'+kPct+'%</span>'
-      + '</div>';
-    kHdr.querySelector('button').onclick = function(e) { e.stopPropagation(); openKpiGoalModal(kpi); };
-
-    // 메모
-    var kNote = document.createElement('div');
-    kNote.style.cssText = 'padding:6px 12px;background:#faf8f4;border-bottom:1px solid #ede9e2';
-    var ta = document.createElement('textarea');
-    ta.placeholder = '기획 방향·메모 (로컬 저장)';
-    ta.value = savedN;
-    ta.style.cssText = 'width:100%;font-size:11px;padding:5px;border:1px solid #dedad2;border-radius:4px;resize:vertical;min-height:36px;font-family:inherit;box-sizing:border-box';
-    ta.onchange = function() { localStorage.setItem(nKey, this.value); };
-    kNote.appendChild(ta);
-
-    // 태스크 목록
-    var tArea = document.createElement('div');
-    tArea.style.cssText = 'padding:8px 12px;display:flex;flex-direction:column;gap:5px';
-
-    if (!ktasks.length) {
-      tArea.innerHTML = '<div style="font-size:11px;color:#a0a0a0;padding:4px">태스크 없음</div>';
-    } else {
-      ktasks.forEach(function(t) {
-        var tRow = document.createElement('div');
-        tRow.dataset.taskId = t.id;
-        tRow.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;background:#fafaf8;border-radius:5px;border:1px solid #eeebe4';
-
-        var tName = document.createElement('div');
-        tName.style.cssText = 'flex:1;font-size:11px;font-weight:600;color:#1a1714;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
-        tName.textContent = t.title||'(제목없음)';
-
-        var sel = document.createElement('select');
-        sel.className = '_tSel';
-        sel.style.cssText = 'font-size:10px;padding:2px 4px;border-radius:3px;border:1px solid #d0ccc4;background:#fff;flex-shrink:0';
-        var curSt = ST.find(function(s){return s.v===t.status;})||ST[0];
-        sel.style.color = curSt.c;
-        sel.style.fontWeight = '600';
-        ST.forEach(function(o) {
-          var opt = document.createElement('option');
-          opt.value = o.v; opt.textContent = o.l;
-          if (o.v === t.status) opt.selected = true;
-          sel.appendChild(opt);
-        });
-        sel.onchange = function() {
-          var sc = ST.find(function(s){return s.v===this.value;},this)||ST[0];
-          this.style.color = sc.c;
-        };
-
-        var pWrap = document.createElement('div');
-        pWrap.style.cssText = 'display:flex;align-items:center;gap:2px;flex-shrink:0';
-        var pIn = document.createElement('input');
-        pIn.type='number'; pIn.min=0; pIn.max=100;
-        pIn.value = Math.round(t.progress||t._progressRaw||0);
-        pIn.className = '_tProg';
-        pIn.style.cssText = 'width:40px;padding:2px 3px;font-size:10px;border:1px solid #d0ccc4;border-radius:3px;text-align:center';
-        var pct2 = document.createElement('span');
-        pct2.textContent = '%';
-        pct2.style.cssText = 'font-size:10px;color:#8a8278';
-        pWrap.append(pIn, pct2);
-
-        tRow.append(tName, sel, pWrap);
-        tArea.appendChild(tRow);
-      });
-    }
-
-    sec.append(kHdr, kNote, tArea);
-    body.appendChild(sec);
-  });
-
-  // KPI 미배정 태스크
-  var noKpi = byKpi['none']||[];
-  if (noKpi.length) {
-    var sec2 = document.createElement('div');
-    sec2.style.cssText = 'border:1px solid #e8e4dc;border-radius:8px;overflow:hidden';
-    var h2 = document.createElement('div');
-    h2.style.cssText = 'padding:8px 12px;background:#f0ede6;font-size:12px;font-weight:700;color:#5a5048';
-    h2.textContent = '기타 (KPI 미배정)';
-    var ta2 = document.createElement('div');
-    ta2.style.cssText = 'padding:8px 12px;display:flex;flex-direction:column;gap:5px';
-    noKpi.forEach(function(t) {
-      var tRow = document.createElement('div');
-      tRow.dataset.taskId = t.id;
-      tRow.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;background:#fafaf8;border-radius:5px;border:1px solid #eeebe4';
-      var tN = document.createElement('div');
-      tN.style.cssText = 'flex:1;font-size:11px;font-weight:600;color:#1a1714';
-      tN.textContent = t.title||'';
-      var sel2 = document.createElement('select');
-      sel2.className = '_tSel';
-      sel2.style.cssText = 'font-size:10px;padding:2px 4px;border-radius:3px;border:1px solid #d0ccc4;background:#fff;flex-shrink:0';
-      var curSt2 = ST.find(function(s){return s.v===t.status;})||ST[0];
-      sel2.style.color = curSt2.c; sel2.style.fontWeight='600';
-      ST.forEach(function(o){ var op=document.createElement('option');op.value=o.v;op.textContent=o.l;if(o.v===t.status)op.selected=true;sel2.appendChild(op); });
-      sel2.onchange=function(){var sc=ST.find(function(s){return s.v===this.value;},this)||ST[0];this.style.color=sc.c;};
-      var pW2=document.createElement('div');pW2.style.cssText='display:flex;align-items:center;gap:2px;flex-shrink:0';
-      var pI2=document.createElement('input');pI2.type='number';pI2.min=0;pI2.max=100;pI2.value=Math.round(t.progress||0);pI2.className='_tProg';pI2.style.cssText='width:40px;padding:2px 3px;font-size:10px;border:1px solid #d0ccc4;border-radius:3px;text-align:center';
-      var ps2=document.createElement('span');ps2.textContent='%';ps2.style.cssText='font-size:10px;color:#8a8278';
-      pW2.append(pI2,ps2);tRow.append(tN,sel2,pW2);ta2.appendChild(tRow);
-    });
-    sec2.append(h2,ta2);
-    body.appendChild(sec2);
+  // ownerFilter에 해당 담당자 설정
+  if (ownerSel) {
+    ownerSel.value = ownerName;
+    applyFilters();
   }
 
-  panel.appendChild(body);
+  // 클릭한 카드 강조
+  document.querySelectorAll('#_ownerCardGrid > div').forEach(function(c) {
+    c.style.outline = 'none';
+  });
+  if (evt && evt.currentTarget) {
+    evt.currentTarget.style.outline = '2px solid var(--primary)';
+  }
 
-  // 전체 저장
-  panel.querySelector('#_ownerSaveBtn').onclick = async function() {
-    this.textContent = '저장 중…'; this.disabled = true;
-    var tRows = panel.querySelectorAll('[data-task-id]');
-    var ok=0, fail=0;
-    for (var i=0; i<tRows.length; i++) {
-      var row = tRows[i];
-      var tid = row.dataset.taskId;
-      var sel = row.querySelector('._tSel');
-      var prog = row.querySelector('._tProg');
-      if (!sel) continue;
-      var allT = state._lastKpiTasks||state.tasks||[];
-      var task = allT.find(function(t){return t.id===tid;});
-      if (!task) continue;
-      var ns = sel.value;
-      var np = Math.min(100, Math.max(0, parseInt(prog&&prog.value)||0));
-      if (task.status===ns && Math.round(task.progress||0)===np) continue;
-      try {
-        await state.sb.from('tasks').update({status:ns,progress:np}).eq('id',tid);
-        task.status=ns; task.progress=np; task._progressRaw=np; ok++;
-      } catch(e) { fail++; }
-    }
-    this.textContent = fail ? '실패 '+fail+'건' : '✓ '+ok+'건 저장';
-    this.style.background = fail ? '#c0392b' : '#2a7c2a';
-    var btn = this;
-    setTimeout(function(){btn.textContent='전체 저장';btn.style.background='#2a7c2a';btn.disabled=false;},2500);
-    if (ok>0) {
-      var s = computeSummary(state.tasks||[], state._lastKpis||[]);
-      renderKPICards(s); renderSummary(s);
-      renderOwnerTable(state._lastKpiTasks||state.tasks||[], state._lastKpis||[]);
-    }
+  // 코멘트 버튼 표시 (카드 하단에 추가)
+  var existBtns = document.getElementById('_ownerActionBar');
+  if (existBtns) existBtns.remove();
+  var actionBar = document.createElement('div');
+  actionBar.id = '_ownerActionBar';
+  actionBar.style.cssText = 'display:flex;gap:8px;align-items:center;padding:8px 0 4px';
+  var abSpan = document.createElement('span');
+  abSpan.style.cssText = 'font-size:12px;font-weight:600;color:#1a1714';
+  abSpan.textContent = ownerName + ' 업무 필터링 중';
+  var abComment = document.createElement('button');
+  abComment.textContent = '💬 코멘트';
+  abComment.style.cssText = 'background:#3a5fa5;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer';
+  abComment.onclick = function(){ openCommentModal(ownerName); };
+  var abClear = document.createElement('button');
+  abClear.textContent = '✕ 필터 해제';
+  abClear.style.cssText = 'background:#f0ede6;border:1px solid #d8d4cc;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;color:#5a5048';
+  abClear.onclick = function(){
+    var s = el.ownerFilter || document.getElementById('ownerFilter');
+    if(s){ s.value='all'; applyFilters(); }
+    var ab = document.getElementById('_ownerActionBar');
+    if(ab) ab.remove();
+    document.querySelectorAll('#_ownerCardGrid > div').forEach(function(c){ c.style.outline='none'; });
   };
+  actionBar.appendChild(abSpan);
+  actionBar.appendChild(abComment);
+  actionBar.appendChild(abClear);
 
   var grid = document.getElementById('_ownerCardGrid');
-  if (grid) grid.parentElement.insertBefore(panel, grid.nextSibling);
-  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+  if (grid) grid.parentElement.insertBefore(actionBar, grid.nextSibling);
+
+  // 업무 상세 테이블로 스크롤
+  var accordionEl = document.getElementById('kpiAccordionPanel');
+  if (accordionEl) {
+    setTimeout(function() {
+      accordionEl.scrollIntoView({behavior:'smooth', block:'start'});
+    }, 150);
+  }
 }
+
 
 function openKpiGoalModal(kpi) {
   var ex = document.getElementById('_kpiGoalModal');
