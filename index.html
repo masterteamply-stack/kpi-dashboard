@@ -2313,7 +2313,13 @@ function buildOwnerSummary(tasks, kpis) {
     if(team&&team!=='-') r._tc[team]=(r._tc[team]||0)+1;
     r.total++;
     r.tasks.push(t);
-    r.progressSum += Math.min(100, Math.max(0, Number(t.progress || t._progressRaw || 0)));
+    // 가중 진척도: 완료 2배, 대기 0.4배, 나머지 1배
+    var _rawProg = Math.min(100, Math.max(0, Number(t.progress || t._progressRaw || 0)));
+    var _weight  = t.status === 'done'  ? 2.0
+                 : t.status === 'todo'  ? 0.4
+                 : 1.0;
+    r.progressSum  += _rawProg * _weight;
+    r.progressWeight = (r.progressWeight || 0) + _weight;
     r.taskBudget+=Number(t.allocated_budget||0);
     r.spend+=Number(t.spend||0); r.revenue+=Number(t.revenue||0);
     if(t.status==="done") r.done++;
@@ -2332,7 +2338,7 @@ function buildOwnerSummary(tasks, kpis) {
     ...r,
     kpiBudget:  kpiBudgetByOwner[r.name] || 0,
     kpiDetail:  kpiBudgetDetail[r.name]  || [],
-    avgProg:    r.total ? Math.round(r.progressSum / r.total) : 0,
+    avgProg:    r.total ? Math.round(r.progressSum / (r.progressWeight || r.total)) : 0,
     roi:        r.spend>0 ? ((r.revenue-r.spend)/r.spend)*100 : 0
   })).sort((a,b)=>b.total-a.total||b.avgProg-a.avgProg);
 }
