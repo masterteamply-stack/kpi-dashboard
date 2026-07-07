@@ -2317,10 +2317,11 @@ function buildOwnerSummary(tasks, kpis) {
 
   for(const t of tasks) {
     const name=t.owners?.name||'미지정', team=t.owners?.team||'-', key=name;
-    if(!map.has(key)) map.set(key,{name,team,total:0,done:0,inProg:0,delayed:0,blocked:0,taskBudget:0,spend:0,revenue:0,_tc:{}});
+    if(!map.has(key)) map.set(key,{name,team,total:0,done:0,inProg:0,delayed:0,blocked:0,taskBudget:0,spend:0,revenue:0,_tc:{},tasks:[]});
     const r=map.get(key);
     if(team&&team!=='-') r._tc[team]=(r._tc[team]||0)+1;
     r.total++;
+    r.tasks.push(t);
     r.taskBudget+=Number(t.allocated_budget||0);
     r.spend+=Number(t.spend||0); r.revenue+=Number(t.revenue||0);
     if(t.status==="done") r.done++;
@@ -3106,41 +3107,218 @@ function renderChart(tasks) {
 
 function renderOwnerTable(tasks, kpis) {
   const rows = buildOwnerSummary(tasks, kpis||state._lastKpis||[]);
-  if(!rows.length) { el.ownerTableBody.innerHTML=`<tr><td colspan="12" class="empty">데이터가 없습니다.</td></tr>`; return; }
-  el.ownerTableBody.innerHTML = rows.map(r=>{
-    // KPI 배분 예산 툴팁 (항목별 상세)
-    const detailLines = r.kpiDetail.map(d=>
-      `${d.kpiKey} · ${d.type||'-'} [${d.region||'-'}]: ${fmtKRW(d.amount)}`
-    ).join('\n');
-    const budgetTooltip = r.kpiDetail.length
-      ? `title="${detailLines.replace(/"/g,'&quot;')}"`
-      : '';
-    const budgetCell = r.kpiBudget > 0
-      ? `<span style="color:var(--primary);font-weight:600" ${budgetTooltip}>${fmtKRW(r.kpiBudget)}</span>`
-        + (r.taskBudget > 0
-          ? `<div style="font-size:10px;color:#8a8278;margin-top:1px">task ${fmtKRW(r.taskBudget)}</div>`
-          : '')
-      : (r.taskBudget > 0
-          ? `<span class="muted">${fmtKRW(r.taskBudget)}</span>`
-          : '<span class="muted">–</span>');
+  const wrap = el.ownerTableBody.closest('table')?.parentElement || el.ownerTableBody.parentElement;
+  // 테이블 숨기고 카드 그리드로 교체
+  const tableEl = el.ownerTableBody.closest('table');
+  if(tableEl) tableEl.style.display='none';
+  let cardGrid = document.getElementById('_ownerCardGrid');
+  if(!cardGrid) {
+    cardGrid = document.createElement('div');
+    cardGrid.id = '_ownerCardGrid';
+    cardGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;padding:4px 0 8px';
+    tableEl ? tableEl.parentElement.insertBefore(cardGrid, tableEl) : wrap.appendChild(cardGrid);
+  }
+  if(!rows.length) { cardGrid.innerHTML='<div style="color:#8a8278;font-size:13px;padding:12px">데이터가 없습니다.</div>'; return; }
+  const STATUS_COLOR = {done:'#3a7c2a',in_progress:'#2a5fa5',delayed:'#c0392b',blocked:'#8a3a8a',todo:'#8a8278'};
+  cardGrid.innerHTML = rows.map(r=>{
+    const pct = Math.min(100, Math.round(r.avgProg||0));
+    const pctColor = pct>=80?'#3a7c2a':pct>=50?'#2a5fa5':'#c0392b';
+    const doneRatio = r.total>0 ? Math.round(r.done/r.total*100) : 0;
+    const budgetPct = r.kpiBudget>0 ? Math.round(r.kpiBudget / (rows.reduce((s,x)=>s+(x.kpiBudget||0),0)||1)*100) : null;
+    const budgetTag = budgetPct ? `<span style="font-size:9px;background:rgba(92,107,74,.12);color:#5c6b4a;border-radius:3px;padding:1px 5px;margin-left:4px">${budgetPct}%</span>` : '';
+    return `<div class="_ownerCard" data-owner="${esc(r.name)}"
+      onclick="openOwnerTaskPanel('${esc(r.name).replace(/'/g,"\\'")}',this)"
+      style="background:#fff;border:1px solid #e8e4dc;border-radius:10px;padding:12px 14px;cursor:pointer;transition:box-shadow .15s;position:relative"
+      onmouseenter="this.style.boxShadow='0 2px 12px rgba(0,0,0,.08)'"
+      onmouseleave="this.style.boxShadow='none'">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:#1a1714">${esc(r.name)}</div>
+          <div style="font-size:11px;color:#8a8278">${esc(r.team||'')}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:18px;font-weight:800;color:${pctColor}">${pct}%</div>
+          <div style="font-size:9px;color:#8a8278">진척도</div>
+        </div>
+      </div>
+      <div style="background:#f0ede6;border-radius:3px;height:5px;margin-bottom:10px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${pctColor};border-radius:3px;transition:width .4s"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-bottom:8px;text-align:center">
+        <div style="background:#f0ede6;border-radius:4px;padding:4px 2px">
+          <div style="font-size:13px;font-weight:700;color:#1a1714">${r.total}</div>
+          <div style="font-size:9px;color:#8a8278">전체</div>
+        </div>
+        <div style="background:#e8f4e8;border-radius:4px;padding:4px 2px">
+          <div style="font-size:13px;font-weight:700;color:#3a7c2a">${r.done}</div>
+          <div style="font-size:9px;color:#8a8278">완료</div>
+        </div>
+        <div style="background:#e8f0f8;border-radius:4px;padding:4px 2px">
+          <div style="font-size:13px;font-weight:700;color:#2a5fa5">${r.inProg}</div>
+          <div style="font-size:9px;color:#8a8278">진행</div>
+        </div>
+        <div style="background:#fae8e8;border-radius:4px;padding:4px 2px">
+          <div style="font-size:13px;font-weight:700;color:#c0392b">${r.delayed}</div>
+          <div style="font-size:9px;color:#8a8278">지연</div>
+        </div>
+      </div>
+      ${r.kpiBudget>0 ? `<div style="font-size:10px;color:#8a8278;border-top:1px solid #f0ede6;padding-top:6px;display:flex;align-items:center;justify-content:space-between">
+        <span>KPI 배분</span><span style="font-weight:600;color:var(--primary)">${fmtKRW(r.kpiBudget)}${budgetTag}</span></div>` : ''}
+      <div style="position:absolute;bottom:8px;right:10px;font-size:9px;color:#c0bab4">클릭하여 편집 →</div>
+    </div>`;
+  }).join('');
+}
 
-    return `<tr>
-      <td><strong>${esc(r.name)}</strong></td>
-      <td class="muted">${esc(r.team)}</td>
-      <td>${fmtNum(r.total)}</td>
-      <td style="color:var(--green)">${fmtNum(r.done)}</td>
-      <td style="color:var(--primary)">${fmtNum(r.inProg)}</td>
-      <td style="color:var(--red)">${fmtNum(r.delayed)}</td>
-      <td>
-        <div>${fmtPct(r.avgProg)}</div>
-        <div class="progress-shell"><div class="progress-bar" style="width:${Math.min(100,r.avgProg)}%"></div></div>
-      </td>
-      <td>${budgetCell}</td>
-      <td>${fmtKRW(r.spend)}</td>
-      <td style="color:var(--green)">${fmtKRW(r.revenue)}</td>
-      <td style="color:${r.roi>=0?"var(--green)":"var(--red)"}">${fmtPct(r.roi)}</td>
-    </tr>`;
-  }).join("");
+// ── 담당자 통합 편집 패널 ──
+function openOwnerTaskPanel(ownerName, cardEl) {
+  // 기존 패널 제거
+  const existing = document.getElementById('_ownerPanel');
+  if(existing) {
+    if(existing.dataset.owner === ownerName) { existing.remove(); return; }
+    existing.remove();
+  }
+  const allTasks = state._lastKpiTasks||state.tasks||[];
+  const ownerTasks = allTasks.filter(t=>(t.owner||t.assigned_to||'')===ownerName)
+    .sort((a,b)=>{
+      const order={delayed:0,blocked:1,in_progress:2,todo:3,done:4};
+      return (order[a.status]??5)-(order[b.status]??5);
+    });
+  if(!ownerTasks.length) return;
+
+  const STATUS_OPTS = [
+    {v:'todo',      l:'대기',   c:'#8a8278'},
+    {v:'in_progress',l:'진행중', c:'#2a5fa5'},
+    {v:'done',      l:'완료',   c:'#3a7c2a'},
+    {v:'delayed',   l:'지연',   c:'#c0392b'},
+    {v:'blocked',   l:'중단',   c:'#8a3a8a'},
+  ];
+
+  const panel = document.createElement('div');
+  panel.id = '_ownerPanel';
+  panel.dataset.owner = ownerName;
+  panel.style.cssText = 'background:#fff;border:1px solid #d8d4cc;border-radius:12px;padding:16px;margin-top:10px;position:relative';
+
+  // 헤더
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:12px';
+  hdr.innerHTML = `<div style="font-size:14px;font-weight:700;color:#1a1714">📋 ${esc(ownerName)} 업무 통합 편집</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button id="_ownerSaveAll" style="background:#3a7c2a;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer">전체 저장</button>
+      <button onclick="document.getElementById('_ownerPanel').remove()" style="background:none;border:none;font-size:16px;cursor:pointer;color:#8a8278">✕</button>
+    </div>`;
+  panel.appendChild(hdr);
+
+  // 태스크 목록
+  const taskList = document.createElement('div');
+  taskList.id = '_ownerTaskList';
+  taskList.style.cssText = 'display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow-y:auto';
+
+  ownerTasks.forEach(t=>{
+    const statusOpt = STATUS_OPTS.find(s=>s.v===t.status)||STATUS_OPTS[0];
+    const row = document.createElement('div');
+    row.dataset.taskId = t.id;
+    row.style.cssText = 'display:grid;grid-template-columns:1fr 130px 80px 60px;gap:8px;align-items:center;padding:8px 10px;background:#f8f6f2;border-radius:6px;border:1px solid #ede9e2';
+
+    // 태스크명 + KPI
+    const nameDiv = document.createElement('div');
+    nameDiv.innerHTML = `<div style="font-size:12px;font-weight:600;color:#1a1714">${esc(t.title||'(제목없음)')}</div>
+      <div style="font-size:10px;color:#8a8278">${esc(t.kpi_title||t.kpi_key||'')}</div>`;
+
+    // 상태 선택
+    const selStatus = document.createElement('select');
+    selStatus.className = '_ownerStatusSel';
+    selStatus.style.cssText = `font-size:11px;padding:3px 6px;border-radius:4px;border:1px solid #d0ccc4;background:#fff;color:${statusOpt.c};font-weight:600;cursor:pointer`;
+    STATUS_OPTS.forEach(o=>{
+      const opt = document.createElement('option');
+      opt.value = o.v; opt.textContent = o.l;
+      if(o.v===t.status) opt.selected = true;
+      selStatus.appendChild(opt);
+    });
+    selStatus.onchange = function(){
+      const sc = STATUS_OPTS.find(s=>s.v===this.value)||STATUS_OPTS[0];
+      this.style.color = sc.c;
+    };
+
+    // 진척도 입력
+    const progWrap = document.createElement('div');
+    progWrap.style.cssText = 'display:flex;align-items:center;gap:3px';
+    const progInput = document.createElement('input');
+    progInput.type = 'number'; progInput.min = 0; progInput.max = 100;
+    progInput.value = Math.round(t.progress||t._progressRaw||0);
+    progInput.className = '_ownerProgInput';
+    progInput.style.cssText = 'width:44px;padding:3px 4px;font-size:11px;border:1px solid #d0ccc4;border-radius:4px;text-align:center';
+    const progLabel = document.createElement('span');
+    progLabel.textContent = '%';
+    progLabel.style.cssText = 'font-size:11px;color:#8a8278';
+    progWrap.append(progInput, progLabel);
+
+    // 메모 (한 줄)
+    const noteInput = document.createElement('input');
+    noteInput.type = 'text';
+    noteInput.placeholder = '메모';
+    noteInput.value = t.note||'';
+    noteInput.className = '_ownerNoteInput';
+    noteInput.style.cssText = 'font-size:10px;padding:3px 5px;border:1px solid #d0ccc4;border-radius:4px;width:100%';
+
+    row.append(nameDiv, selStatus, progWrap, document.createElement('div'));
+    // 메모를 두 번째 줄로
+    const noteRow = document.createElement('div');
+    noteRow.style.cssText = 'grid-column:1/-1;padding:0 2px';
+    noteRow.appendChild(noteInput);
+
+    const wrapper = document.createElement('div');
+    wrapper.dataset.taskId = t.id;
+    wrapper.style.cssText = 'display:flex;flex-direction:column;gap:4px;padding:8px 10px;background:#f8f6f2;border-radius:6px;border:1px solid #ede9e2';
+    const topRow = document.createElement('div');
+    topRow.style.cssText = 'display:grid;grid-template-columns:1fr 130px 90px;gap:8px;align-items:center';
+    topRow.append(nameDiv, selStatus, progWrap);
+    wrapper.append(topRow, noteRow);
+    taskList.appendChild(wrapper);
+  });
+
+  panel.appendChild(taskList);
+
+  // 저장 버튼 로직
+  panel.querySelector('#_ownerSaveAll').onclick = async function() {
+    this.textContent = '저장 중…'; this.disabled = true;
+    const wrappers = taskList.querySelectorAll('[data-task-id]');
+    let ok = 0, fail = 0;
+    for(const wr of wrappers) {
+      const tid = wr.dataset.taskId;
+      const sel = wr.querySelector('._ownerStatusSel');
+      const prog = wr.querySelector('._ownerProgInput');
+      const note = wr.querySelector('._ownerNoteInput');
+      if(!sel) continue;
+      const newStatus = sel.value;
+      const newProg   = Math.min(100, Math.max(0, parseInt(prog?.value)||0));
+      const newNote   = note?.value||'';
+      const task = (state._lastKpiTasks||state.tasks||[]).find(t=>t.id===tid);
+      if(!task) continue;
+      const changed = task.status!==newStatus || Math.round(task.progress||0)!==newProg || (task.note||'')!==newNote;
+      if(!changed) continue;
+      try {
+        const upd = {status: newStatus, progress: newProg};
+        if(newNote !== (task.note||'')) upd.note = newNote;
+        await state.sb.from('tasks').update(upd).eq('id', tid);
+        task.status = newStatus; task.progress = newProg; task._progressRaw = newProg;
+        if('note' in upd) task.note = newNote;
+        ok++;
+      } catch(e) { console.error('save failed:', tid, e); fail++; }
+    }
+    this.textContent = fail>0 ? `저장 실패 ${fail}건` : `✓ ${ok}건 저장됨`;
+    this.style.background = fail>0 ? '#c0392b' : '#3a7c2a';
+    setTimeout(()=>{ this.textContent='전체 저장'; this.style.background='#3a7c2a'; this.disabled=false; },2000);
+    if(ok>0) {
+      const s = computeSummary(state.tasks||[], state._lastKpis||[]);
+      renderKPICards(s); renderSummary(s);
+      renderOwnerTable(state._lastKpiTasks||state.tasks||[], state._lastKpis||[]);
+    }
+  };
+
+  // 카드 아래 삽입
+  const grid = document.getElementById('_ownerCardGrid');
+  grid.parentElement.insertBefore(panel, grid.nextSibling);
+  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 
 function renderKPIAccordion(kpis, tasks) {
