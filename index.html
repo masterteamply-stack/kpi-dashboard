@@ -6452,19 +6452,10 @@ function renderRegionOrderChart(tasks, kpis) {
     'ASEAN':   8810000,   // Promo 5,300,000 + BizRewards 3,510,000 (호주+한국 포함)
     'GLOBAL': 34700000,   // Reserve: Promo 21,200,000 + BizRewards 13,500,000
   };
-  // CK 집행비: 태스크 기반
-  const ckSpendByRegion = {};
-  for(const t of tasks) {
-    const kpi = kpis.find(function(k){return k.id===t.kpi_id;});
-    const isCk = (t.task_type||'').toLowerCase().includes('biz') ||
-                 (t.task_type||'').toLowerCase().includes('choice') ||
-                 (kpi&&((kpi.kpi_key||'').toLowerCase().includes('choice')||(kpi.title||'').toLowerCase().includes('choice')));
-    if(!isCk) continue;
-    var _rb=((t.region||'').trim().toUpperCase()||'GLOBAL');
-    if(_rb==='KR') _rb='GLOBAL'; else if(_rb==='DOMESTIC') _rb='ASEAN';
-    const bv=Number(t.spend||0);
-    if(bv>0) ckSpendByRegion[_rb]=(ckSpendByRegion[_rb]||0)+bv;
-  }
+  // CK 집행비: marketing.csv actual_cost 기준 (KRW)
+  const ckSpendByRegion = {"NA":1933131,"LATAM":2488654,"ASIA":81318810,"GLOBAL":3500000};
+  // CK 마케팅예산: marketing.csv expected_cost 기준 (KRW) — 기존 ckBudByRegion 대신 사용
+  const ckBudFromCsv = {"NA":31003131,"CIS":25200000,"LATAM":15712468,"MENA":20355000,"ASIA":81318810,"ASEAN":2000000,"GLOBAL":4000000};
 
   const _KRW_USD=1502;
   const fmtU=function(v){return v>=1000000?'$'+(v/1000000).toFixed(2)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':v>0?'$'+Math.round(v):'–';};
@@ -6472,12 +6463,12 @@ function renderRegionOrderChart(tasks, kpis) {
   const fmtP=function(v){return v===null?'–':(v>=0?'+':'')+v.toFixed(0)+'%';};
   const rCol=function(v){return v===null?'#8a8278':v>=0?'#2a7c2a':'#c0392b';};
 
-  const allR=new Set([...Object.keys(revByRegion),...Object.keys(spendByRegion),...Object.keys(ckByRegion),...Object.keys(ckBudByRegion),...Object.keys(ckSpendByRegion)]);
+  const allR=new Set([...Object.keys(revByRegion),...Object.keys(spendByRegion),...Object.keys(ckByRegion),...Object.keys(ckBudFromCsv),...Object.keys(ckSpendByRegion)]);
   const rows=[];
   for(const r of allR){
-    const rev=revByRegion[r]||0,spK=spendByRegion[r]||0,ckA=ckByRegion[r]||0,ckB=ckBudByRegion[r]||0;
-    const ckSp=ckSpendByRegion[r]||0;
-    const ckB2=ckBudByRegion[r]||0; if(rev>0||spK>0||ckA>0||ckB2>0||ckSp>0) rows.push({r,rev,spK,ckA,ckB:ckB2,ckSp});
+    const rev=revByRegion[r]||0,spK=spendByRegion[r]||0,ckA=ckByRegion[r]||0;
+    const ckB=ckBudFromCsv[r]||0,ckSp=ckSpendByRegion[r]||0;
+    if(rev>0||spK>0||ckA>0||ckB>0||ckSp>0) rows.push({r,rev,spK,ckA,ckB,ckSp});
   }
   var _rf=(state.filters&&state.filters.region&&state.filters.region!=='all')?state.filters.region.toUpperCase():null;
   if(_rf) rows=rows.filter(function(d){return d.r.toUpperCase()===_rf;});
@@ -6486,7 +6477,7 @@ function renderRegionOrderChart(tasks, kpis) {
   const totRev=rows.reduce(function(s,d){return s+d.rev;},0);
   const totSpK=rows.reduce(function(s,d){return s+d.spK;},0);
   const totCkA=rows.reduce(function(s,d){return s+d.ckA;},0);
-  const totCkB=Object.values(ckBudByRegion).reduce(function(s,v){return s+v;},0); // 전체 예산 합계
+  const totCkB=Object.values(ckBudFromCsv).reduce(function(s,v){return s+v;},0); // 전체 예산 합계
   const totCkSp=rows.reduce(function(s,d){return s+(d.ckSp||0);},0);
   const totSpU=totSpK/_KRW_USD;
   const totRoi=totSpU>0?(totRev-totSpU)/totSpU*100:null;
@@ -6501,7 +6492,7 @@ function renderRegionOrderChart(tasks, kpis) {
   var tdS='padding:3px 4px;font-size:9.5px;border-bottom:1px solid #f0ede6;white-space:nowrap;vertical-align:middle;overflow:hidden';
 
   var h='<table style="width:100%;border-collapse:collapse;table-layout:fixed">';
-  h+='<colgroup><col style="width:60px"><col style="width:9%"><col style="width:9%"><col style="width:7%"><col style="width:7%"><col style="width:9%"><col style="width:10%"><col style="width:9%"><col style="width:8%"></colgroup>';
+  h+='<colgroup><col style="width:80px"><col style="width:9%"><col style="width:9%"><col style="width:7%"><col style="width:7%"><col style="width:9%"><col style="width:10%"><col style="width:9%"><col style="width:8%"></colgroup>';
   h+='<thead><tr>';
   h+='<th style="text-align:left;'+thS+'">지역</th>';
   h+='<th style="text-align:right;'+thS+'">매출(USD)</th>';
