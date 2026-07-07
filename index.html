@@ -3107,219 +3107,432 @@ function renderChart(tasks) {
 
 function renderOwnerTable(tasks, kpis) {
   const rows = buildOwnerSummary(tasks, kpis||state._lastKpis||[]);
-  const wrap = el.ownerTableBody.closest('table')?.parentElement || el.ownerTableBody.parentElement;
-  // 테이블 숨기고 카드 그리드로 교체
+  // 테이블 숨기기
   const tableEl = el.ownerTableBody.closest('table');
-  if(tableEl) tableEl.style.display='none';
+  if(tableEl) tableEl.style.display = 'none';
+
   let cardGrid = document.getElementById('_ownerCardGrid');
   if(!cardGrid) {
     cardGrid = document.createElement('div');
     cardGrid.id = '_ownerCardGrid';
-    cardGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;padding:4px 0 8px';
-    tableEl ? tableEl.parentElement.insertBefore(cardGrid, tableEl) : wrap.appendChild(cardGrid);
+    tableEl ? tableEl.parentElement.insertBefore(cardGrid, tableEl) : el.ownerTableBody.parentElement.appendChild(cardGrid);
   }
-  if(!rows.length) { cardGrid.innerHTML='<div style="color:#8a8278;font-size:13px;padding:12px">데이터가 없습니다.</div>'; return; }
-  const STATUS_COLOR = {done:'#3a7c2a',in_progress:'#2a5fa5',delayed:'#c0392b',blocked:'#8a3a8a',todo:'#8a8278'};
+  cardGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;padding:4px 0 12px';
+
+  if(!rows.length) {
+    cardGrid.innerHTML = '<div style="color:#8a8278;font-size:13px;padding:12px">데이터가 없습니다.</div>';
+    return;
+  }
+  const totalBudget = rows.reduce((s,r)=>s+(r.kpiBudget||0),0);
+
   cardGrid.innerHTML = rows.map(r=>{
-    const pct = Math.min(100, Math.round(r.avgProg||0));
-    const pctColor = pct>=80?'#3a7c2a':pct>=50?'#2a5fa5':'#c0392b';
-    const doneRatio = r.total>0 ? Math.round(r.done/r.total*100) : 0;
-    const budgetPct = r.kpiBudget>0 ? Math.round(r.kpiBudget / (rows.reduce((s,x)=>s+(x.kpiBudget||0),0)||1)*100) : null;
-    const budgetTag = budgetPct ? `<span style="font-size:9px;background:rgba(92,107,74,.12);color:#5c6b4a;border-radius:3px;padding:1px 5px;margin-left:4px">${budgetPct}%</span>` : '';
-    return `<div class="_ownerCard" data-owner="${esc(r.name)}"
-      onclick="openOwnerTaskPanel('${esc(r.name).replace(/'/g,"\\'")}',this)"
-      style="background:#fff;border:1px solid #e8e4dc;border-radius:10px;padding:12px 14px;cursor:pointer;transition:box-shadow .15s;position:relative"
-      onmouseenter="this.style.boxShadow='0 2px 12px rgba(0,0,0,.08)'"
-      onmouseleave="this.style.boxShadow='none'">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+    const pct      = Math.min(100, Math.round(r.avgProg||0));
+    const pColor   = pct>=70?'#2a7c2a':pct>=40?'#2a5fa5':'#c0392b';
+    const budgetPct= totalBudget>0&&r.kpiBudget>0 ? Math.round(r.kpiBudget/totalBudget*100) : null;
+    return `<div style="background:#fff;border:1px solid #e8e4dc;border-radius:10px;padding:12px 14px;cursor:pointer;transition:box-shadow .15s"
+      onmouseenter="this.style.boxShadow='0 2px 12px rgba(0,0,0,.1)'"
+      onmouseleave="this.style.boxShadow='none'"
+      onclick="openOwnerPanel(event,'${r.name.replace(/'/g,"\\'")}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
         <div>
-          <div style="font-size:14px;font-weight:700;color:#1a1714">${esc(r.name)}</div>
-          <div style="font-size:11px;color:#8a8278">${esc(r.team||'')}</div>
+          <div style="font-size:13px;font-weight:700;color:#1a1714">${esc(r.name)}</div>
+          <div style="font-size:10px;color:#8a8278">${esc(r.team||'')}</div>
         </div>
         <div style="text-align:right">
-          <div style="font-size:18px;font-weight:800;color:${pctColor}">${pct}%</div>
+          <div style="font-size:20px;font-weight:800;color:${pColor};line-height:1">${pct}%</div>
           <div style="font-size:9px;color:#8a8278">진척도</div>
         </div>
       </div>
-      <div style="background:#f0ede6;border-radius:3px;height:5px;margin-bottom:10px;overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:${pctColor};border-radius:3px;transition:width .4s"></div>
+      <div style="background:#f0ede6;border-radius:3px;height:4px;margin-bottom:10px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${pColor};border-radius:3px"></div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-bottom:8px;text-align:center">
-        <div style="background:#f0ede6;border-radius:4px;padding:4px 2px">
-          <div style="font-size:13px;font-weight:700;color:#1a1714">${r.total}</div>
-          <div style="font-size:9px;color:#8a8278">전체</div>
-        </div>
-        <div style="background:#e8f4e8;border-radius:4px;padding:4px 2px">
-          <div style="font-size:13px;font-weight:700;color:#3a7c2a">${r.done}</div>
-          <div style="font-size:9px;color:#8a8278">완료</div>
-        </div>
-        <div style="background:#e8f0f8;border-radius:4px;padding:4px 2px">
-          <div style="font-size:13px;font-weight:700;color:#2a5fa5">${r.inProg}</div>
-          <div style="font-size:9px;color:#8a8278">진행</div>
-        </div>
-        <div style="background:#fae8e8;border-radius:4px;padding:4px 2px">
-          <div style="font-size:13px;font-weight:700;color:#c0392b">${r.delayed}</div>
-          <div style="font-size:9px;color:#8a8278">지연</div>
-        </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-bottom:8px;text-align:center;font-size:11px">
+        <div style="background:#f5f2ed;border-radius:4px;padding:4px 2px"><div style="font-weight:700;color:#1a1714">${r.total}</div><div style="color:#8a8278;font-size:9px">전체</div></div>
+        <div style="background:#e8f4e8;border-radius:4px;padding:4px 2px"><div style="font-weight:700;color:#2a7c2a">${r.done}</div><div style="color:#8a8278;font-size:9px">완료</div></div>
+        <div style="background:#e8f0f8;border-radius:4px;padding:4px 2px"><div style="font-weight:700;color:#2a5fa5">${r.inProg}</div><div style="color:#8a8278;font-size:9px">진행</div></div>
+        <div style="background:#faeaea;border-radius:4px;padding:4px 2px"><div style="font-weight:700;color:#c0392b">${r.delayed}</div><div style="color:#8a8278;font-size:9px">지연</div></div>
       </div>
-      ${r.kpiBudget>0 ? `<div style="font-size:10px;color:#8a8278;border-top:1px solid #f0ede6;padding-top:6px;display:flex;align-items:center;justify-content:space-between">
-        <span>KPI 배분</span><span style="font-weight:600;color:var(--primary)">${fmtKRW(r.kpiBudget)}${budgetTag}</span></div>` : ''}
-      <div style="position:absolute;bottom:8px;right:10px;font-size:9px;color:#c0bab4">클릭하여 편집 →</div>
+      ${r.kpiBudget>0?`<div style="font-size:10px;color:#8a8278;border-top:1px solid #f0ede6;padding-top:6px;display:flex;justify-content:space-between"><span>KPI 배분</span><span style="font-weight:600;color:var(--primary)">${fmtKRW(r.kpiBudget)}${budgetPct?` <span style="font-size:9px;background:rgba(92,107,74,.12);color:#5c6b4a;border-radius:3px;padding:1px 4px">${budgetPct}%</span>`:''}` :''}
+      <div style="font-size:9px;color:#c8c4bc;text-align:right;margin-top:4px">클릭하여 KPI/업무 관리 →</div>
     </div>`;
   }).join('');
 }
 
-// ── 담당자 통합 편집 패널 ──
-function openOwnerTaskPanel(ownerName, cardEl) {
-  // 기존 패널 제거
+function openOwnerPanel(evt, ownerName) {
+  evt && evt.stopPropagation();
   const existing = document.getElementById('_ownerPanel');
   if(existing) {
     if(existing.dataset.owner === ownerName) { existing.remove(); return; }
     existing.remove();
   }
-  const allTasks = state._lastKpiTasks||state.tasks||[];
-  const ownerTasks = allTasks.filter(t=>(t.owner||t.assigned_to||'')===ownerName)
-    .sort((a,b)=>{
-      const order={delayed:0,blocked:1,in_progress:2,todo:3,done:4};
-      return (order[a.status]??5)-(order[b.status]??5);
-    });
-  if(!ownerTasks.length) return;
+  const allTasks   = state._lastKpiTasks||state.tasks||[];
+  const allKpis    = state._lastKpis||[];
+  const ownerTasks = allTasks.filter(t=>(t.owner||t.assigned_to||'')===ownerName);
+  if(!ownerTasks.length && !allKpis.filter(k=>k.owner===ownerName).length) return;
 
-  const STATUS_OPTS = [
-    {v:'todo',      l:'대기',   c:'#8a8278'},
-    {v:'in_progress',l:'진행중', c:'#2a5fa5'},
-    {v:'done',      l:'완료',   c:'#3a7c2a'},
-    {v:'delayed',   l:'지연',   c:'#c0392b'},
-    {v:'blocked',   l:'중단',   c:'#8a3a8a'},
+  // 담당자의 KPI 목록 추출
+  const ownerKpis = allKpis.filter(k=>(k.owner||'')===ownerName
+    || ownerTasks.some(t=>t.kpi_id===k.id));
+  const tasksByKpi = {};
+  ownerTasks.forEach(t=>{
+    const kid = t.kpi_id||'none';
+    if(!tasksByKpi[kid]) tasksByKpi[kid]=[];
+    tasksByKpi[kid].push(t);
+  });
+
+  const STATUS_OPTS=[
+    {v:'todo',l:'대기',c:'#8a8278'},{v:'in_progress',l:'진행중',c:'#2a5fa5'},
+    {v:'done',l:'완료',c:'#2a7c2a'},{v:'delayed',l:'지연',c:'#c0392b'},{v:'blocked',l:'중단',c:'#8a3a8a'}
   ];
 
   const panel = document.createElement('div');
   panel.id = '_ownerPanel';
   panel.dataset.owner = ownerName;
-  panel.style.cssText = 'background:#fff;border:1px solid #d8d4cc;border-radius:12px;padding:16px;margin-top:10px;position:relative';
+  panel.style.cssText = 'background:#fff;border:1px solid #d8d4cc;border-radius:12px;margin-top:10px;overflow:hidden';
 
-  // 헤더
+  // ── 헤더 ──
   const hdr = document.createElement('div');
-  hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:12px';
-  hdr.innerHTML = `<div style="font-size:14px;font-weight:700;color:#1a1714">📋 ${esc(ownerName)} 업무 통합 편집</div>
+  hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#f5f2ed;border-bottom:1px solid #e8e4dc';
+  hdr.innerHTML = `
+    <div style="font-size:14px;font-weight:700;color:#1a1714">📋 ${esc(ownerName)} — KPI·업무 통합 관리</div>
     <div style="display:flex;gap:8px;align-items:center">
-      <button id="_ownerSaveAll" style="background:#3a7c2a;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer">전체 저장</button>
-      <button onclick="document.getElementById('_ownerPanel').remove()" style="background:none;border:none;font-size:16px;cursor:pointer;color:#8a8278">✕</button>
+      <button id="_ownerComment" style="background:#3a5fa5;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer">💬 코멘트 보내기</button>
+      <button id="_ownerSaveAll" style="background:#2a7c2a;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer">전체 저장</button>
+      <button onclick="document.getElementById('_ownerPanel').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#8a8278;line-height:1">✕</button>
     </div>`;
   panel.appendChild(hdr);
 
-  // 태스크 목록
-  const taskList = document.createElement('div');
-  taskList.id = '_ownerTaskList';
-  taskList.style.cssText = 'display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow-y:auto';
+  // ── 본문 ──
+  const body = document.createElement('div');
+  body.style.cssText = 'padding:14px 16px;max-height:70vh;overflow-y:auto;display:flex;flex-direction:column;gap:14px';
 
-  ownerTasks.forEach(t=>{
-    const statusOpt = STATUS_OPTS.find(s=>s.v===t.status)||STATUS_OPTS[0];
-    const row = document.createElement('div');
-    row.dataset.taskId = t.id;
-    row.style.cssText = 'display:grid;grid-template-columns:1fr 130px 80px 60px;gap:8px;align-items:center;padding:8px 10px;background:#f8f6f2;border-radius:6px;border:1px solid #ede9e2';
+  // KPI별 섹션
+  const noKpiTasks = tasksByKpi['none']||[];
+  const kpiSections = [...ownerKpis];
 
-    // 태스크명 + KPI
-    const nameDiv = document.createElement('div');
-    nameDiv.innerHTML = `<div style="font-size:12px;font-weight:600;color:#1a1714">${esc(t.title||'(제목없음)')}</div>
-      <div style="font-size:10px;color:#8a8278">${esc(t.kpi_title||t.kpi_key||'')}</div>`;
-
-    // 상태 선택
-    const selStatus = document.createElement('select');
-    selStatus.className = '_ownerStatusSel';
-    selStatus.style.cssText = `font-size:11px;padding:3px 6px;border-radius:4px;border:1px solid #d0ccc4;background:#fff;color:${statusOpt.c};font-weight:600;cursor:pointer`;
-    STATUS_OPTS.forEach(o=>{
-      const opt = document.createElement('option');
-      opt.value = o.v; opt.textContent = o.l;
-      if(o.v===t.status) opt.selected = true;
-      selStatus.appendChild(opt);
+  kpiSections.forEach(kpi=>{
+    const ktasks = (tasksByKpi[kpi.id]||[]).sort((a,b)=>{
+      const o={delayed:0,blocked:1,in_progress:2,todo:3,done:4};
+      return (o[a.status]??5)-(o[b.status]??5);
     });
-    selStatus.onchange = function(){
-      const sc = STATUS_OPTS.find(s=>s.v===this.value)||STATUS_OPTS[0];
-      this.style.color = sc.c;
+    const sec = document.createElement('div');
+    sec.style.cssText = 'border:1px solid #e8e4dc;border-radius:8px;overflow:hidden';
+
+    // KPI 헤더
+    const kpiHdr = document.createElement('div');
+    kpiHdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f0ede6;cursor:pointer';
+    const kpiDone  = ktasks.filter(t=>t.status==='done').length;
+    const kpiTotal = ktasks.length;
+    const kpiPct   = kpiTotal>0?Math.round(kpiDone/kpiTotal*100):0;
+    kpiHdr.innerHTML = `
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:700;color:#1a1714">${esc(kpi.title||kpi.kpi_key||'KPI')}</div>
+        <div style="font-size:10px;color:#8a8278">${esc(kpi.kpi_key||'')} · 태스크 ${kpiDone}/${kpiTotal}완료</div>
+      </div>
+      <button class="_kpiEditBtn" data-kpi-id="${kpi.id}" style="font-size:10px;background:#e8e4dc;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;color:#5a5048">목표·성과 편집</button>
+      <div style="margin-left:10px;font-size:13px;font-weight:700;color:${kpiPct>=70?'#2a7c2a':kpiPct>=40?'#2a5fa5':'#c0392b'}">${kpiPct}%</div>`;
+    kpiHdr.querySelector('._kpiEditBtn').onclick = (e) => { e.stopPropagation(); openKpiGoalModal(kpi); };
+
+    // KPI 기획 방향 메모
+    const kpiNote = document.createElement('div');
+    kpiNote.style.cssText = 'padding:6px 12px;background:#faf8f4;border-bottom:1px solid #ede9e2';
+    const noteKey = `kpi_note_${kpi.id}`;
+    const savedNote = localStorage.getItem(noteKey)||'';
+    kpiNote.innerHTML = `<textarea data-note-key="${noteKey}" placeholder="기획 방향·메모 (로컬 저장)" style="width:100%;font-size:11px;padding:5px;border:1px solid #dedad2;border-radius:4px;resize:vertical;min-height:40px;font-family:inherit;box-sizing:border-box">${savedNote}</textarea>`;
+    kpiNote.querySelector('textarea').onchange = function(){
+      localStorage.setItem(this.dataset.noteKey, this.value);
     };
 
-    // 진척도 입력
-    const progWrap = document.createElement('div');
-    progWrap.style.cssText = 'display:flex;align-items:center;gap:3px';
-    const progInput = document.createElement('input');
-    progInput.type = 'number'; progInput.min = 0; progInput.max = 100;
-    progInput.value = Math.round(t.progress||t._progressRaw||0);
-    progInput.className = '_ownerProgInput';
-    progInput.style.cssText = 'width:44px;padding:3px 4px;font-size:11px;border:1px solid #d0ccc4;border-radius:4px;text-align:center';
-    const progLabel = document.createElement('span');
-    progLabel.textContent = '%';
-    progLabel.style.cssText = 'font-size:11px;color:#8a8278';
-    progWrap.append(progInput, progLabel);
+    // 태스크 목록
+    const taskArea = document.createElement('div');
+    taskArea.style.cssText = 'padding:8px 12px;display:flex;flex-direction:column;gap:5px';
 
-    // 메모 (한 줄)
-    const noteInput = document.createElement('input');
-    noteInput.type = 'text';
-    noteInput.placeholder = '메모';
-    noteInput.value = t.note||'';
-    noteInput.className = '_ownerNoteInput';
-    noteInput.style.cssText = 'font-size:10px;padding:3px 5px;border:1px solid #d0ccc4;border-radius:4px;width:100%';
+    ktasks.forEach(t=>{
+      const tRow = document.createElement('div');
+      tRow.dataset.taskId = t.id;
+      tRow.style.cssText = 'display:grid;grid-template-columns:1fr 110px 80px;gap:6px;align-items:center;padding:6px 8px;background:#fafaf8;border-radius:5px;border:1px solid #eeebe4';
 
-    row.append(nameDiv, selStatus, progWrap, document.createElement('div'));
-    // 메모를 두 번째 줄로
-    const noteRow = document.createElement('div');
-    noteRow.style.cssText = 'grid-column:1/-1;padding:0 2px';
-    noteRow.appendChild(noteInput);
+      // 태스크명
+      const tName = document.createElement('div');
+      tName.innerHTML = `<div style="font-size:11px;font-weight:600;color:#1a1714">${esc(t.title||'(제목없음)')}</div>`;
 
-    const wrapper = document.createElement('div');
-    wrapper.dataset.taskId = t.id;
-    wrapper.style.cssText = 'display:flex;flex-direction:column;gap:4px;padding:8px 10px;background:#f8f6f2;border-radius:6px;border:1px solid #ede9e2';
-    const topRow = document.createElement('div');
-    topRow.style.cssText = 'display:grid;grid-template-columns:1fr 130px 90px;gap:8px;align-items:center';
-    topRow.append(nameDiv, selStatus, progWrap);
-    wrapper.append(topRow, noteRow);
-    taskList.appendChild(wrapper);
+      // 상태
+      const sel = document.createElement('select');
+      sel.className = '_tStatusSel';
+      sel.style.cssText = 'font-size:10px;padding:2px 4px;border-radius:3px;border:1px solid #d0ccc4;background:#fff;cursor:pointer';
+      STATUS_OPTS.forEach(o=>{
+        const opt = document.createElement('option');
+        opt.value=o.v; opt.textContent=o.l;
+        if(o.v===t.status) opt.selected=true;
+        sel.appendChild(opt);
+      });
+      const sc0 = STATUS_OPTS.find(s=>s.v===t.status)||STATUS_OPTS[0];
+      sel.style.color = sc0.c;
+      sel.style.fontWeight = '600';
+      sel.onchange = function(){
+        const sc = STATUS_OPTS.find(s=>s.v===this.value)||STATUS_OPTS[0];
+        this.style.color = sc.c;
+      };
+
+      // 진척도
+      const progWrap = document.createElement('div');
+      progWrap.style.cssText = 'display:flex;align-items:center;gap:2px';
+      const progIn = document.createElement('input');
+      progIn.type='number'; progIn.min=0; progIn.max=100;
+      progIn.value = Math.round(t.progress||t._progressRaw||0);
+      progIn.className = '_tProgIn';
+      progIn.style.cssText = 'width:40px;padding:2px 3px;font-size:10px;border:1px solid #d0ccc4;border-radius:3px;text-align:center';
+      progWrap.append(progIn, Object.assign(document.createElement('span'),{textContent:'%',style:'font-size:10px;color:#8a8278'}));
+
+      tRow.append(tName, sel, progWrap);
+      taskArea.appendChild(tRow);
+    });
+
+    if(!ktasks.length) {
+      taskArea.innerHTML = '<div style="font-size:11px;color:#a0a0a0;padding:4px">해당 태스크 없음</div>';
+    }
+
+    sec.append(kpiHdr, kpiNote, taskArea);
+    body.appendChild(sec);
   });
 
-  panel.appendChild(taskList);
+  // KPI 없는 태스크
+  if(noKpiTasks.length) {
+    const sec2 = document.createElement('div');
+    sec2.style.cssText = 'border:1px solid #e8e4dc;border-radius:8px;overflow:hidden';
+    const h2 = document.createElement('div');
+    h2.style.cssText = 'padding:8px 12px;background:#f0ede6;font-size:12px;font-weight:700;color:#1a1714';
+    h2.textContent = '기타 태스크 (KPI 미배정)';
+    const ta2 = document.createElement('div');
+    ta2.style.cssText = 'padding:8px 12px;display:flex;flex-direction:column;gap:5px';
+    noKpiTasks.forEach(t=>{
+      const tRow = document.createElement('div');
+      tRow.dataset.taskId = t.id;
+      tRow.style.cssText = 'display:grid;grid-template-columns:1fr 110px 80px;gap:6px;align-items:center;padding:6px 8px;background:#fafaf8;border-radius:5px;border:1px solid #eeebe4';
+      const tName = document.createElement('div');
+      tName.innerHTML = `<div style="font-size:11px;font-weight:600;color:#1a1714">${esc(t.title||'')}</div>`;
+      const sel = document.createElement('select');
+      sel.className = '_tStatusSel';
+      sel.style.cssText = 'font-size:10px;padding:2px 4px;border-radius:3px;border:1px solid #d0ccc4;background:#fff;cursor:pointer';
+      STATUS_OPTS.forEach(o=>{
+        const opt=document.createElement('option');
+        opt.value=o.v; opt.textContent=o.l;
+        if(o.v===t.status) opt.selected=true;
+        sel.appendChild(opt);
+      });
+      const sc0=STATUS_OPTS.find(s=>s.v===t.status)||STATUS_OPTS[0];
+      sel.style.color=sc0.c; sel.style.fontWeight='600';
+      sel.onchange=function(){const sc=STATUS_OPTS.find(s=>s.v===this.value)||STATUS_OPTS[0];this.style.color=sc.c;};
+      const progWrap=document.createElement('div');
+      progWrap.style.cssText='display:flex;align-items:center;gap:2px';
+      const progIn=document.createElement('input');
+      progIn.type='number';progIn.min=0;progIn.max=100;
+      progIn.value=Math.round(t.progress||t._progressRaw||0);
+      progIn.className='_tProgIn';
+      progIn.style.cssText='width:40px;padding:2px 3px;font-size:10px;border:1px solid #d0ccc4;border-radius:3px;text-align:center';
+      progWrap.append(progIn,Object.assign(document.createElement('span'),{textContent:'%',style:'font-size:10px;color:#8a8278'}));
+      tRow.append(tName,sel,progWrap);
+      ta2.appendChild(tRow);
+    });
+    sec2.append(h2,ta2);
+    body.appendChild(sec2);
+  }
 
-  // 저장 버튼 로직
-  panel.querySelector('#_ownerSaveAll').onclick = async function() {
-    this.textContent = '저장 중…'; this.disabled = true;
-    const wrappers = taskList.querySelectorAll('[data-task-id]');
-    let ok = 0, fail = 0;
-    for(const wr of wrappers) {
-      const tid = wr.dataset.taskId;
-      const sel = wr.querySelector('._ownerStatusSel');
-      const prog = wr.querySelector('._ownerProgInput');
-      const note = wr.querySelector('._ownerNoteInput');
+  panel.appendChild(body);
+
+  // ── 전체 저장 ──
+  panel.querySelector('#_ownerSaveAll').onclick = async function(){
+    this.textContent='저장 중…'; this.disabled=true;
+    const rows = panel.querySelectorAll('[data-task-id]');
+    let ok=0,fail=0;
+    for(const row of rows){
+      const tid=row.dataset.taskId;
+      const sel=row.querySelector('._tStatusSel');
+      const prog=row.querySelector('._tProgIn');
       if(!sel) continue;
-      const newStatus = sel.value;
-      const newProg   = Math.min(100, Math.max(0, parseInt(prog?.value)||0));
-      const newNote   = note?.value||'';
-      const task = (state._lastKpiTasks||state.tasks||[]).find(t=>t.id===tid);
+      const task=(state._lastKpiTasks||state.tasks||[]).find(t=>t.id===tid);
       if(!task) continue;
-      const changed = task.status!==newStatus || Math.round(task.progress||0)!==newProg || (task.note||'')!==newNote;
-      if(!changed) continue;
-      try {
-        const upd = {status: newStatus, progress: newProg};
-        if(newNote !== (task.note||'')) upd.note = newNote;
-        await state.sb.from('tasks').update(upd).eq('id', tid);
-        task.status = newStatus; task.progress = newProg; task._progressRaw = newProg;
-        if('note' in upd) task.note = newNote;
-        ok++;
-      } catch(e) { console.error('save failed:', tid, e); fail++; }
+      const ns=sel.value, np=Math.min(100,Math.max(0,parseInt(prog?.value)||0));
+      if(task.status===ns && Math.round(task.progress||0)===np) continue;
+      try{
+        await state.sb.from('tasks').update({status:ns,progress:np}).eq('id',tid);
+        task.status=ns; task.progress=np; task._progressRaw=np; ok++;
+      }catch(e){fail++;}
     }
-    this.textContent = fail>0 ? `저장 실패 ${fail}건` : `✓ ${ok}건 저장됨`;
-    this.style.background = fail>0 ? '#c0392b' : '#3a7c2a';
-    setTimeout(()=>{ this.textContent='전체 저장'; this.style.background='#3a7c2a'; this.disabled=false; },2000);
-    if(ok>0) {
-      const s = computeSummary(state.tasks||[], state._lastKpis||[]);
+    this.textContent=fail?`실패 ${fail}건`:`✓ ${ok}건 저장`;
+    this.style.background=fail?'#c0392b':'#2a7c2a';
+    setTimeout(()=>{this.textContent='전체 저장';this.style.background='#2a7c2a';this.disabled=false;},2500);
+    if(ok>0){
+      const s=computeSummary(state.tasks||[],state._lastKpis||[]);
       renderKPICards(s); renderSummary(s);
       renderOwnerTable(state._lastKpiTasks||state.tasks||[], state._lastKpis||[]);
     }
   };
 
-  // 카드 아래 삽입
+  // ── 코멘트 전송 (브라우저 Notification) ──
+  panel.querySelector('#_ownerComment').onclick = function(){
+    openCommentModal(ownerName);
+  };
+
   const grid = document.getElementById('_ownerCardGrid');
-  grid.parentElement.insertBefore(panel, grid.nextSibling);
-  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+  if(grid) grid.parentElement.insertBefore(panel, grid.nextSibling);
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
+
+// ── KPI 목표·성과 편집 모달 ──
+function openKpiGoalModal(kpi){
+  const existing = document.getElementById('_kpiGoalModal');
+  if(existing) existing.remove();
+  const MONTHS = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+  const savedGoal = JSON.parse(localStorage.getItem(`kpi_goal_${kpi.id}`)||'{}');
+  const overlay = document.createElement('div');
+  overlay.id = '_kpiGoalModal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.onclick = e=>{ if(e.target===overlay) overlay.remove(); };
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:12px;width:100%;max-width:640px;max-height:85vh;overflow-y:auto;padding:20px;position:relative';
+
+  // 헤더
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:14px';
+  hdr.innerHTML = `<div><div style="font-size:15px;font-weight:800;color:#1a1714">${esc(kpi.title||kpi.kpi_key||'KPI')} — 목표·성과</div><div style="font-size:11px;color:#8a8278">${esc(kpi.kpi_key||'')} · ${esc(kpi.type||'')}</div></div>
+    <button onclick="document.getElementById('_kpiGoalModal').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#8a8278">✕</button>`;
+  box.appendChild(hdr);
+
+  // 기획 방향
+  const dirSec = document.createElement('div');
+  dirSec.style.marginBottom = '12px';
+  dirSec.innerHTML = `<div style="font-size:12px;font-weight:700;color:#1a1714;margin-bottom:4px">📌 기획 방향</div>
+    <textarea id="_kpiDirection" placeholder="KPI 기획 방향, 전략, 주요 포인트..." style="width:100%;font-size:12px;padding:8px;border:1px solid #dedad2;border-radius:6px;resize:vertical;min-height:70px;font-family:inherit;box-sizing:border-box">${savedGoal.direction||''}</textarea>`;
+  box.appendChild(dirSec);
+
+  // 월별 목표·실적 테이블
+  const tblSec = document.createElement('div');
+  tblSec.style.marginBottom = '12px';
+  tblSec.innerHTML = `<div style="font-size:12px;font-weight:700;color:#1a1714;margin-bottom:6px">📊 월별 목표·실적</div>`;
+  const tbl = document.createElement('table');
+  tbl.style.cssText = 'width:100%;border-collapse:collapse;font-size:11px';
+  const thead = tbl.createTHead();
+  const headRow = thead.insertRow();
+  ['월','목표','실적','달성률'].forEach(h=>{
+    const th=document.createElement('th');
+    th.textContent=h;
+    th.style.cssText='padding:5px 8px;background:#f0ede6;text-align:right;border-bottom:2px solid #d8d4cc;font-weight:700;color:#5a5048';
+    if(h==='월') th.style.textAlign='left';
+    headRow.appendChild(th);
+  });
+  const tbody = tbl.createTBody();
+  let annualTarget=0, annualActual=0;
+  MONTHS.forEach(mm=>{
+    const moKey = `2026-${mm}`;
+    const target = savedGoal[`target_${moKey}`]||'';
+    const actual  = savedGoal[`actual_${moKey}`]||'';
+    const tNum = parseFloat(target)||0;
+    const aNum = parseFloat(actual)||0;
+    if(tNum) annualTarget+=tNum;
+    if(aNum) annualActual+=aNum;
+    const rate = tNum>0 ? Math.round(aNum/tNum*100) : null;
+    const rColor = rate===null?'#8a8278':rate>=100?'#2a7c2a':rate>=70?'#c17f3a':'#c0392b';
+    const row = tbody.insertRow();
+    row.style.borderBottom = '1px solid #f0ede6';
+    const cells = [
+      `<td style="padding:4px 8px;font-weight:600;color:#1a1714">${parseInt(mm)}월</td>`,
+      `<td style="padding:4px 4px;text-align:right"><input type="number" data-key="target_${moKey}" value="${target}" placeholder="–" style="width:80px;text-align:right;border:1px solid #dedad2;border-radius:3px;padding:2px 4px;font-size:10px"></td>`,
+      `<td style="padding:4px 4px;text-align:right"><input type="number" data-key="actual_${moKey}" value="${actual}" placeholder="–" style="width:80px;text-align:right;border:1px solid #dedad2;border-radius:3px;padding:2px 4px;font-size:10px"></td>`,
+      `<td style="padding:4px 8px;text-align:right;font-weight:700;color:${rColor}">${rate!==null?rate+'%':'–'}</td>`
+    ];
+    row.innerHTML = cells.join('');
+    // 실시간 달성률 업데이트
+    row.querySelectorAll('input').forEach(inp=>{
+      inp.oninput = function(){
+        const t2 = parseFloat(row.querySelectorAll('input')[0].value)||0;
+        const a2 = parseFloat(row.querySelectorAll('input')[1].value)||0;
+        const r2 = t2>0?Math.round(a2/t2*100):null;
+        const rc = r2===null?'#8a8278':r2>=100?'#2a7c2a':r2>=70?'#c17f3a':'#c0392b';
+        row.cells[3].textContent = r2!==null?r2+'%':'–';
+        row.cells[3].style.color = rc;
+      };
+    });
+  });
+  // 합계 행
+  const totalRow = tbody.insertRow();
+  totalRow.style.cssText = 'background:#f0ede6;border-top:2px solid #d8d4cc;font-weight:700';
+  const annRate = annualTarget>0?Math.round(annualActual/annualTarget*100):null;
+  totalRow.innerHTML = `<td style="padding:5px 8px;font-weight:700">연간 합계</td>
+    <td style="padding:5px 8px;text-align:right" id="_kpiAnnTarget">${annualTarget||'–'}</td>
+    <td style="padding:5px 8px;text-align:right" id="_kpiAnnActual">${annualActual||'–'}</td>
+    <td style="padding:5px 8px;text-align:right;color:${annRate?annRate>=100?'#2a7c2a':'#c0392b':'#8a8278'}">${annRate?annRate+'%':'–'}</td>`;
+  tblSec.appendChild(tbl);
+  box.appendChild(tblSec);
+
+  // 저장 버튼
+  const saveBtn = document.createElement('button');
+  saveBtn.textContent = '저장';
+  saveBtn.style.cssText = 'background:#2a7c2a;color:#fff;border:none;border-radius:6px;padding:7px 20px;font-size:13px;font-weight:700;cursor:pointer;width:100%';
+  saveBtn.onclick = function(){
+    const goal = { direction: document.getElementById('_kpiDirection').value };
+    box.querySelectorAll('input[data-key]').forEach(inp=>{ if(inp.value) goal[inp.dataset.key]=inp.value; });
+    localStorage.setItem(`kpi_goal_${kpi.id}`, JSON.stringify(goal));
+    saveBtn.textContent = '✓ 저장됨';
+    setTimeout(()=>{ saveBtn.textContent='저장'; },1500);
+  };
+  box.appendChild(saveBtn);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
+// ── 코멘트 모달 (브라우저 Notification 기반) ──
+function openCommentModal(ownerName){
+  const existing = document.getElementById('_commentModal');
+  if(existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = '_commentModal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.onclick = e=>{ if(e.target===overlay) overlay.remove(); };
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:12px;width:100%;max-width:420px;padding:20px;position:relative';
+  box.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:700">💬 ${esc(ownerName)}에게 코멘트</div>
+      <button onclick="document.getElementById('_commentModal').remove()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#8a8278">✕</button>
+    </div>
+    <textarea id="_commentText" placeholder="코멘트 내용을 입력하세요..." style="width:100%;font-size:13px;padding:10px;border:1px solid #dedad2;border-radius:6px;resize:vertical;min-height:100px;font-family:inherit;box-sizing:border-box;margin-bottom:10px"></textarea>
+    <div style="font-size:11px;color:#8a8278;margin-bottom:10px">* 브라우저 알림으로 전송됩니다. 수신자가 동일 브라우저에서 대시보드를 열어두어야 합니다.</div>
+    <button id="_sendComment" style="background:#3a5fa5;color:#fff;border:none;border-radius:6px;padding:8px 20px;font-size:13px;font-weight:700;cursor:pointer;width:100%">알림 전송</button>`;
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  box.querySelector('#_sendComment').onclick = async function(){
+    const txt = document.getElementById('_commentText').value.trim();
+    if(!txt) return;
+    // 코멘트 localStorage에 저장 (히스토리)
+    const histKey = `comment_${ownerName}`;
+    const hist = JSON.parse(localStorage.getItem(histKey)||'[]');
+    hist.unshift({from:'관리자', text:txt, ts:new Date().toISOString()});
+    localStorage.setItem(histKey, JSON.stringify(hist.slice(0,30)));
+    // 브라우저 Notification
+    if(Notification.permission==='granted'){
+      new Notification(`📋 ${ownerName}님께 코멘트`, {body:txt, icon:'/favicon.ico'});
+      this.textContent='✓ 전송됨'; this.style.background='#2a7c2a';
+      setTimeout(()=>overlay.remove(), 1500);
+    } else if(Notification.permission!=='denied'){
+      const perm = await Notification.requestPermission();
+      if(perm==='granted'){
+        new Notification(`📋 ${ownerName}님께 코멘트`, {body:txt, icon:'/favicon.ico'});
+        this.textContent='✓ 전송됨'; this.style.background='#2a7c2a';
+        setTimeout(()=>overlay.remove(), 1500);
+      } else {
+        this.textContent='알림 권한 거부됨'; this.style.background='#c0392b';
+      }
+    } else {
+      // 알림 권한 없으면 화면 내 toast로 대체
+      this.textContent='✓ 저장됨 (알림권한없음)'; this.style.background='#8a8278';
+      setTimeout(()=>overlay.remove(), 1800);
+    }
+  };
+}
+
+
 
 function renderKPIAccordion(kpis, tasks) {
   const wrap = document.getElementById('kpiAccordionWrap');
