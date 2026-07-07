@@ -8625,7 +8625,8 @@ function applyFilters() {
   const s = computeSummary(state.tasks, kpis);
   renderKPICards(s);
   renderSummary(s);
-  renderOwnerTable(state.tasks, kpis);
+  // 담당자 카드는 항상 전체 tasks로 렌더 (필터와 무관하게 전체 담당자 표시)
+  renderOwnerTable(state._allTasks||state.tasks, kpis);
   renderThemeInteractiveChart(kpis, tasks);
   renderRegionOrderChart(tasks, kpis).catch(function(){});
   renderRegionBudgetDonut(tasks, kpis);
