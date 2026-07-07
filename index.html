@@ -1522,8 +1522,8 @@
       <a id="webLeadSection"></a><h3 style="margin-bottom:0">담당자별 업무 현황</h3>
       <button class="panel-collapse-btn" onclick="togglePanel('ownerPanel',this)">−</button>
     </div>
-    <div id="ownerContent" class="panel-content" style="overflow:visible">
-      <div id="_ownerCardGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;padding:4px 0 8px;overflow:visible"></div>
+    <div id="ownerContent" class="panel-content" style="overflow:visible;width:100%">
+      <div id="_ownerCardGrid"></div>
       <div style="display:none"><table><tbody id="ownerTableBody"></tbody></table></div>
   </section>
 
@@ -3100,6 +3100,9 @@ function renderOwnerTable(tasks, kpis) {
   const rows = buildOwnerSummary(tasks, kpis||state._lastKpis||[]);
   const cardGrid = document.getElementById('_ownerCardGrid');
   if(!cardGrid) return;
+  // 담당자 수에 맞게 컬럼 수 결정
+  const cols = Math.min(rows.length, Math.max(1, Math.floor((cardGrid.parentElement.offsetWidth || 900) / 210)));
+  cardGrid.style.cssText = `display:grid;grid-template-columns:repeat(${cols},1fr);gap:10px;padding:4px 0 8px;width:100%;box-sizing:border-box`;
 
   if(!rows.length) {
     cardGrid.innerHTML = '<div style="color:#8a8278;font-size:13px;padding:12px">데이터가 없습니다.</div>';
@@ -3111,7 +3114,7 @@ function renderOwnerTable(tasks, kpis) {
     const pct      = Math.min(100, Math.round(r.avgProg||0));
     const pColor   = pct>=70?'#2a7c2a':pct>=40?'#2a5fa5':'#c0392b';
     const budgetPct= totalBudget>0&&r.kpiBudget>0 ? Math.round(r.kpiBudget/totalBudget*100) : null;
-    return `<div style="background:#fff;border:1px solid #e8e4dc;border-radius:10px;padding:12px 14px;cursor:pointer;transition:box-shadow .15s;min-width:0;word-break:keep-all;overflow:hidden"
+    return `<div style="background:#fff;border:1px solid #e8e4dc;border-radius:10px;padding:12px 14px;cursor:pointer;transition:box-shadow .15s;min-width:0;overflow:hidden;box-sizing:border-box;width:100%"
       onmouseenter="this.style.boxShadow='0 2px 12px rgba(0,0,0,.1)'"
       onmouseleave="this.style.boxShadow='none'"
       onclick="openOwnerPanel(event,'${r.name.replace(/'/g,"\\'")}')">
@@ -3348,6 +3351,8 @@ function openOwnerPanel(evt, ownerName) {
       const s=computeSummary(state.tasks||[],state._lastKpis||[]);
       renderKPICards(s); renderSummary(s);
       renderOwnerTable(state._lastKpiTasks||state.tasks||[], state._lastKpis||[]);
+      // 레이아웃 안정 후 재계산
+      setTimeout(()=>renderOwnerTable(state._lastKpiTasks||state.tasks||[], state._lastKpis||[]),100);
     }
   };
 
