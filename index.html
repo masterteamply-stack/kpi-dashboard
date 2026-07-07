@@ -1307,6 +1307,18 @@
 })();
 </script>
 <script>
+// ── 광고선전비 예산 배정 (2026 팀 예산 기준) ──
+(function(){
+  try {
+    var _planAnnual  = {"Exhibition": 120150000, "POS": 13500000, "BizRewards": 67500000, "앰배서더": 146679091, "콘텐츠": 72000000, "프로모션": 106000000, "e-Commerce": 18000000, "소셜미디어": 457000000};
+    var _planMonthly = {"Exhibition": {"2026-11": 3150000, "2026-12": 117000000}, "POS": {"2026-03": 13500000}, "BizRewards": {"2026-02": 15000000, "2026-03": 20000000, "2026-06": 20000000, "2026-08": 12500000}, "앰배서더": {"2026-03": 111679091, "2026-04": 15000000, "2026-11": 20000000}, "콘텐츠": {"2026-02": 8000000, "2026-03": 10000000, "2026-04": 10000000, "2026-05": 10000000, "2026-06": 10000000, "2026-07": 8000000, "2026-08": 8000000, "2026-09": 8000000}, "프로모션": {"2026-02": 53000000, "2026-06": 53000000}, "e-Commerce": {"2026-01": 1500000, "2026-02": 1500000, "2026-03": 1500000, "2026-04": 1500000, "2026-05": 1500000, "2026-06": 1500000, "2026-07": 1500000, "2026-08": 1500000, "2026-09": 1500000, "2026-10": 1500000, "2026-11": 1500000, "2026-12": 1500000}, "소셜미디어": {"2026-02": 100000000, "2026-03": 100000000, "2026-06": 100000000, "2026-09": 100000000, "2026-12": 57000000}};
+    sessionStorage.setItem('budget_plan_annual',  JSON.stringify(_planAnnual));
+    sessionStorage.setItem('budget_plan_monthly', JSON.stringify(_planMonthly));
+    console.log('[Budget] 광고선전비 예산 주입 완료, 총:', Object.values(_planAnnual).reduce(function(s,v){return s+v;},0).toLocaleString());
+  } catch(e) { console.warn('budget inject failed:', e); }
+})();
+</script>
+<script>
 // ── Survey 리드 데이터 강제 주입 (CTR 중국차 부품 시장 인사이트) ──
 (function(){
   try {
@@ -7214,6 +7226,30 @@ function renderActivityTrendChart(tasks) {
     totalSpend[idx] += Number(t.spend||0);
   }
 
+  // xlsx 집행비 월별 합산
+  var _xlsxMktT=null;
+  try{_xlsxMktT=JSON.parse(sessionStorage.getItem('mkt_cost_xlsx')||'null');}catch(_e){}
+  if(_xlsxMktT&&_xlsxMktT.by_month){
+    Object.keys(_xlsxMktT.by_month).forEach(function(mo){
+      var m2=parseInt(mo.split('-')[1])-1;
+      var i2=isMonth?m2:Math.floor(m2/3);
+      if(i2>=0&&i2<len) totalSpend[i2]+=(_xlsxMktT.by_month[mo]||0);
+    });
+  }
+  // 예산 월별 추이 (head 주입)
+  var _budgetMonthlyT=null;
+  try{_budgetMonthlyT=JSON.parse(sessionStorage.getItem('budget_plan_monthly')||'null');}catch(_e){}
+  const totalBudget=new Array(len).fill(0);
+  if(_budgetMonthlyT){
+    Object.keys(_budgetMonthlyT).forEach(function(tp){
+      Object.keys(_budgetMonthlyT[tp]).forEach(function(mo){
+        var m2=parseInt(mo.split('-')[1])-1;
+        var i2=isMonth?m2:Math.floor(m2/3);
+        if(i2>=0&&i2<len) totalBudget[i2]+=(_budgetMonthlyT[tp][mo]||0);
+      });
+    });
+  }
+
   const PALETTE = ['rgba(92,107,74,.8)','rgba(74,124,89,.8)','rgba(184,150,46,.8)',
     'rgba(74,107,124,.8)','rgba(158,74,58,.8)','rgba(124,86,140,.8)',
     'rgba(80,120,160,.8)','rgba(160,100,60,.8)','rgba(60,140,120,.8)'];
@@ -7231,7 +7267,7 @@ function renderActivityTrendChart(tasks) {
     stack: 'count',
   }));
 
-  // 마케팅 비용 (선, y축 오른쪽)
+  // 마케팅 비용 (실집행, 선, y축 오른쪽)
   datasets.push({
     type: 'line',
     label: '마케팅 비용',
@@ -7244,6 +7280,21 @@ function renderActivityTrendChart(tasks) {
     borderDash: [4,3],
     yAxisID: 'y2',
   });
+  // 배정 예산 (선, y축 오른쪽)
+  if(totalBudget.some(function(v){return v>0;})){
+    datasets.push({
+      type: 'line',
+      label: '배정 예산',
+      data: totalBudget,
+      borderColor: '#5c6b4a',
+      borderWidth: 1.5,
+      pointRadius: 2,
+      pointBackgroundColor: '#5c6b4a',
+      fill: false, tension: .3,
+      borderDash: [2,3],
+      yAxisID: 'y2',
+    });
+  }
 
   if(window._trendChart) window._trendChart.destroy();
 
@@ -7618,10 +7669,19 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
   const wrapEl = document.getElementById('activityChartWrap');
   if(!wrapEl) return;
 
+  // 광고선전비 예산 (head 주입값 우선, 없으면 KPI budget_plan)
   const planByType = {};
-  for(const kpi of kpis) {
-    const entries = getKpiBudget(kpi);
-    entries.forEach(function(e){ if(e.type&&e.amount>0) planByType[e.type]=(planByType[e.type]||0)+Number(e.amount); });
+  var _budgetPlan = null;
+  try { _budgetPlan = JSON.parse(sessionStorage.getItem('budget_plan_annual')||'null'); } catch(_e){}
+  if (_budgetPlan && Object.keys(_budgetPlan).length) {
+    // head 주입 예산 사용
+    Object.keys(_budgetPlan).forEach(function(tp){ if(_budgetPlan[tp]>0) planByType[tp]=_budgetPlan[tp]; });
+  } else {
+    // fallback: Supabase KPI budget_plan
+    for(const kpi of kpis) {
+      const entries = getKpiBudget(kpi);
+      entries.forEach(function(e){ if(e.type&&e.amount>0) planByType[e.type]=(planByType[e.type]||0)+Number(e.amount); });
+    }
   }
   const spendByType = {};
   for(const t of tasks) {
