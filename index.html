@@ -1282,6 +1282,31 @@
 })();
 </script>
 <script>
+// ── Marketing Cost (xlsx: Bi-Customer_marketing_engagement_R3) 데이터 주입 ──
+(function(){
+  try {
+    var mktCostData = {
+      // 권역별 실집행 (KRW) - Campaign Type: Material Support, Ambassador, Promotion, Local Marketing
+      by_region:  {"CIS": 1509134.0, "LATAM": 15598851.0, "MENA": 6270100.0, "GLOBAL": 6387020.0, "ASIA": 37920.0},
+      // 권역별 예산 (KRW) - Exhibition 포함
+      by_budget:  {"MENA": 117000000.0, "NA": 3150000.0, "GLOBAL": 401179091.0},
+      // Campaign Type별 집행
+      by_type:    {"local_marketing": 48000.0, "material_support": 24425025.0, "promotion": 2380000.0, "ambassador": 2950000.0},
+      // 월별 집행
+      by_month:   {"2026-01": 6506412.0, "2026-02": 102600.0, "2026-03": 19471393.0, "2026-04": 3722620.0},
+      // 고객별 집행 상위
+      by_customer: {"289404": {"buyer": "REFATRIX", "spend": 7951012, "region": "LATAM"}, "280921": {"buyer": "Malb Parts Importacao, Exportacao e", "spend": 6431347, "region": "LATAM"}, "200284": {"buyer": "DYNATRADE", "spend": 4648000, "region": "MENA"}, "114621": {"buyer": "세종파츠플러스 유한회사", "spend": 3437020, "region": "GLOBAL"}, "910001": {"buyer": "Global Marketing", "spend": 2950000, "region": "GLOBAL"}, "288140": {"buyer": "MOTOR WORLD", "spend": 1622100, "region": "MENA"}, "287553": {"buyer": "AUTOTRADE KZ", "spend": 1358534, "region": "CIS"}, "200324": {"buyer": "IMPORTACIONES SOL DE KOBE S.A.", "spend": 1216492, "region": "LATAM"}, "200323": {"buyer": "PHAETON KZ LLP", "spend": 150600, "region": "CIS"}, "288503": {"buyer": "Kailos International Pty Ltd", "spend": 37920, "region": "ASIA"}},
+      // 총액
+      total_spend:  29803025,
+      total_budget: 521329091,
+      updated: '2026-07-07'
+    };
+    sessionStorage.setItem('mkt_cost_xlsx', JSON.stringify(mktCostData));
+    console.log('[MktCost] xlsx 데이터 주입 완료, 집행:', mktCostData.total_spend.toLocaleString());
+  } catch(e) { console.warn('mkt cost inject failed:', e); }
+})();
+</script>
+<script>
 // ── Survey 리드 데이터 강제 주입 (CTR 중국차 부품 시장 인사이트) ──
 (function(){
   try {
@@ -6778,8 +6803,31 @@ async function renderRegionOrderChart(tasks, kpis) {
   // fallback: 마지막으로 알려진 값
   const _fb = { spend:{"NA":1933131,"LATAM":2488654,"ASIA":81318810,"GLOBAL":3500000},
                 budget:{"NA":31003131,"CIS":25200000,"LATAM":15712468,"MENA":20355000,"ASIA":81318810,"ASEAN":2000000,"GLOBAL":4000000} };
-  const ckSpendByRegion = (_mktCsvParsed && Object.keys(_mktCsvParsed.spend).length) ? _mktCsvParsed.spend : _fb.spend;
-  const ckBudFromCsv    = (_mktCsvParsed && Object.keys(_mktCsvParsed.budget).length) ? _mktCsvParsed.budget : _fb.budget;
+  // marketing.csv 기반 (SNS/BizRewards 등 디지털·오프라인)
+  const _csvSpend = (_mktCsvParsed && Object.keys(_mktCsvParsed.spend).length) ? _mktCsvParsed.spend : _fb.spend;
+  const _csvBud   = (_mktCsvParsed && Object.keys(_mktCsvParsed.budget).length) ? _mktCsvParsed.budget : _fb.budget;
+
+  // xlsx 기반 (Campaign Type: Material Support, Ambassador, Promotion, Local Marketing)
+  var _xlsxData = null;
+  try { _xlsxData = JSON.parse(sessionStorage.getItem('mkt_cost_xlsx')||'null'); } catch(_e){}
+  const _xlsxSpend = _xlsxData ? (_xlsxData.by_region||{}) : {};
+
+  // 두 소스 합산 → ckSpendByRegion
+  const ckSpendByRegion = {};
+  var _allRegKeys = new Set([...Object.keys(_csvSpend), ...Object.keys(_xlsxSpend)]);
+  _allRegKeys.forEach(function(r){
+    ckSpendByRegion[r] = (_csvSpend[r]||0) + (_xlsxSpend[r]||0);
+  });
+
+  // 예산은 xlsx budget + csv budget 합산
+  const ckBudFromCsv = {};
+  var _allBudKeys = new Set([...Object.keys(_csvBud), ...Object.keys(_xlsxData&&_xlsxData.by_budget||{})]);
+  _allBudKeys.forEach(function(r){
+    ckBudFromCsv[r] = (_csvBud[r]||0) + ((_xlsxData&&_xlsxData.by_budget)||{})[r]||0;
+  });
+
+  // Campaign Type별 집행 (HQ 테이블 하단 주석용)
+  const _mktByType = _xlsxData ? (_xlsxData.by_type||{}) : {};
 
   const _KRW_USD=1502;
   const fmtU=function(v){return v>=1000000?'$'+(v/1000000).toFixed(2)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':v>0?'$'+Math.round(v):'–';};
@@ -6862,6 +6910,30 @@ async function renderRegionOrderChart(tasks, kpis) {
   h+='<td style="'+tdS+';text-align:right;color:#7c5a3a">'+(totCkSp>0?fmtK(totCkSp):'–')+'</td>';
   h+='<td style="'+tdS+';text-align:right;font-weight:800;color:'+rCol(totPromoRoi)+'">'+fmtP(totPromoRoi)+'</td>';
   h+='</tr></tbody></table>';
+  // Campaign Type별 집행 분석 행
+  if(_xlsxData && _xlsxData.by_type) {
+    var _typeLabels = {
+      'material_support': '📦 Material Support',
+      'ambassador':       '🌟 Ambassador',
+      'promotion':        '🎁 Promotion',
+      'exhibition':       '🏛 Exhibition',
+      'local_marketing':  '📍 Local Marketing'
+    };
+    var _typeRows = Object.entries(_xlsxData.by_type).filter(function(e){return e[1]>0;}).sort(function(a,b){return b[1]-a[1];});
+    if(_typeRows.length) {
+      h += '<tr style="background:#f8f5ef"><td colspan="9" style="padding:6px 10px">';
+      h += '<div style="font-size:10px;font-weight:700;color:#5a5048;margin-bottom:4px">Campaign Type별 집행 (xlsx 기준)</div>';
+      h += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
+      var _typeTotal = _typeRows.reduce(function(s,e){return s+e[1];},0);
+      _typeRows.forEach(function(e){
+        var pct = _typeTotal>0 ? Math.round(e[1]/_typeTotal*100) : 0;
+        h += '<span style="font-size:10px;background:#ede9e2;border-radius:4px;padding:2px 8px;color:#1a1714">'
+          + (_typeLabels[e[0]]||e[0]) + ' <b>' + fmtKRW(e[1]) + '</b>'
+          + ' <span style="color:#8a8278">(' + pct + '%)</span></span>';
+      });
+      h += '</div></td></tr>';
+    }
+  }
   h+='<div style="text-align:right;font-size:8px;color:#b0a898;margin-top:4px">ROMI=(매출−집행)/집행 · KRW÷1,502 · CK예산: 법인/지사 광고선전비 (Promo+BizRewards) · ASEAN=호주+한국 포함</div>';
   el.innerHTML = h;
 }
