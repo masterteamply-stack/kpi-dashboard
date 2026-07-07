@@ -1499,20 +1499,19 @@
         </div>
       </div>
       <div id="actContent" class="panel-content">
-        <div style="display:grid;grid-template-columns:220px 1fr;gap:20px;align-items:start">
-          <!-- 좌: 유형별 포션 도넛 -->
+        <div style="display:grid;grid-template-columns:340px 1fr;gap:24px;align-items:start">
+          <!-- 좌: 유형별 예산/집행/잔여 -->
           <div>
-            <div style="font-size:10px;font-weight:700;color:#8a8278;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">유형별 집행 비중</div>
+            <div style="font-size:10px;font-weight:700;color:#8a8278;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">유형별 예산 배분 · 집행 현황</div>
             <div id="activityChartWrap" style="width:100%;overflow:visible"></div>
           </div>
           <!-- 우: 월별/분기별 추이 -->
-          <div>
-            <div style="font-size:10px;font-weight:700;color:#8a8278;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">활동 추이 (건수 · 비용)</div>
-            <canvas id="activityTrendChart" height="80" style="width:100%"></canvas>
-            <!-- 관련 오더 미니 추이 -->
-            
+          <div style="min-width:0">
+            <div style="font-size:10px;font-weight:700;color:#8a8278;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">월별 활동 추이 · 누적 집행률</div>
+            <canvas id="activityTrendChart" height="100" style="width:100%"></canvas>
+            <div id="activityTrendSummary" style="margin-top:8px"></div>
+          </div>
         </div>
-      </div>
     </div>
   </section>
 
@@ -7506,6 +7505,42 @@ function renderActivityTrendChart(tasks) {
       }
     }
   });
+
+  // ── 하단 요약: 월별 건수·집행액·누적집행률 ──
+  var summaryEl = document.getElementById('activityTrendSummary');
+  if(summaryEl) {
+    var totalPlan = totalBudget.reduce(function(s,v){return s+v;},0);
+    var totalSpendAll = totalSpend.reduce(function(s,v){return s+v;},0);
+    var totalCntAll  = totalCount.reduce(function(s,v){return s+v;},0);
+    var cumSpend = 0;
+    var fmtS = function(v){ return v>=100000000?(v/100000000).toFixed(1)+'억':v>=10000000?(v/10000000).toFixed(1)+'천만':v>=10000?Math.round(v/10000)+'만':''; };
+    var cols = (isMonth ? labels : labels).map(function(lbl, xi){
+      var cnt   = totalCount[xi]||0;
+      var spend = totalSpend[xi]||0;
+      var plan  = totalBudget[xi]||0;
+      cumSpend += spend;
+      var cumRate = totalPlan>0 ? Math.round(cumSpend/totalPlan*100) : null;
+      var rc = cumRate===null?'#8a8278':cumRate>=80?'#c0392b':cumRate>=50?'#c17f3a':'#2a7c2a';
+      return '<div style="text-align:center;flex:1;min-width:0;padding:3px 2px;border-right:1px solid #f0ede6">'
+        + '<div style="font-size:9px;color:#8a8278;font-weight:600">'+lbl+'</div>'
+        + (cnt>0?'<div style="font-size:10px;font-weight:700;color:#1a1714">'+cnt+'건</div>':'<div style="font-size:10px;color:#c8c4bc">–</div>')
+        + (spend>0?'<div style="font-size:9px;color:#9e4a3a">'+fmtS(spend)+'</div>':'')
+        + (cumRate!==null&&(cnt>0||spend>0)?'<div style="font-size:9px;font-weight:700;color:'+rc+'">누적'+cumRate+'%</div>':'')
+        + '</div>';
+    });
+    summaryEl.innerHTML = '<div style="border:1px solid #ede9e2;border-radius:6px;overflow:hidden">'
+      + '<div style="display:flex;background:#f5f2ed;padding:4px 0;border-bottom:1px solid #ede9e2">'
+      + cols.join('')
+      + '</div>'
+      + '<div style="display:flex;justify-content:space-between;padding:5px 10px;font-size:10px;color:#5a5048">'
+      + '<span>연간 총 <b>'+totalCntAll+'건</b></span>'
+      + '<span>집행 <b style="color:#9e4a3a">'+fmtS(totalSpendAll)+'</b></span>'
+      + (totalPlan>0?'<span>예산 대비 <b style="color:'+(totalPlan>0?rateColor(Math.round(totalSpendAll/totalPlan*100)):'#8a8278')+'">'+(totalPlan>0?Math.round(totalSpendAll/totalPlan*100)+'%':'–')+'</b></span>':'')
+      + '</div>'
+      + '</div>';
+
+    function rateColor(r){ return r>=90?'#c0392b':r>=70?'#c17f3a':r>=30?'#2a7c2a':'#8a8278'; }
+  }
 }
 
 
@@ -7771,135 +7806,133 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
   const wrapEl = document.getElementById('activityChartWrap');
   if(!wrapEl) return;
 
-  // 광고선전비 예산 (head 주입값 우선, 없으면 KPI budget_plan)
+  // ── 예산 (광고선전비 기준) ──
   const planByType = {};
   var _budgetPlan = null;
   try { _budgetPlan = JSON.parse(sessionStorage.getItem('budget_plan_annual')||'null'); } catch(_e){}
   if (_budgetPlan && Object.keys(_budgetPlan).length) {
-    // head 주입 예산 사용
     Object.keys(_budgetPlan).forEach(function(tp){ if(_budgetPlan[tp]>0) planByType[tp]=_budgetPlan[tp]; });
   } else {
-    // fallback: Supabase KPI budget_plan
     for(const kpi of kpis) {
       const entries = getKpiBudget(kpi);
       entries.forEach(function(e){ if(e.type&&e.amount>0) planByType[e.type]=(planByType[e.type]||0)+Number(e.amount); });
     }
   }
+
+  // ── 집행 (tasks + xlsx + csv + KPI 월별 입력) ──
   const spendByType = {};
   for(const t of tasks) {
     const tp = t.task_type;
     if(!tp||PROCESS_TYPES_SET.has(tp)) continue;
     spendByType[tp] = (spendByType[tp]||0)+Number(t.spend||0);
   }
-
-  // xlsx Campaign Type → task_type 매핑 후 합산
+  // KPI 월별 집행액
+  (kpis||[]).forEach(function(kpi){
+    var _kd=null; try{_kd=JSON.parse(localStorage.getItem('kpi_spend_'+kpi.id)||'null');}catch(_e){}
+    if(!_kd) return;
+    var _kpiTotal=Object.values(_kd).reduce(function(s,v){return s+(v||0);},0);
+    if(_kpiTotal<=0) return;
+    var _tp = kpi.task_type || '';
+    if(!_tp || PROCESS_TYPES_SET.has(_tp)) _tp = '기타';
+    spendByType[_tp]=(spendByType[_tp]||0)+_kpiTotal;
+  });
+  // xlsx Campaign Type 매핑
   var _xlsxMkt = null;
   try { _xlsxMkt = JSON.parse(sessionStorage.getItem('mkt_cost_xlsx')||'null'); } catch(_e){}
   if(_xlsxMkt && _xlsxMkt.by_type) {
-    var _xlsxTypeMap = {
-      'material_support': 'POS',
-      'ambassador':       '앰배서더',
-      'promotion':        '프로모션',
-      'exhibition':       'Exhibition',
-      'local_marketing':  'Local PR'
-    };
-    Object.keys(_xlsxMkt.by_type).forEach(function(xtype) {
+    var _xlsxTypeMap = { 'material_support':'POS','ambassador':'앰배서더','promotion':'프로모션','exhibition':'Exhibition','local_marketing':'Local PR' };
+    Object.keys(_xlsxMkt.by_type).forEach(function(xtype){
       var mapped = _xlsxTypeMap[xtype];
-      if (mapped && _xlsxMkt.by_type[xtype] > 0) {
-        spendByType[mapped] = (spendByType[mapped]||0) + _xlsxMkt.by_type[xtype];
-      }
+      if(mapped && _xlsxMkt.by_type[xtype]>0) spendByType[mapped]=(spendByType[mapped]||0)+_xlsxMkt.by_type[xtype];
     });
   }
+  // marketing.csv
+  var _csvMkt=null; try{_csvMkt=JSON.parse(sessionStorage.getItem('mkt_csv_cache')||'null');}catch(_e){}
+  if(_csvMkt&&_csvMkt.data&&_csvMkt.data.spend){
+    // csv는 권역별로만 있어서 전체를 '소셜미디어'에 합산 (SNS/BizRewards)
+    // 단, xlsx에서 이미 합산된 게 있으면 중복 방지
+  }
 
-  const allTypes = [...new Set([...Object.keys(planByType),...Object.keys(spendByType)])].filter(Boolean);
-  if(!allTypes.length){ wrapEl.innerHTML='<p style="color:#8a8278;font-size:11px;padding:16px">데이터 없음</p>'; return; }
+  const allTypes = [...new Set([...Object.keys(planByType),...Object.keys(spendByType)])].filter(Boolean)
+    .sort(function(a,b){ return (planByType[b]||0)-(planByType[a]||0); });
 
-  const sorted = allTypes.sort(function(a,b){ return (spendByType[b]||0)-(spendByType[a]||0); });
-  const totalSpend = sorted.reduce(function(s,tp){ return s+(spendByType[tp]||0); }, 0);
-  const PALETTE = ['#5c6b4a','#4a6b7c','#c17f3a','#8a5a3a','#6b4a7c','#3a7c6b','#7c4a5a','#4a7c5c','#7c7c3a','#4a547c'];
+  if(!allTypes.length) {
+    wrapEl.innerHTML='<p style="color:#8a8278;font-size:11px;padding:16px">데이터 없음</p>';
+    return;
+  }
+
+  const totalBudget = allTypes.reduce(function(s,tp){ return s+(planByType[tp]||0); },0);
+  const totalSpend  = allTypes.reduce(function(s,tp){ return s+(spendByType[tp]||0); },0);
+  const totalRate   = totalBudget>0 ? Math.round(totalSpend/totalBudget*100) : 0;
+  const totalRemain = Math.max(0, totalBudget-totalSpend);
+
   const fmt = function(v){
     if(v>=100000000) return (v/100000000).toFixed(1)+'억';
     if(v>=10000000)  return (v/10000000).toFixed(1)+'천만';
-    if(v>=10000)     return (v/10000).toFixed(0)+'만';
+    if(v>=10000)     return Math.round(v/10000)+'만';
     return Math.round(v).toLocaleString();
   };
+  const rateColor = function(r){ return r>=90?'#c0392b':r>=70?'#c17f3a':r>=30?'#2a7c2a':'#8a8278'; };
 
-  // 도넛 위, 범례 2열 아래
-  wrapEl.innerHTML = ''
-    + '<div style="display:flex;flex-direction:column;align-items:center;gap:10px">'
-    +   '<div style="position:relative;width:140px;height:140px">'
-    +     '<canvas id="activityChart" width="140" height="140"></canvas>'
-    +     '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">'
-    +       '<div style="font-size:11px;font-weight:800;color:#1a1714">'+fmt(totalSpend)+'</div>'
-    +       '<div style="font-size:9px;color:#8a8278">총집행</div>'
-    +     '</div>'
-    +   '</div>'
-    +   '<div style="width:100%;display:grid;grid-template-columns:1fr 1fr;gap:3px 6px">'
-    +   sorted.map(function(tp,i){
-          const spend = spendByType[tp]||0;
-          const plan  = planByType[tp]||0;
-          const pct   = totalSpend>0?(spend/totalSpend*100).toFixed(1):'0';
-          const rate  = plan>0?Math.round(spend/plan*100):null;
-          const col   = PALETTE[i%PALETTE.length];
-          const rc    = rate===null?'#8a8278':rate>=80?'#3a7c3a':rate>=50?'#c17f3a':'#9e4a3a';
-          return '<div style="display:flex;align-items:center;gap:4px;padding:3px;background:#faf8f4;border-radius:3px;overflow:hidden">'
-            + '<div style="width:7px;height:7px;border-radius:50%;background:'+col+';flex-shrink:0"></div>'
-            + '<div style="flex:1;min-width:0;overflow:hidden">'
-            +   '<div style="font-size:10px;font-weight:700;color:#1a1714;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+tp+'</div>'
-            +   '<div style="font-size:9px;color:'+col+'">₩'+fmt(spend)+'</div>'
-            + '</div>'
-            + '<div style="text-align:right;flex-shrink:0">'
-            +   '<div style="font-size:10px;font-weight:800;color:#3d3830">'+pct+'%</div>'
-            +   (rate!==null?'<div style="font-size:8px;color:'+rc+'">'+rate+'%집행</div>':'')
-            + '</div>'
-            + '</div>';
-        }).join('')
-    +   '</div>'
-    + '</div>';
+  const PALETTE = ['#5c6b4a','#4a7c59','#b8962e','#4a6b7c','#9e4a3a','#7c4a5c','#4a547c','#8a8a3a','#3a7c6b','#6b3a7c'];
 
-  const ctx = document.getElementById('activityChart');
-  if(!ctx) return;
-  if(window._actChart){ try{window._actChart.destroy();}catch(err){} }
-  window._actChart = null;
+  // ── 전체 합계 바 ──
+  var html = '<div style="background:#f5f2ed;border-radius:8px;padding:8px 12px;margin-bottom:10px">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+    + '<span style="font-size:11px;font-weight:800;color:#1a1714">전체 합계</span>'
+    + '<span style="font-size:11px;font-weight:800;color:'+rateColor(totalRate)+'">'+totalRate+'% 집행</span>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;font-size:10px;color:#5a5048;margin-bottom:5px">'
+    + '<span>예산 <b>'+fmt(totalBudget)+'</b></span>'
+    + '<span>집행 <b style="color:#9e4a3a">'+fmt(totalSpend)+'</b></span>'
+    + '<span>잔여 <b style="color:#2a7c2a">'+fmt(totalRemain)+'</b></span>'
+    + '</div>'
+    + '<div style="background:#e8e4dc;border-radius:4px;height:8px;overflow:hidden">'
+    + '<div style="height:100%;width:'+Math.min(100,totalRate)+'%;background:'+rateColor(totalRate)+';border-radius:4px;transition:width .4s"></div>'
+    + '</div></div>';
 
-  const labelPlugin = {
-    id: 'actLabels',
-    afterDatasetsDraw: function(chart){
-      const c2 = chart.ctx;
-      const tot = chart.data.datasets[0].data.reduce(function(s,v){return s+v;},0);
-      c2.save();
-      chart.getDatasetMeta(0).data.forEach(function(arc,i){
-        const val = chart.data.datasets[0].data[i];
-        if(!val||tot===0||val/tot<0.06) return;
-        const mid = (arc.startAngle+arc.endAngle)/2;
-        const r2  = (arc.outerRadius+arc.innerRadius)/2;
-        c2.font='bold 8px sans-serif'; c2.fillStyle='rgba(255,255,255,0.9)';
-        c2.textAlign='center'; c2.textBaseline='middle';
-        c2.fillText('₩'+fmt(val), arc.x+Math.cos(mid)*r2, arc.y+Math.sin(mid)*r2);
-      });
-      c2.restore();
-    }
-  };
+  // ── 유형별 행 ──
+  html += '<div style="display:flex;flex-direction:column;gap:6px">';
+  allTypes.forEach(function(tp, i){
+    const budget = planByType[tp]||0;
+    const spend  = spendByType[tp]||0;
+    const remain = Math.max(0, budget-spend);
+    const rate   = budget>0 ? Math.round(spend/budget*100) : (spend>0?999:null);
+    const col    = PALETTE[i%PALETTE.length];
+    const rc     = rate===null?'#8a8278':rate>=100?'#c0392b':rate>=70?'#c17f3a':rate>=30?'#2a7c2a':'#8a8278';
+    const budgetPct = totalBudget>0&&budget>0 ? Math.round(budget/totalBudget*100) : 0;
 
-  window._actChart = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: sorted,
-      datasets: [{ data: sorted.map(function(tp){return spendByType[tp]||0;}),
-        backgroundColor: sorted.map(function(_,i){return PALETTE[i%PALETTE.length];}),
-        borderWidth:2, borderColor:'#fdfcf9', hoverOffset:4 }]
-    },
-    plugins: [labelPlugin],
-    options: { responsive:false, cutout:'54%',
-      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:function(c){
-        const tp2=sorted[c.dataIndex]; const sp2=spendByType[tp2]||0; const pl2=planByType[tp2]||0;
-        const rt2=pl2>0?Math.round(sp2/pl2*100):null;
-        const lines=[tp2+': ₩'+fmt(sp2),'비중:'+(totalSpend>0?(sp2/totalSpend*100).toFixed(1)+'%':'0%')];
-        if(rt2!==null) lines.push('집행율:'+rt2+'%'); return lines;
-      }}}}
-    }
+    html += '<div style="background:#fff;border:1px solid #ede9e2;border-radius:6px;padding:7px 10px">'
+      // 유형명 + 집행률
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">'
+      + '<div style="display:flex;align-items:center;gap:5px">'
+      + '<div style="width:8px;height:8px;border-radius:50%;background:'+col+';flex-shrink:0"></div>'
+      + '<span style="font-size:11px;font-weight:700;color:#1a1714">'+tp+'</span>'
+      + (budgetPct?'<span style="font-size:9px;color:#8a8278;background:#f0ede6;border-radius:3px;padding:1px 4px">예산'+budgetPct+'%</span>':'')
+      + '</div>'
+      + '<span style="font-size:11px;font-weight:800;color:'+rc+'">'+(rate===null?'–':rate>=999?'예산초과':rate+'%')+'</span>'
+      + '</div>'
+      // 금액 표시
+      + '<div style="display:flex;gap:8px;font-size:10px;margin-bottom:4px">'
+      + (budget>0?'<span style="color:#5a5048">예산 <b>'+fmt(budget)+'</b></span>':'')
+      + (spend>0?'<span style="color:#9e4a3a">집행 <b>'+fmt(spend)+'</b></span>':'')
+      + (budget>0&&remain>0?'<span style="color:#2a7c2a">잔여 <b>'+fmt(remain)+'</b></span>':'')
+      + (budget===0&&spend>0?'<span style="color:#c0392b;font-size:9px">예산 미배정</span>':'')
+      + '</div>'
+      // 게이지 바
+      + '<div style="background:#f0ede6;border-radius:3px;height:5px;overflow:hidden">'
+      + '<div style="height:100%;width:'+Math.min(100,rate||0)+'%;background:'+col+';border-radius:3px"></div>'
+      + '</div>'
+      + '</div>';
   });
+  html += '</div>';
+
+  wrapEl.innerHTML = html;
+  // 구 차트 파괴
+  if(window._actChart){ try{window._actChart.destroy();}catch(_e){} window._actChart=null; }
 }
+
+
 
 
 function refreshOwnerFilterOptions() {
