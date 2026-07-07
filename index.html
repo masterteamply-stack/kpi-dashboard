@@ -6910,31 +6910,7 @@ async function renderRegionOrderChart(tasks, kpis) {
   h+='<td style="'+tdS+';text-align:right;color:#7c5a3a">'+(totCkSp>0?fmtK(totCkSp):'–')+'</td>';
   h+='<td style="'+tdS+';text-align:right;font-weight:800;color:'+rCol(totPromoRoi)+'">'+fmtP(totPromoRoi)+'</td>';
   h+='</tr></tbody></table>';
-  // Campaign Type별 집행 분석 행
-  if(_xlsxData && _xlsxData.by_type) {
-    var _typeLabels = {
-      'material_support': '📦 Material Support',
-      'ambassador':       '🌟 Ambassador',
-      'promotion':        '🎁 Promotion',
-      'exhibition':       '🏛 Exhibition',
-      'local_marketing':  '📍 Local Marketing'
-    };
-    var _typeRows = Object.entries(_xlsxData.by_type).filter(function(e){return e[1]>0;}).sort(function(a,b){return b[1]-a[1];});
-    if(_typeRows.length) {
-      h += '<tr style="background:#f8f5ef"><td colspan="9" style="padding:6px 10px">';
-      h += '<div style="font-size:10px;font-weight:700;color:#5a5048;margin-bottom:4px">Campaign Type별 집행 (xlsx 기준)</div>';
-      h += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
-      var _typeTotal = _typeRows.reduce(function(s,e){return s+e[1];},0);
-      _typeRows.forEach(function(e){
-        var pct = _typeTotal>0 ? Math.round(e[1]/_typeTotal*100) : 0;
-        h += '<span style="font-size:10px;background:#ede9e2;border-radius:4px;padding:2px 8px;color:#1a1714">'
-          + (_typeLabels[e[0]]||e[0]) + ' <b>' + fmtKRW(e[1]) + '</b>'
-          + ' <span style="color:#8a8278">(' + pct + '%)</span></span>';
-      });
-      h += '</div></td></tr>';
-    }
-  }
-  h+='<div style="text-align:right;font-size:8px;color:#b0a898;margin-top:4px">ROMI=(매출−집행)/집행 · KRW÷1,502 · CK예산: 법인/지사 광고선전비 (Promo+BizRewards) · ASEAN=호주+한국 포함</div>';
+    h+='<div style="text-align:right;font-size:8px;color:#b0a898;margin-top:4px">ROMI=(매출−집행)/집행 · KRW÷1,502 · CK예산: 법인/지사 광고선전비 (Promo+BizRewards) · ASEAN=호주+한국 포함</div>';
   el.innerHTML = h;
 }
 
@@ -7653,6 +7629,26 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
     if(!tp||PROCESS_TYPES_SET.has(tp)) continue;
     spendByType[tp] = (spendByType[tp]||0)+Number(t.spend||0);
   }
+
+  // xlsx Campaign Type → task_type 매핑 후 합산
+  var _xlsxMkt = null;
+  try { _xlsxMkt = JSON.parse(sessionStorage.getItem('mkt_cost_xlsx')||'null'); } catch(_e){}
+  if(_xlsxMkt && _xlsxMkt.by_type) {
+    var _xlsxTypeMap = {
+      'material_support': 'POS',
+      'ambassador':       '앰배서더',
+      'promotion':        '프로모션',
+      'exhibition':       'Exhibition',
+      'local_marketing':  'Local PR'
+    };
+    Object.keys(_xlsxMkt.by_type).forEach(function(xtype) {
+      var mapped = _xlsxTypeMap[xtype];
+      if (mapped && _xlsxMkt.by_type[xtype] > 0) {
+        spendByType[mapped] = (spendByType[mapped]||0) + _xlsxMkt.by_type[xtype];
+      }
+    });
+  }
+
   const allTypes = [...new Set([...Object.keys(planByType),...Object.keys(spendByType)])].filter(Boolean);
   if(!allTypes.length){ wrapEl.innerHTML='<p style="color:#8a8278;font-size:11px;padding:16px">데이터 없음</p>'; return; }
 
