@@ -1329,6 +1329,8 @@
     var _raw = JSON.parse(new TextDecoder('utf-8').decode(_bytes));
     sessionStorage.setItem('team_cost_2026', JSON.stringify(_raw));
     console.log('[TeamCost] 집행내역 주입 완료:', _raw.length+'건');
+    // 전역 변수로도 저장 (computeSummary 실행 시점 동기화)
+    window.__TEAM_COST_TOTAL = _raw.reduce(function(s,r){return s+(r.amount>0?r.amount:0);},0);
   } catch(e) { console.warn('team cost inject failed:', e); }
 })();
 </script>
@@ -2323,13 +2325,15 @@ function computeSummary(tasks, kpis) {
   })();
   // marketing.csv 실집행 (KRW) - SNS / BizRewards 등
   const _csvSpendKrw = (()=>{ try { var d=JSON.parse(sessionStorage.getItem('mkt_csv_cache')||'null'); return d && d.data ? Object.values(d.data.spend||{}).reduce(function(s,v){return s+(v||0);},0) : 0; } catch(e){return 0;} })();
-  // 전체 집행 = team_cost_2026 집행 내역 합계 (단일 소스, 마케팅 활동 예산과 동일 기준)
+  // 전체 집행 = team_cost_2026 집행 내역 합계 (window 전역 또는 sessionStorage)
   const _totalSpendKrw = (function(){
+    // 전역 변수 우선 (head 스크립트에서 동기적으로 세팅됨)
+    if(window.__TEAM_COST_TOTAL > 0) return window.__TEAM_COST_TOTAL;
     try {
       var _tc=JSON.parse(sessionStorage.getItem('team_cost_2026')||'null');
       if(_tc&&_tc.length) return _tc.reduce(function(s,r){return s+(r.amount>0?r.amount:0);},0);
     } catch(_e){}
-    return _spendKrwRaw; // fallback
+    return _spendKrwRaw;
   })();
   const _mktSpendManual = (()=>{ try { return parseFloat(localStorage.getItem('marketing_spend_usd')||'0')||0; } catch(e){return 0;} })();
   const spend = _mktSpendManual > 0 ? _mktSpendManual : (_totalSpendKrw > 0 ? _totalSpendKrw / _KRW_USD : 0);
@@ -7877,8 +7881,7 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
 
   // 전체 합계 행
   var isAll = !_actTypeFilter || _actTypeFilter==='all';
-  var html='<div style="background:#f5f2ed;border-radius:8px;padding:8px 12px;margin-bottom:8px;cursor:pointer;border:2px solid '+(isAll?'var(--primary)':'transparent')+'"'
-    +' onclick="_actTypeFilter=\'all\';renderActivityTypeChartWithBudget(state._lastKpis||[],state._lastKpiTasks||state.tasks||[]);renderActivityTrendChart(state._lastKpiTasks||state.tasks||[]);_renderCostDetailTable();">'
+  var html='<div id="_actTypeTotalCard" style="background:#f5f2ed;border-radius:8px;padding:8px 12px;margin-bottom:8px;cursor:pointer;border:2px solid '+(isAll?'var(--primary)':'transparent')+'">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">'
     +'<span style="font-size:11px;font-weight:800;color:#1a1714">전체 합계</span>'
     +'<span style="font-size:11px;font-weight:800;color:'+rc(totalRate)+'">'+totalRate+'% 집행</span></div>'
@@ -7900,9 +7903,7 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
     var rcc=rate===null?'#8a8278':rate>=100?'#c0392b':rate>=70?'#c17f3a':rate>=30?'#2a7c2a':'#8a8278';
     var bPct=totalBudget>0&&budget>0?Math.round(budget/totalBudget*100):0;
     var isSel=_actTypeFilter===tp;
-    html+='<div style="background:#fff;border:2px solid '+(isSel?col:'#ede9e2')+';border-radius:6px;padding:6px 10px;cursor:pointer;transition:border-color .15s"'
-      +' onclick="_actTypeFilter=\''+(isSel?'all':tp.replace(/'/g,"\\'")+'\';renderActivityTypeChartWithBudget(state._lastKpis||[],state._lastKpiTasks||state.tasks||[]);renderActivityTrendChart(state._lastKpiTasks||state.tasks||[]);_renderCostDetailTable();"')
-      +'>'
+    html+='<div data-acttype="'+tp.replace(/"/g,'&quot;')+'" style="background:#fff;border:2px solid '+(isSel?col:'#ede9e2')+';border-radius:6px;padding:6px 10px;cursor:pointer;transition:border-color .15s">';
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">'
       +'<div style="display:flex;align-items:center;gap:5px">'
       +'<div style="width:8px;height:8px;border-radius:50%;background:'+col+';flex-shrink:0"></div>'
@@ -7923,6 +7924,24 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
   html+='</div>';
   wrapEl.innerHTML=html;
   if(window._actChart){try{window._actChart.destroy();}catch(_e){}window._actChart=null;}
+
+  // 이벤트 리스너 바인딩 (onclick 속성 대신)
+  var _refresh = function(){
+    renderActivityTypeChartWithBudget(state._lastKpis||[],state._lastKpiTasks||state.tasks||[]);
+    renderActivityTrendChart(state._lastKpiTasks||state.tasks||[]);
+    _renderCostDetailTable();
+  };
+  var totalCard = document.getElementById('_actTypeTotalCard');
+  if(totalCard) totalCard.addEventListener('click', function(){
+    _actTypeFilter='all'; _refresh();
+  });
+  wrapEl.querySelectorAll('[data-acttype]').forEach(function(card){
+    card.addEventListener('click', function(){
+      var tp = this.dataset.acttype;
+      _actTypeFilter = (_actTypeFilter===tp) ? 'all' : tp;
+      _refresh();
+    });
+  });
 
   // 하단 집행 상세 테이블 렌더
   _renderCostDetailTable();
