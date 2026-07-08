@@ -7903,7 +7903,7 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
     var rcc=rate===null?'#8a8278':rate>=100?'#c0392b':rate>=70?'#c17f3a':rate>=30?'#2a7c2a':'#8a8278';
     var bPct=totalBudget>0&&budget>0?Math.round(budget/totalBudget*100):0;
     var isSel=_actTypeFilter===tp;
-    html+='<div data-acttype="'+tp.replace(/"/g,'&quot;')+'" style="background:#fff;border:2px solid '+(isSel?col:'#ede9e2')+';border-radius:6px;padding:6px 10px;cursor:pointer;transition:border-color .15s">';
+    html+='<div data-acttype="'+tp.replace(/"/g,'&quot;')+'" style="background:#fff;border:2px solid '+(isSel?col:'#ede9e2')+';border-radius:6px;padding:6px 10px;cursor:pointer;transition:border-color .15s">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">'
       +'<div style="display:flex;align-items:center;gap:5px">'
       +'<div style="width:8px;height:8px;border-radius:50%;background:'+col+';flex-shrink:0"></div>'
