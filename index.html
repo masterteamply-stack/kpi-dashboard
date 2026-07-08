@@ -2010,7 +2010,7 @@ function normalizePayload(v) {
 async function fetchMeta() {
   const [{ data: owners, error: e1 }, { data: kpis, error: e2 }] = await Promise.all([
     state.sb.from("owners").select("id,name,team,email,teams_webhook_url").order("name"),
-    state.sb.from("kpis").select("id,title,unit,target_value").order("title")
+    state.sb.from("kpis").select("id,title,kpi_key,owners,unit,target_value").order("title")
   ]);
   if(e1) {
     // teams_webhook_url 컬럼 없으면 fallback
@@ -3967,7 +3967,13 @@ function renderKPIAccordion(kpis, tasks) {
   }).join('');
 
   wrap.innerHTML = `<div class="kpi-accordion-wrap">${headerHTML}${rows}</div><div class="kpi-add-row" onclick="openAddKpiModal()"><span style="font-size:16px">＋</span> KPI 추가</div>`;
-  state._lastKpis = kpis;
+  // _lastKpis는 원본 전체만 보존 (필터된 값으로 덮어쓰지 않음)
+  if (!state._allKpis || state._allKpis.length < kpis.length) {
+    state._allKpis = kpis;   // 전체 KPI 원본 저장
+  }
+  if (kpis.length >= (state._allKpis||[]).length) {
+    state._lastKpis = kpis;  // 전체 보기일 때만 업데이트
+  }
   state._lastKpiTasks = tasks;
   // 열림 상태 복원
   if(state.openKpiIds && state.openKpiIds.size > 0) {
@@ -4056,6 +4062,7 @@ async function refreshDashboard() {
       if(kt._progressRaw == null) kt._progressRaw = Number(kt.progress || 0);
       return kt;
     });
+    state._allKpis = [...(kpiResult.kpis||[])];       // 전체 KPI 원본 보존
     renderKPIAccordion(kpiResult.kpis, _syncedKpiTasks);
     state._allKpiTasks = [...(kpiResult.tasks||[])]; // 원본 전체 보존
 
@@ -9155,7 +9162,7 @@ function applyFilters() {
   // ── 원본 데이터 (항상 _all* 기준) ──
   var srcTasks    = state._allTasks    || [];
   var srcKpiTasks = state._allKpiTasks || [];
-  var srcKpis     = state._lastKpis    || [];
+  var srcKpis     = state._allKpis || state._lastKpis || [];
 
   // ── 담당자 이름 추출 헬퍼 ──
   var getName = function(t) {
