@@ -3769,10 +3769,7 @@ function renderKPIAccordion(kpis, tasks) {
     <div class="kpi-accordion-row" data-kpi-id="${esc(kpi.id)}" onclick="toggleKpiRow(this)" style="position:relative">
       <div class="kpi-row-actions">
         <button class="kpi-del-btn" onclick="event.stopPropagation();deleteKpi('${esc(kpi.id)}','${esc(kpi.title||'')}')" title="KPI 삭제">×</button>
-        <button onclick="event.stopPropagation();openKpiSpendModal('${esc(kpi.id)}','${esc(kpi.title||'')}','${esc(kpi.task_type||'')}')"
-          style="font-size:9px;background:#f0ede6;border:1px solid #d8d4cc;border-radius:3px;padding:2px 6px;cursor:pointer;color:#5a5048;margin-right:2px"
-          title="월별 집행액 입력">💰 집행입력</button>
-        ${(()=>{var _ks=0;try{var _kd=JSON.parse(localStorage.getItem('kpi_spend_'+kpi.id)||'null');if(_kd)_ks=Object.values(_kd).reduce(function(s,v){return s+(v||0);},0);}catch(e){}return _ks>0?'<span style="font-size:9px;color:#9e4a3a;font-weight:700">₩'+(_ks>=10000000?(_ks/10000000).toFixed(1)+'천만':_ks>=10000?(_ks/10000).toFixed(0)+'만':_ks.toLocaleString())+'</span>':''})()}
+
       </div>
       <div><div class="kpi-chevron">▶</div></div>
       <div class="kpi-name-cell">
