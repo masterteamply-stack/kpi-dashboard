@@ -7386,6 +7386,24 @@ function renderActivityTrendChart(tasks) {
     });
   }
 
+  // 현재 월 이후는 null 처리 (미래 데이터 표시 안 함)
+  var _now = new Date();
+  var _curMoIdx = isMonth
+    ? _now.getMonth()           // 0~11
+    : Math.floor(_now.getMonth()/3); // 0~3
+  // totalCount: 현재 월 이후는 null
+  for(var _fi=_curMoIdx+1;_fi<len;_fi++) {
+    totalCount[_fi] = null;
+  }
+  // totalSpend: 현재 월 이후는 null (집행 내역 기준이므로 실제로는 없어야 정상)
+  for(var _fi2=_curMoIdx+1;_fi2<len;_fi2++) {
+    totalSpend[_fi2] = null;
+  }
+  // typeMap도 현재 월 이후 null
+  Object.keys(typeMap).forEach(function(tp){
+    for(var _fi3=_curMoIdx+1;_fi3<len;_fi3++) typeMap[tp][_fi3]=null;
+  });
+
   const PALETTE = ['rgba(92,107,74,.8)','rgba(74,124,89,.8)','rgba(184,150,46,.8)',
     'rgba(74,107,124,.8)','rgba(158,74,58,.8)','rgba(124,86,140,.8)',
     'rgba(80,120,160,.8)','rgba(160,100,60,.8)','rgba(60,140,120,.8)'];
@@ -7550,17 +7568,21 @@ function renderActivityTrendChart(tasks) {
     var cumSpend = 0;
     var fmtS = function(v){ return v>=100000000?(v/100000000).toFixed(1)+'억':v>=10000000?(v/10000000).toFixed(1)+'천만':v>=10000?Math.round(v/10000)+'만':''; };
     var cols = (isMonth ? labels : labels).map(function(lbl, xi){
-      var cnt   = totalCount[xi]||0;
+      var isFuture = xi > _curMoIdx;
+      var cnt   = totalCount[xi];
       var spend = totalSpend[xi]||0;
       var plan  = totalBudget[xi]||0;
-      cumSpend += spend;
-      var cumRate = totalPlan>0 ? Math.round(cumSpend/totalPlan*100) : null;
+      if(!isFuture) cumSpend += spend;
+      var cumRate = (!isFuture && totalPlan>0) ? Math.round(cumSpend/totalPlan*100) : null;
       var rc = cumRate===null?'#8a8278':cumRate>=80?'#c0392b':cumRate>=50?'#c17f3a':'#2a7c2a';
-      return '<div style="text-align:center;flex:1;min-width:0;padding:3px 2px;border-right:1px solid #f0ede6">'
-        + '<div style="font-size:9px;color:#8a8278;font-weight:600">'+lbl+'</div>'
-        + (cnt>0?'<div style="font-size:10px;font-weight:700;color:#1a1714">'+cnt+'건</div>':'<div style="font-size:10px;color:#c8c4bc">–</div>')
-        + (spend>0?'<div style="font-size:9px;color:#9e4a3a">'+fmtS(spend)+'</div>':'')
-        + (cumRate!==null&&(cnt>0||spend>0)?'<div style="font-size:9px;font-weight:700;color:'+rc+'">누적'+cumRate+'%</div>':'')
+      var bg = isFuture ? 'background:#f8f8f8;' : '';
+      return '<div style="text-align:center;flex:1;min-width:0;padding:3px 2px;border-right:1px solid #f0ede6;'+bg+'">'
+        + '<div style="font-size:9px;color:'+(isFuture?'#c8c4bc':'#8a8278')+';font-weight:600">'+lbl+'</div>'
+        + (isFuture
+            ? '<div style="font-size:10px;color:#dedad2">–</div>'
+            : (cnt>0?'<div style="font-size:10px;font-weight:700;color:#1a1714">'+cnt+'건</div>':'<div style="font-size:10px;color:#c8c4bc">–</div>'))
+        + (!isFuture&&spend>0?'<div style="font-size:9px;color:#9e4a3a">'+fmtS(spend)+'</div>':'')
+        + (cumRate!==null?'<div style="font-size:9px;font-weight:700;color:'+rc+'">누적'+cumRate+'%</div>':'')
         + '</div>';
     });
     summaryEl.innerHTML = '<div style="border:1px solid #ede9e2;border-radius:6px;overflow:hidden">'
