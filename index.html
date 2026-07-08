@@ -9191,24 +9191,47 @@ function applyFilters() {
   const allKpis = state._lastKpis || [];
   const tasks   = state._lastKpiTasks;
 
-  // owner 필터 적용 시 해당 담당자가 참여한 KPI만 표시
+  // owner 필터 적용 시: 해당 담당자 참여 KPI만 + 해당 KPI 내 그 사람 태스크만
   var filteredKpis = allKpis;
+  var filteredTasks = tasks;
   if (state.filters.owner && state.filters.owner !== 'all') {
     var _fOwner = state.filters.owner;
-    filteredKpis = allKpis.filter(function(k) {
-      // KPI owners 필드에 해당 담당자 포함
+    var _allKT  = state._allKpiTasks || state._lastKpiTasks || [];
+
+    // 태스크에서 담당자 이름 추출 헬퍼
+    var _getOwner = function(t) {
+      var n = (t.owners&&t.owners.name) ? t.owners.name.trim()
+            : (t.owner_name||'').trim();
+      if (!n && t.owner_id) {
+        var _ow = (state.owners||[]).find(function(o){return o.id===t.owner_id;});
+        if (_ow) n = (_ow.name||'').trim();
+      }
+      return n;
+    };
+
+    // 1) 전체 태스크 기준으로 해당 담당자가 속한 KPI id 수집
+    var _ownerKpiIds = new Set();
+    _allKT.forEach(function(t){
+      if (_getOwner(t) === _fOwner && t.kpi_id) _ownerKpiIds.add(t.kpi_id);
+    });
+
+    // 2) KPI owners 필드에 있는 KPI도 포함
+    allKpis.forEach(function(k){
       var kOwners = String(k.owners||'').split(',').map(function(n){return n.trim();});
-      if (kOwners.indexOf(_fOwner) >= 0) return true;
-      // 또는 해당 KPI에 속한 태스크 중 이 담당자 태스크가 있음
-      return tasks.some(function(t){
-        if (t.kpi_id !== k.id) return false;
-        var tOwner = (t.owners&&t.owners.name)?t.owners.name.trim():(t.owner_name||'').trim();
-        return tOwner === _fOwner;
-      });
+      if (kOwners.indexOf(_fOwner) >= 0) _ownerKpiIds.add(k.id);
+    });
+
+    // 3) 해당 KPI만 추출
+    filteredKpis = allKpis.filter(function(k){ return _ownerKpiIds.has(k.id); });
+
+    // 4) 해당 KPI 내에서 이 담당자 태스크만 (다른 사람 태스크 제거)
+    filteredTasks = _allKT.filter(function(t){
+      if (!_ownerKpiIds.has(t.kpi_id)) return false;
+      return _getOwner(t) === _fOwner;
     });
   }
 
-  renderKPIAccordion(filteredKpis, tasks);
+  renderKPIAccordion(filteredKpis, filteredTasks);
   const s = computeSummary(state.tasks, kpis);
   renderKPICards(s);
   renderSummary(s);
