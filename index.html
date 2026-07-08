@@ -9146,105 +9146,80 @@ function applyFilters() {
   state.filters = state.filters || {};
   state.filters.quarter = qSel?.value || 'all';
   state.filters.region  = rSel?.value || 'all';
-  // window._activeOwnerFilter(카드 클릭)가 있으면 우선 사용
-  state.filters.owner = (window._activeOwnerFilter) || oSel?.value || 'all';
-  // select UI 동기화
+
+  // 카드 클릭(_activeOwnerFilter) 우선, 없으면 select 값
+  var ownerVal = window._activeOwnerFilter || oSel?.value || 'all';
+  state.filters.owner = ownerVal;
   if (oSel && window._activeOwnerFilter) oSel.value = window._activeOwnerFilter;
 
-  // 캐시된 tasks 데이터 필터링
-  const allTasks = state._allTasks || state.tasks || [];
-  const allKpiTasks = state._allKpiTasks || state._lastKpiTasks || [];
+  // ── 원본 데이터 (항상 _all* 기준) ──
+  var srcTasks    = state._allTasks    || [];
+  var srcKpiTasks = state._allKpiTasks || [];
+  var srcKpis     = state._lastKpis    || [];
 
-  // 지역 정규화: KR·빈값 → GLOBAL
-  var _normR=function(r){var v=(r||'').trim().toUpperCase();return(v===''||v==='KR'||v==='DOMESTIC')?'GLOBAL':v;};
-  const filterFn = function(t) {
-    // 분기 필터
-    if(state.filters.quarter !== 'all' && t.quarter !== state.filters.quarter) return false;
-    // 지역 필터: KR/빈값 → GLOBAL로 통일
-    if(state.filters.region !== 'all') {
-      var _tr=_normR(t.region);
-      var _sr=_normR(state.filters.region);
-      if(_tr !== _sr) return false;
+  // ── 담당자 이름 추출 헬퍼 ──
+  var getName = function(t) {
+    var n = (t.owners&&t.owners.name) ? t.owners.name.trim() : (t.owner_name||'').trim();
+    if (!n && t.owner_id) {
+      var o = (state.owners||[]).find(function(o){return o.id===t.owner_id;});
+      if (o) n = (o.name||'').trim();
     }
-    // 담당자 필터: 태스크 직접 담당자 OR 해당 KPI의 담당자
-    if(state.filters.owner !== 'all') {
-      var _on=(t.owners&&t.owners.name)?t.owners.name.trim():(t.owner_name||'').trim();
-      if(!_on&&t.owner_id){var _ow=(state.owners||[]).find(function(o){return o.id===t.owner_id;});if(_ow)_on=(_ow.name||'').trim();}
-      if(_on === state.filters.owner) return true;  // 태스크 담당자 매칭
-      // KPI 담당자 매칭: 태스크가 속한 KPI의 owners 필드 확인
-      if(t.kpi_id){
-        var _kpi=(state._lastKpis||[]).find(function(k){return k.id===t.kpi_id;});
-        if(_kpi&&_kpi.owners){
-          var _kOwners=String(_kpi.owners).split(',').map(function(n){return n.trim();});
-          if(_kOwners.indexOf(state.filters.owner)>=0) return true;
-        }
-      }
-      return false;
+    return n;
+  };
+
+  // ── 분기·지역 필터 ──
+  var normR = function(r){ var v=(r||'').trim().toUpperCase(); return (v===''||v==='KR'||v==='DOMESTIC')?'GLOBAL':v; };
+  var baseFilter = function(t) {
+    if (state.filters.quarter !== 'all' && t.quarter !== state.filters.quarter) return false;
+    if (state.filters.region  !== 'all') {
+      if (normR(t.region) !== normR(state.filters.region)) return false;
     }
     return true;
   };
 
-  state.tasks         = allTasks.filter(filterFn);
-  state._lastKpiTasks = allKpiTasks.filter(filterFn);
+  // ── KPI 아코디언용 filteredKpis / filteredTasks ──
+  var filteredKpis, filteredTasks;
 
-  // 전체 재렌더
-  const allKpis = state._lastKpis || [];
-  const tasks   = state._lastKpiTasks;
-
-  // owner 필터 적용 시: 해당 담당자 참여 KPI만 + 해당 KPI 내 그 사람 태스크만
-  var filteredKpis = allKpis;
-  var filteredTasks = tasks;
-  if (state.filters.owner && state.filters.owner !== 'all') {
-    var _fOwner = state.filters.owner;
-    var _allKT  = state._allKpiTasks || state._lastKpiTasks || [];
-
-    // 태스크에서 담당자 이름 추출 헬퍼
-    var _getOwner = function(t) {
-      var n = (t.owners&&t.owners.name) ? t.owners.name.trim()
-            : (t.owner_name||'').trim();
-      if (!n && t.owner_id) {
-        var _ow = (state.owners||[]).find(function(o){return o.id===t.owner_id;});
-        if (_ow) n = (_ow.name||'').trim();
-      }
-      return n;
-    };
-
-    // 1) 전체 태스크 기준으로 해당 담당자가 속한 KPI id 수집
-    var _ownerKpiIds = new Set();
-    _allKT.forEach(function(t){
-      if (_getOwner(t) === _fOwner && t.kpi_id) _ownerKpiIds.add(t.kpi_id);
+  if (ownerVal === 'all') {
+    // 전체 보기: 분기·지역 필터만 적용
+    filteredKpis  = srcKpis;
+    filteredTasks = srcKpiTasks.filter(baseFilter);
+  } else {
+    // 1) 해당 담당자가 담당인 태스크의 KPI id 수집 (원본 전체 기준)
+    var ownerKpiIds = new Set();
+    srcKpiTasks.forEach(function(t) {
+      if (baseFilter(t) && getName(t) === ownerVal && t.kpi_id) ownerKpiIds.add(t.kpi_id);
     });
-
-    // 2) KPI owners 필드에 있는 KPI도 포함
-    allKpis.forEach(function(k){
-      var kOwners = String(k.owners||'').split(',').map(function(n){return n.trim();});
-      if (kOwners.indexOf(_fOwner) >= 0) _ownerKpiIds.add(k.id);
+    // 2) KPI owners 필드에 직접 지정된 KPI도 포함
+    srcKpis.forEach(function(k) {
+      var kOwners = String(k.owners||'').split(',').map(function(n){return n.trim();}).filter(Boolean);
+      if (kOwners.indexOf(ownerVal) >= 0) ownerKpiIds.add(k.id);
     });
-
-    // 3) 해당 KPI만 추출
-    filteredKpis = allKpis.filter(function(k){ return _ownerKpiIds.has(k.id); });
-
-    // 4) 해당 KPI 내에서 이 담당자 태스크만 (다른 사람 태스크 제거)
-    filteredTasks = _allKT.filter(function(t){
-      if (!_ownerKpiIds.has(t.kpi_id)) return false;
-      return _getOwner(t) === _fOwner;
+    // 3) 해당 KPI만
+    filteredKpis = srcKpis.filter(function(k){ return ownerKpiIds.has(k.id); });
+    // 4) 해당 KPI 내에서 이 담당자 태스크만
+    filteredTasks = srcKpiTasks.filter(function(t){
+      return baseFilter(t) && ownerKpiIds.has(t.kpi_id) && getName(t) === ownerVal;
     });
   }
 
+  // state 업데이트 (summary/차트용)
+  state.tasks         = srcTasks.filter(baseFilter);
+  state._lastKpiTasks = filteredTasks;
+
+  // ── 렌더링 ──
   renderKPIAccordion(filteredKpis, filteredTasks);
-  const s = computeSummary(state.tasks, kpis);
+  var s = computeSummary(state.tasks, srcKpis);
   renderKPICards(s);
   renderSummary(s);
-  // 담당자 카드는 항상 전체 tasks로 렌더 (필터와 무관하게 전체 담당자 표시)
-  renderOwnerTable(state._allTasks||state.tasks, kpis);
-  renderThemeInteractiveChart(kpis, tasks);
-  renderRegionOrderChart(tasks, kpis).catch(function(){});
-  renderRegionBudgetDonut(tasks, kpis);
-  renderActivityTypeChartWithBudget(kpis, tasks);
-  renderActivityTrendChart(tasks);
-  renderDigitalKpiCharts(kpis, tasks);
+  renderOwnerTable(srcTasks, srcKpis);
+  renderRegionOrderChart(filteredTasks, srcKpis).catch(function(){});
+  renderActivityTypeChartWithBudget(srcKpis, filteredTasks);
+  renderActivityTrendChart(filteredTasks);
+  renderDigitalKpiCharts(srcKpis, filteredTasks);
   renderRegionSubChart();
 }
+
 
 
 // Task 삭제 확인 모달
