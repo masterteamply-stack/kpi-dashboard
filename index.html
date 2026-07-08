@@ -7840,37 +7840,16 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
     }
   }
 
-  // ── 집행: tasks ──
+  // ── 집행: team_cost_2026 집행 내역만 기준 ──
   var spendByType = {};
-  for(var _ti=0;_ti<tasks.length;_ti++){
-    var _t=tasks[_ti], tp=_t.task_type;
-    if(!tp||PROCESS_TYPES_SET.has(tp)) continue;
-    spendByType[tp]=(spendByType[tp]||0)+Number(_t.spend||0);
-  }
-  // KPI 월별 집행액
-  (kpis||[]).forEach(function(kpi){
-    var _kd=null; try{_kd=JSON.parse(localStorage.getItem('kpi_spend_'+kpi.id)||'null');}catch(_e){}
-    if(!_kd) return;
-    var _kt=Object.values(_kd).reduce(function(s,v){return s+(v||0);},0);
-    if(_kt<=0) return;
-    var _tp=kpi.task_type||''; if(!_tp||PROCESS_TYPES_SET.has(_tp)) _tp='기타';
-    spendByType[_tp]=(spendByType[_tp]||0)+_kt;
-  });
-  // xlsx Campaign Type
-  var _xlsxMkt=null; try{_xlsxMkt=JSON.parse(sessionStorage.getItem('mkt_cost_xlsx')||'null');}catch(_e){}
-  if(_xlsxMkt&&_xlsxMkt.by_type){
-    var _xmap={'material_support':'POS','ambassador':'앰배서더','promotion':'프로모션','exhibition':'Exhibition','local_marketing':'Local PR'};
-    Object.keys(_xlsxMkt.by_type).forEach(function(x){ var m=_xmap[x]; if(m&&_xlsxMkt.by_type[x]>0) spendByType[m]=(spendByType[m]||0)+_xlsxMkt.by_type[x]; });
-  }
-  // 팀 비용 집행 내역 반영
-  var _teamCost=null; try{_teamCost=JSON.parse(sessionStorage.getItem('team_cost_2026')||'null');}catch(_e){}
-  if(_teamCost) {
-    _teamCost.forEach(function(r){
+  var _teamCostD=null; try{_teamCostD=JSON.parse(sessionStorage.getItem('team_cost_2026')||'null');}catch(_e){}
+  if(_teamCostD) {
+    _teamCostD.forEach(function(r){
       if(r.amount>0 && r.mapped) spendByType[r.mapped]=(spendByType[r.mapped]||0)+r.amount;
     });
   }
 
-  var allTypes=[...new Set([...Object.keys(planByType),...Object.keys(spendByType)])].filter(Boolean)
+    var allTypes=[...new Set([...Object.keys(planByType),...Object.keys(spendByType)])].filter(Boolean)
     .sort(function(a,b){return (planByType[b]||0)-(planByType[a]||0);});
 
   if(!allTypes.length){wrapEl.innerHTML='<p style="color:#8a8278;font-size:11px;padding:16px">데이터 없음</p>';return;}
