@@ -8233,6 +8233,9 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
 
   // 이벤트 리스너 바인딩 (onclick 속성 대신)
   var _refresh = function(){
+    // 유형 전환 시 userToggled 초기화 (기본 접기/펼침 규칙 적용)
+    var _cd = document.getElementById('_costDetailTable');
+    if (_cd) { _cd.dataset.userToggled = '0'; }
     renderActivityTypeChartWithBudget(state._lastKpis||[],state._lastKpiTasks||state.tasks||[]);
     renderActivityTrendChart(state._lastKpiTasks||state.tasks||[]);
     _renderCostDetailTable();
@@ -8301,14 +8304,23 @@ function _renderCostDetailTable() {
   container.style.display = 'block';
 
   // 헤더
-  // 접기 상태 확인
-  var _costCollapsed = container.dataset.collapsed === '1';
+  // 접기 상태: 전체 합계 → 기본 접힘, 유형 선택 → 기본 펼침
+  // 단, 사용자가 직접 토글한 경우(dataset.userToggled)는 그 상태 유지
+  var _isAll = !_actTypeFilter || _actTypeFilter === 'all';
+  var _costCollapsed;
+  if (container.dataset.userToggled === '1') {
+    _costCollapsed = container.dataset.collapsed === '1';
+  } else {
+    _costCollapsed = _isAll; // 전체: 접힘, 유형 선택: 펼침
+    container.dataset.collapsed = _costCollapsed ? '1' : '0';
+  }
 
   var hdr = document.createElement('div');
   hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:' + (_costCollapsed?'0':'8px') + ';cursor:pointer;padding:4px 0';
   hdr.onclick = function() {
     var isNowCollapsed = container.dataset.collapsed === '1';
     container.dataset.collapsed = isNowCollapsed ? '0' : '1';
+    container.dataset.userToggled = '1'; // 사용자가 직접 토글
     _renderCostDetailTable();
   };
   var hdrLeft = document.createElement('div');
