@@ -2419,13 +2419,70 @@ function buildOwnerSummary(tasks, kpis) {
     delete r._tc;
   }
 
-  return [...map.values()].map(r=>({
-    ...r,
-    kpiBudget:  kpiBudgetByOwner[r.name] || 0,
-    kpiDetail:  kpiBudgetDetail[r.name]  || [],
-    avgProg:    r.total ? Math.round(r.progressSum / (r.progressWeight || r.total)) : 0,
-    roi:        r.spend>0 ? ((r.revenue-r.spend)/r.spend)*100 : 0
-  })).sort((a,b)=>b.total-a.total||b.avgProg-a.avgProg);
+  // ── 담당자별 KPI 기반 진척도 계산 ──
+  // = (완료 KPI수 / 전체 KPI수) × 100  +  미완료 KPI 태스크 가중평균 × (미완료 KPI수 / 전체 KPI수)
+  const kpisArr = kpis || [];
+
+  return [...map.values()].map(r => {
+    // 이 담당자가 속한 KPI 목록
+    const ownerKpis = kpisArr.filter(k => {
+      var kOwners = (k.owners||'').split(',').map(function(o){return o.trim();});
+      // 태스크 중 이 담당자 태스크가 해당 KPI에 속하는지도 체크
+      var hasTask = r.tasks.some(function(t){return t.kpi_id===k.id;});
+      return kOwners.includes(r.name) || hasTask;
+    });
+
+    var kpiTotal = ownerKpis.length;
+    var avgP = 0;
+
+    if (kpiTotal > 0) {
+      // 완료 KPI: progress_status === 'completed' 또는 해당 KPI 태스크 전부 done
+      var donKpis = ownerKpis.filter(function(k) {
+        var kTasks = r.tasks.filter(function(t){return t.kpi_id===k.id;});
+        if (k.progress_status === 'completed') return true;
+        if (kTasks.length > 0) return kTasks.every(function(t){return t.status==='done';});
+        return false;
+      });
+      var doneCount = donKpis.length;
+      var baseScore = (doneCount / kpiTotal) * 100; // 완료 KPI 기본 점수
+
+      // 미완료 KPI 태스크 진척
+      var incompleteKpis = ownerKpis.filter(function(k){
+        return !donKpis.includes(k);
+      });
+      var extraScore = 0;
+      if (incompleteKpis.length > 0) {
+        var incTasks = r.tasks.filter(function(t){
+          return incompleteKpis.some(function(k){return k.id===t.kpi_id;});
+        });
+        // KPI 미배정 태스크도 포함
+        var noKpiTasks = r.tasks.filter(function(t){return !t.kpi_id;});
+        var allIncTasks = incTasks.concat(noKpiTasks);
+        if (allIncTasks.length > 0) {
+          var wSum = 0, wTot = 0;
+          allIncTasks.forEach(function(t) {
+            var p = Math.min(100, Math.max(0, Number(t.progress||t._progressRaw||0)));
+            var w = t.status==='done' ? 2 : t.status==='todo' ? 0.4 : 1;
+            wSum += p * w; wTot += w;
+          });
+          var incTaskPct = wTot > 0 ? wSum / wTot : 0;
+          extraScore = incTaskPct * (incompleteKpis.length / kpiTotal);
+        }
+      }
+      avgP = Math.min(100, Math.round(baseScore + extraScore));
+    } else {
+      // KPI 없으면 기존 방식 (태스크 가중 평균)
+      avgP = r.total ? Math.min(100, Math.round(r.progressSum / (r.progressWeight || r.total))) : 0;
+    }
+
+    return {
+      ...r,
+      kpiBudget: kpiBudgetByOwner[r.name] || 0,
+      kpiDetail: kpiBudgetDetail[r.name]  || [],
+      avgProg:   avgP,
+      roi:       r.spend>0 ? ((r.revenue-r.spend)/r.spend)*100 : 0
+    };
+  }).sort((a,b)=>b.total-a.total||b.avgProg-a.avgProg);
 }
 
 function buildBuckets(tasks) {
