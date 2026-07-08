@@ -3264,8 +3264,7 @@ function renderOwnerTable(tasks, kpis) {
     const pc     = pct>=70 ? '#2a7c2a' : pct>=40 ? '#2a5fa5' : '#c0392b';
     const bPct   = (totalBudget>0 && r.kpiBudget>0)
                    ? Math.round(r.kpiBudget/totalBudget*100) : null;
-    const safeN  = (r.name||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    return '<div onclick="openOwnerPanel(event,\'' + safeN + '\')"'
+    return '<div data-owner="' + (r.name||'').replace(/"/g,'&quot;') + '"'
       + ' style="background:#fff;border:1px solid #e8e4dc;border-radius:10px;'
       + 'padding:12px 14px;cursor:pointer;box-sizing:border-box;'
       + 'transition:box-shadow .15s" '
@@ -3306,6 +3305,14 @@ function renderOwnerTable(tasks, kpis) {
   }).join('');
 
   // 그리드 스타일: flex-wrap으로 전체 너비 활용
+  // 이벤트 바인딩 (onclick 속성 대신 addEventListener로)
+  grid.querySelectorAll('[data-owner]').forEach(function(card) {
+    card.addEventListener('click', function(e) {
+      openOwnerPanel(e, this.dataset.owner);
+    });
+    card.style.cursor = 'pointer';
+  });
+
   grid.style.display = 'flex';
   grid.style.flexWrap = 'wrap';
   grid.style.gap = '10px';
@@ -3341,12 +3348,8 @@ function openOwnerPanel(evt, ownerName) {
     return;
   }
 
-  // state.filters.owner 직접 세팅 후 재렌더
-  state.filters = state.filters || {};
-  state.filters.owner = ownerName;
-  // select UI도 동기화
+  // select에 option 추가 후 선택 → applyFilters 호출
   if (ownerSel) {
-    // option이 없으면 동적 추가
     if (!Array.from(ownerSel.options).some(function(o){ return o.value === ownerName; })) {
       var opt = document.createElement('option');
       opt.value = ownerName; opt.textContent = ownerName;
@@ -3354,6 +3357,7 @@ function openOwnerPanel(evt, ownerName) {
     }
     ownerSel.value = ownerName;
   }
+  // applyFilters가 oSel.value를 읽으므로 select 선택 후 호출
   applyFilters();
 
   // 클릭한 카드 강조
