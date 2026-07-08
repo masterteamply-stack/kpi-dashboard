@@ -3690,7 +3690,7 @@ function renderKPIAccordion(kpis, tasks) {
     const taskRows = taskList.length ? taskList.map(t => {
       const mo = t.started_at ? new Date(t.started_at).getMonth()+1+'월' : '-';
       const qtr = t.quarter ? t.quarter.replace('2026-','') : '-';
-      return `<tr>
+      return `<tr data-task-id="${esc(String(t.id))}">
         <td><span class="month-chip">${esc(mo)}</span></td>
         <td><span class="qtr-chip">${esc(qtr)}</span></td>
         <td>
@@ -3756,6 +3756,7 @@ function renderKPIAccordion(kpis, tasks) {
             </div>
         </td>
         <td onclick="event.stopPropagation()"><select class="cell-select" data-task-id="${t.id}" data-field="task_type" onchange="saveTaskSelectEdit(this)" style="font-size:10px;padding:2px 4px;max-width:90px;background:#fdfcf9;border:1px solid #e0dbd2;border-radius:3px;color:#3d5228;font-weight:600;cursor:pointer;outline:none"><option value="">-</option>${(()=>{var _ts=getMktgTypes();var _tv=(t.task_type||'').trim();if(_tv&&!_ts.includes(_tv))_ts=[_tv,..._ts];return _ts.map(tp=>`<option value="${esc(tp)}"${tp===_tv?' selected':''} style="color:#1a1714">${esc(tp)}</option>`).join('');})()}</select></td>
+        <td class="_mention-badge-cell" style="white-space:nowrap;padding:0 4px"></td>
         <td>
           <div class="row-actions">
             <button class="btn btn-ghost" style="font-size:10px;padding:3px 6px" onclick="openDetailDrawer('${esc(t.id)}')">수정</button>
@@ -3972,6 +3973,8 @@ function renderKPIAccordion(kpis, tasks) {
     state._lastKpis = kpis;  // 전체 보기일 때만 업데이트
   }
   state._lastKpiTasks = tasks;
+  // 멘션 뱃지 초기 렌더
+  setTimeout(_updateMentionBadgesInAccordion, 100);
   // 열림 상태 복원
   if(state.openKpiIds && state.openKpiIds.size > 0) {
     state.openKpiIds.forEach(id => {
@@ -6551,11 +6554,249 @@ async function saveDrawerEdit(taskId) {
 }
 
 // ── Drawer: 댓글 탭 ──
-function renderDrawerComments() {
-  const el = document.getElementById('drawerTabComments');
-  if(!el) return;
-  // 기존 댓글 UI 유지 (이미 HTML에 존재)
+// ── 코멘트 @멘션 상태 ──
+var _mentionState = { active: false, startPos: 0, query: '' };
+
+function handleMentionInput(textarea) {
+  var val = textarea.value;
+  var pos = textarea.selectionStart;
+  // @ 직전 위치 찾기
+  var before = val.slice(0, pos);
+  var atIdx = before.lastIndexOf('@');
+  var dd = document.getElementById('mentionDropdown');
+
+  if (atIdx >= 0 && (atIdx === 0 || /\s/.test(before[atIdx-1]))) {
+    var query = before.slice(atIdx+1).toLowerCase();
+    if (!/\s/.test(query)) { // 공백 전까지가 쿼리
+      _mentionState = { active: true, startPos: atIdx, query: query };
+      var owners = (state.owners||[]).filter(function(o){
+        return (o.name||'').toLowerCase().includes(query);
+      }).slice(0,6);
+      if (owners.length && dd) {
+        dd.innerHTML = owners.map(function(o){
+          return '<div class="_mention-item" data-name="'+o.name+'" style="padding:6px 12px;cursor:pointer;font-size:12px;color:#1a1714">'
+            +'<b>@'+o.name+'</b>'+(o.team?' <span style="color:#8a8278;font-size:10px">'+o.team+'</span>':'')
+            +'</div>';
+        }).join('');
+        dd.style.display = 'block';
+        dd.querySelectorAll('._mention-item').forEach(function(item){
+          item.addEventListener('mousedown', function(e){
+            e.preventDefault();
+            _insertMention(textarea, item.dataset.name);
+          });
+        });
+        return;
+      }
+    }
+  }
+  if (dd) dd.style.display = 'none';
+  _mentionState.active = false;
 }
+
+function handleMentionKeydown(e) {
+  var dd = document.getElementById('mentionDropdown');
+  if (!dd || dd.style.display === 'none') return;
+  var items = dd.querySelectorAll('._mention-item');
+  var active = dd.querySelector('._mention-item._active');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    var next = active ? active.nextElementSibling : items[0];
+    if (active) active.classList.remove('_active');
+    if (next) { next.classList.add('_active'); next.style.background='#f0ede6'; }
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    var prev = active ? active.previousElementSibling : items[items.length-1];
+    if (active) active.classList.remove('_active');
+    if (prev) { prev.classList.add('_active'); prev.style.background='#f0ede6'; }
+  } else if (e.key === 'Enter' && active) {
+    e.preventDefault();
+    _insertMention(e.target, active.dataset.name);
+  } else if (e.key === 'Escape') {
+    dd.style.display = 'none';
+  }
+}
+
+function _insertMention(textarea, name) {
+  var val = textarea.value;
+  var before = val.slice(0, _mentionState.startPos);
+  var after  = val.slice(textarea.selectionStart);
+  textarea.value = before + '@' + name + ' ' + after;
+  var newPos = before.length + name.length + 2;
+  textarea.setSelectionRange(newPos, newPos);
+  var dd = document.getElementById('mentionDropdown');
+  if (dd) dd.style.display = 'none';
+  _mentionState.active = false;
+  textarea.focus();
+}
+
+// ── 코멘트 렌더링 ──
+function renderDrawerComments() {
+  var taskId = state.drawer && state.drawer.taskId;
+  if (!taskId) return;
+  var listEl = document.getElementById('commentList');
+  if (listEl) listEl.innerHTML = '<div style="color:#8a8278;font-size:11px;padding:8px">로딩 중...</div>';
+
+  fetchComments(taskId).then(function(comments) {
+    if (!listEl) return;
+    if (!comments.length) {
+      listEl.innerHTML = '<div style="color:#8a8278;font-size:11px;padding:8px">댓글이 없습니다.</div>';
+      return;
+    }
+    listEl.innerHTML = '';
+    comments.forEach(function(c) {
+      var item = document.createElement('div');
+      item.style.cssText = 'border:1px solid #ede9e2;border-radius:6px;padding:10px 12px;background:#fdfcf9;margin-bottom:6px';
+
+      // 헤더
+      var hdr = document.createElement('div');
+      hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:6px';
+      var author = document.createElement('span');
+      author.style.cssText = 'font-size:11px;font-weight:700;color:#1a1714';
+      author.textContent = c.author_name || '익명';
+      var date = document.createElement('span');
+      date.style.cssText = 'font-size:10px;color:#8a8278';
+      date.textContent = c.created_at ? new Date(c.created_at).toLocaleDateString('ko-KR',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+      hdr.append(author, date);
+
+      // 본문 (멘션 하이라이트)
+      var body = document.createElement('div');
+      body.style.cssText = 'font-size:12px;color:#3d3830;line-height:1.5;white-space:pre-wrap;word-break:break-word';
+      var html = (c.content||'').replace(/</g,'&lt;').replace(/@([^\s@]+)/g, '<span style="color:#3a5fa5;font-weight:700">@$1</span>');
+      body.innerHTML = html;
+
+      item.append(hdr, body);
+      listEl.appendChild(item);
+    });
+
+    // 멘션 뱃지 갱신
+    _refreshMentionBadges(comments, taskId);
+  }).catch(function(e) {
+    console.warn('fetchComments failed:', e);
+    if (listEl) listEl.innerHTML = '<div style="color:#c0392b;font-size:11px;padding:8px">댓글을 불러올 수 없습니다.</div>';
+  });
+
+  // 등록 버튼 바인딩
+  var btn = document.getElementById('commentSubmitBtn');
+  if (btn && !btn._bound) {
+    btn._bound = true;
+    btn.addEventListener('click', function() { _submitComment(taskId); });
+  }
+}
+
+// ── 코멘트 저장 ──
+async function _submitComment(taskId) {
+  var authorEl  = document.getElementById('commentAuthor');
+  var contentEl = document.getElementById('commentContent');
+  var errorEl   = document.getElementById('commentError');
+  var author  = (authorEl&&authorEl.value||'').trim();
+  var content = (contentEl&&contentEl.value||'').trim();
+  if (!content) { if(errorEl) errorEl.textContent='내용을 입력해주세요.'; return; }
+  if (errorEl) errorEl.textContent = '';
+
+  // @멘션 추출
+  var mentions = [];
+  var rx = /@([^\s@]+)/g, match;
+  while ((match = rx.exec(content)) !== null) mentions.push(match[1]);
+
+  var btn = document.getElementById('commentSubmitBtn');
+  if (btn) { btn.disabled=true; btn.textContent='등록 중...'; }
+
+  try {
+    var row = { task_id: taskId, author_name: author||'익명', content: content };
+    if (mentions.length) row.mentions = mentions.join(',');
+    var { error } = await state.sb.from('task_comments').insert([row]);
+    if (error) throw error;
+
+    // 입력창 초기화
+    if (contentEl) contentEl.value = '';
+    // 멘션 localStorage에 저장 (읽지 않은 알림)
+    if (mentions.length) _storeMentionNotif(taskId, author||'익명', mentions, content);
+
+    renderDrawerComments();
+  } catch(e) {
+    console.error('comment insert failed:', e);
+    if (errorEl) errorEl.textContent = '저장 실패: ' + (e.message||e);
+  } finally {
+    if (btn) { btn.disabled=false; btn.textContent='댓글 등록'; }
+  }
+}
+
+// ── 멘션 알림 localStorage 저장 ──
+function _storeMentionNotif(taskId, author, mentions, content) {
+  try {
+    var store = JSON.parse(localStorage.getItem('_mentionNotifs')||'{}');
+    if (!store[taskId]) store[taskId] = [];
+    store[taskId].push({ author: author, mentions: mentions, content: content.slice(0,80), ts: Date.now(), read: false });
+    localStorage.setItem('_mentionNotifs', JSON.stringify(store));
+    // KPI 아코디언의 멘션 뱃지 갱신
+    _updateMentionBadgesInAccordion();
+  } catch(e) {}
+}
+
+// ── 멘션 뱃지 갱신 (코멘트 로드 후) ──
+function _refreshMentionBadges(comments, taskId) {
+  try {
+    var store = JSON.parse(localStorage.getItem('_mentionNotifs')||'{}');
+    // comments에 mentions 있으면 store에도 보존
+    comments.forEach(function(c){
+      if (c.mentions && c.task_id) {
+        var tid = String(c.task_id);
+        if (!store[tid]) store[tid] = [];
+        var already = store[tid].some(function(n){ return n.ts && Math.abs(n.ts - new Date(c.created_at).getTime()) < 5000; });
+        if (!already) {
+          store[tid].push({
+            author: c.author_name||'익명',
+            mentions: c.mentions.split(','),
+            content: (c.content||'').slice(0,80),
+            ts: new Date(c.created_at).getTime(),
+            read: false
+          });
+        }
+      }
+    });
+    localStorage.setItem('_mentionNotifs', JSON.stringify(store));
+    _updateMentionBadgesInAccordion();
+  } catch(e) {}
+}
+
+// ── KPI 아코디언 태스크 행에 멘션 뱃지 업데이트 ──
+function _updateMentionBadgesInAccordion() {
+  try {
+    var store = JSON.parse(localStorage.getItem('_mentionNotifs')||'{}');
+    document.querySelectorAll('tr[data-task-id]').forEach(function(row) {
+      var tid = row.dataset.taskId;
+      var notifs = (store[tid]||[]).filter(function(n){ return !n.read; });
+      var badgeCell = row.querySelector('._mention-badge-cell');
+      if (!badgeCell) return;
+      badgeCell.innerHTML = '';
+      if (!notifs.length) return;
+
+      // 멘션된 이름 목록
+      var names = [...new Set(notifs.flatMap(function(n){ return n.mentions||[]; }))];
+      var badge = document.createElement('span');
+      badge.style.cssText = 'display:inline-flex;align-items:center;gap:3px;cursor:pointer;padding:1px 5px;background:#e8f0f8;border-radius:10px;font-size:9px;color:#2a5fa5;border:1px solid #bed3ee';
+      badge.title = notifs.map(function(n){ return n.author+': '+n.content; }).join('\n');
+      var icon = document.createElement('span'); icon.textContent = '✉️'; icon.style.fontSize='10px';
+      var nameSpan = document.createElement('span'); nameSpan.textContent = names.slice(0,2).join(',')+(names.length>2?'…':''); nameSpan.style.fontWeight='700';
+      badge.append(icon, nameSpan);
+      badge.addEventListener('click', function(e){
+        e.stopPropagation();
+        // 읽음 처리
+        (store[tid]||[]).forEach(function(n){ n.read=true; });
+        localStorage.setItem('_mentionNotifs', JSON.stringify(store));
+        // 해당 태스크 드로어 열고 코멘트 탭으로
+        openDrawer(tid);
+        setTimeout(function(){
+          var commentBtn = document.querySelector('.dtab[onclick*="comments"]');
+          if (commentBtn) commentBtn.click();
+        }, 200);
+        _updateMentionBadgesInAccordion();
+      });
+      badgeCell.appendChild(badge);
+    });
+  } catch(e) {}
+}
+
 
 // ── Drawer: 첨부파일 탭 ──
 function renderDrawerAttachments() {
