@@ -2323,8 +2323,14 @@ function computeSummary(tasks, kpis) {
   })();
   // marketing.csv 실집행 (KRW) - SNS / BizRewards 등
   const _csvSpendKrw = (()=>{ try { var d=JSON.parse(sessionStorage.getItem('mkt_csv_cache')||'null'); return d && d.data ? Object.values(d.data.spend||{}).reduce(function(s,v){return s+(v||0);},0) : 0; } catch(e){return 0;} })();
-  // 전체 집행 = tasks.spend + xlsx + csv (KRW 합산 후 USD 변환)
-  const _totalSpendKrw = _spendKrwRaw + _xlsxSpendKrw + _csvSpendKrw + _kpiSpendKrw;
+  // 전체 집행 = team_cost_2026 집행 내역 합계 (단일 소스, 마케팅 활동 예산과 동일 기준)
+  const _totalSpendKrw = (function(){
+    try {
+      var _tc=JSON.parse(sessionStorage.getItem('team_cost_2026')||'null');
+      if(_tc&&_tc.length) return _tc.reduce(function(s,r){return s+(r.amount>0?r.amount:0);},0);
+    } catch(_e){}
+    return _spendKrwRaw; // fallback
+  })();
   const _mktSpendManual = (()=>{ try { return parseFloat(localStorage.getItem('marketing_spend_usd')||'0')||0; } catch(e){return 0;} })();
   const spend = _mktSpendManual > 0 ? _mktSpendManual : (_totalSpendKrw > 0 ? _totalSpendKrw / _KRW_USD : 0);
   // 배정 예산 (광고선전비 기준) KRW
