@@ -9188,10 +9188,27 @@ function applyFilters() {
   state._lastKpiTasks = allKpiTasks.filter(filterFn);
 
   // 전체 재렌더
-  const kpis  = state._lastKpis || [];
-  const tasks = state._lastKpiTasks;
+  const allKpis = state._lastKpis || [];
+  const tasks   = state._lastKpiTasks;
 
-  renderKPIAccordion(kpis, tasks);
+  // owner 필터 적용 시 해당 담당자가 참여한 KPI만 표시
+  var filteredKpis = allKpis;
+  if (state.filters.owner && state.filters.owner !== 'all') {
+    var _fOwner = state.filters.owner;
+    filteredKpis = allKpis.filter(function(k) {
+      // KPI owners 필드에 해당 담당자 포함
+      var kOwners = String(k.owners||'').split(',').map(function(n){return n.trim();});
+      if (kOwners.indexOf(_fOwner) >= 0) return true;
+      // 또는 해당 KPI에 속한 태스크 중 이 담당자 태스크가 있음
+      return tasks.some(function(t){
+        if (t.kpi_id !== k.id) return false;
+        var tOwner = (t.owners&&t.owners.name)?t.owners.name.trim():(t.owner_name||'').trim();
+        return tOwner === _fOwner;
+      });
+    });
+  }
+
+  renderKPIAccordion(filteredKpis, tasks);
   const s = computeSummary(state.tasks, kpis);
   renderKPICards(s);
   renderSummary(s);
