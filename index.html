@@ -1442,7 +1442,7 @@
     <span id="filterBadge" style="font-size:10px;color:#4a6b7c;font-weight:700;padding:2px 8px;background:#e8f0e8;border-radius:4px;display:none"></span>
     <select id="quarterFilter" class="control" onchange="applyFilters()"><option value="all">전체 분기</option></select>
     <select id="regionFilter"  class="control" onchange="applyFilters()"><option value="all">전체 지역</option></select>
-    <select id="ownerFilter"   class="control" onchange="applyFilters()"><option value="all">전체 담당자</option></select>
+    <select id="ownerFilter"   class="control" onchange="window._activeOwnerFilter=null;document.querySelectorAll('#_ownerCardGrid [data-owner]').forEach(function(c){c.style.outline='none';});applyFilters();"><option value="all">전체 담당자</option></select>
     <button id="refreshBtn"  class="btn btn-secondary">↻ 새로고침</button>
     <button id="addTaskBtn"  class="btn btn-primary">＋ 업무 추가</button>
   </section>
@@ -3333,22 +3333,29 @@ function renderOwnerTable(tasks, kpis) {
 function openOwnerPanel(evt, ownerName) {
   if (evt) evt.stopPropagation();
 
-  // 이미 선택된 담당자 클릭 → 필터 해제
   var ownerSel = el.ownerFilter || document.getElementById('ownerFilter');
-  var currentOwner = (state.filters && state.filters.owner) || 'all';
-  if (currentOwner === ownerName) {
-    state.filters.owner = 'all';
+
+  // 이미 선택된 카드 다시 클릭 → 필터 해제
+  if (window._activeOwnerFilter === ownerName) {
+    window._activeOwnerFilter = null;
     if (ownerSel) ownerSel.value = 'all';
     applyFilters();
-    document.querySelectorAll('#_ownerCardGrid > div').forEach(function(c) {
+    document.querySelectorAll('#_ownerCardGrid [data-owner]').forEach(function(c){
       c.style.outline = 'none';
+      c.style.boxShadow = 'none';
     });
-    var ab = document.getElementById('_ownerActionBar');
-    if (ab) ab.remove();
     return;
   }
 
-  // select에 option 추가 후 선택 → applyFilters 호출
+  // 선택 상태 저장
+  window._activeOwnerFilter = ownerName;
+
+  // 카드 강조
+  document.querySelectorAll('#_ownerCardGrid [data-owner]').forEach(function(c){
+    c.style.outline = c.dataset.owner === ownerName ? '2px solid var(--primary)' : 'none';
+  });
+
+  // select에 option 확실히 추가 후 선택
   if (ownerSel) {
     if (!Array.from(ownerSel.options).some(function(o){ return o.value === ownerName; })) {
       var opt = document.createElement('option');
@@ -3357,55 +3364,19 @@ function openOwnerPanel(evt, ownerName) {
     }
     ownerSel.value = ownerName;
   }
-  // applyFilters가 oSel.value를 읽으므로 select 선택 후 호출
+
+  // applyFilters 호출 (select 값 세팅 후)
   applyFilters();
-
-  // 클릭한 카드 강조
-  document.querySelectorAll('#_ownerCardGrid > div').forEach(function(c) {
-    c.style.outline = 'none';
-  });
-  if (evt && evt.currentTarget) {
-    evt.currentTarget.style.outline = '2px solid var(--primary)';
-  }
-
-  // 코멘트 버튼 표시 (카드 하단에 추가)
-  var existBtns = document.getElementById('_ownerActionBar');
-  if (existBtns) existBtns.remove();
-  var actionBar = document.createElement('div');
-  actionBar.id = '_ownerActionBar';
-  actionBar.style.cssText = 'display:flex;gap:8px;align-items:center;padding:8px 0 4px';
-  var abSpan = document.createElement('span');
-  abSpan.style.cssText = 'font-size:12px;font-weight:600;color:#1a1714';
-  abSpan.textContent = ownerName + ' 업무 필터링 중';
-  var abComment = document.createElement('button');
-  abComment.textContent = '💬 코멘트';
-  abComment.style.cssText = 'background:#3a5fa5;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer';
-  abComment.onclick = function(){ openCommentModal(ownerName); };
-  var abClear = document.createElement('button');
-  abClear.textContent = '✕ 필터 해제';
-  abClear.style.cssText = 'background:#f0ede6;border:1px solid #d8d4cc;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;color:#5a5048';
-  abClear.onclick = function(){
-    var s = el.ownerFilter || document.getElementById('ownerFilter');
-    if(s){ s.value='all'; applyFilters(); }
-    var ab = document.getElementById('_ownerActionBar');
-    if(ab) ab.remove();
-    document.querySelectorAll('#_ownerCardGrid > div').forEach(function(c){ c.style.outline='none'; });
-  };
-  actionBar.appendChild(abSpan);
-  actionBar.appendChild(abComment);
-  actionBar.appendChild(abClear);
-
-  var grid = document.getElementById('_ownerCardGrid');
-  if (grid) grid.parentElement.insertBefore(actionBar, grid.nextSibling);
 
   // 업무 상세 테이블로 스크롤
   var accordionEl = document.getElementById('kpiAccordionPanel');
   if (accordionEl) {
     setTimeout(function() {
       accordionEl.scrollIntoView({behavior:'smooth', block:'start'});
-    }, 150);
+    }, 200);
   }
 }
+
 
 
 function openKpiSpendModal(kpiId, kpiTitle, kpiType) {
@@ -9175,7 +9146,10 @@ function applyFilters() {
   state.filters = state.filters || {};
   state.filters.quarter = qSel?.value || 'all';
   state.filters.region  = rSel?.value || 'all';
-  state.filters.owner   = oSel?.value || 'all';
+  // window._activeOwnerFilter(카드 클릭)가 있으면 우선 사용
+  state.filters.owner = (window._activeOwnerFilter) || oSel?.value || 'all';
+  // select UI 동기화
+  if (oSel && window._activeOwnerFilter) oSel.value = window._activeOwnerFilter;
 
   // 캐시된 tasks 데이터 필터링
   const allTasks = state._allTasks || state.tasks || [];
