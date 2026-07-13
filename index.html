@@ -3690,7 +3690,9 @@ function renderKPIAccordion(kpis, tasks) {
     const theme = (kpi.strategic_theme||'').replace('시장 수요 창출 > ','').replace('시장 기회 확대 > ','').replace('마케팅 효능감 > ','');
 
     const taskRows = taskList.length ? taskList.map(t => {
-      const mo = t.started_at ? new Date(t.started_at).getMonth()+1+'월' : '-';
+      // 월 표시: started_at 우선, 없으면 due_date 기준
+      const _moDate = t.started_at ? new Date(t.started_at) : (t.due_date ? new Date(t.due_date) : null);
+      const mo = _moDate ? (_moDate.getMonth()+1)+'월' : '-';
       const qtr = t.quarter ? t.quarter.replace('2026-','') : '-';
       return `<tr data-task-id="${esc(String(t.id))}">
         <td><span class="month-chip">${esc(mo)}</span></td>
@@ -7886,19 +7888,46 @@ function autoSetQuarter(kpiId, monthStr) {
 
 
 async function saveTaskDateEdit(input) {
-  const taskId = input.dataset.taskId;
-  const field  = input.dataset.field;
-  const val    = input.value || null;
+  var taskId = input.dataset.taskId;
+  var field  = input.dataset.field;
+  var val    = input.value || null;
+  var oldVal = null;
   input.style.borderColor = '#b8962e';
   try {
-    const { error } = await state.sb.from('tasks').update({ [field]: val }).eq('id', taskId);
-    if(error) throw error;
-    state.tasks = state.tasks.map(t => t.id===taskId ? {...t,[field]:val} : t);
+    // 모든 state 배열에서 기존값 저장 후 즉시 업데이트
+    ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
+      var t2=(state[k]||[]).find(function(t){return String(t.id)===String(taskId);});
+      if(t2){ if(oldVal===null) oldVal=t2[field]; t2[field]=val; }
+    });
+
+    var res = await state.sb.from('tasks').update({[field]:val, updated_at:new Date().toISOString()}).eq('id',taskId);
+    if(res.error) throw res.error;
+
     input.style.borderColor = '#4a7c59';
-    setTimeout(()=>{ input.style.borderColor='#e2ddd6'; }, 1500);
+    setTimeout(function(){ input.style.borderColor='#e2ddd6'; }, 1500);
+
+    // 아코디언 재렌더 (월 표시 갱신)
+    renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||[]);
+    // due_date 변경 시 input 값 복원 (재렌더로 포커스 잃지 않게 setTimeout)
+    setTimeout(function(){
+      var _inp = document.querySelector('[data-task-id="'+taskId+'"][data-field="'+field+'"]');
+      if(_inp && _inp.value !== val) _inp.value = val||'';
+    }, 0);
+
+    renderOwnerTable(state.tasks||[], state._lastKpis||[]);
+    var s = computeSummary(state.tasks||[], state._lastKpis||[]);
+    renderSummary(s); renderKPICards(s);
+
   } catch(e) {
+    // 롤백
+    ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
+      var t2=(state[k]||[]).find(function(t){return String(t.id)===String(taskId);});
+      if(t2) t2[field]=oldVal;
+    });
+    input.value = oldVal||'';
     input.style.borderColor = '#9e4a3a';
     console.error('Date save error:', e);
+    alert('저장 실패: '+(e.message||String(e)));
   }
 }
 
