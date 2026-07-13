@@ -7736,68 +7736,42 @@ function renderActivityTrendChart(tasks) {
       const { ctx, data } = chart;
       ctx.save();
 
-      // 각 월(x)별 스택 합계 계산 (건수)
-      const monthCount = data.labels.map((_,xi) => {
+      // 월별 스택 합계(건수) 계산
+      const monthTotals = data.labels.map((_,xi) => {
         let sum = 0;
-        chart.data.datasets.forEach((ds, di) => {
-          if(ds.yAxisID !== 'y2' && typeof ds.data[xi] === 'number') sum += ds.data[xi];
+        chart.data.datasets.forEach(ds => {
+          if(ds.yAxisID !== 'y2' && typeof ds.data[xi] === 'number' && ds.data[xi] > 0) sum += ds.data[xi];
         });
         return sum;
       });
 
-      // 각 월별 스택 최상단 bar의 위치 추적
-      const drawnMonths = new Set();
-
+      // 스택 최상단 bar 위치 추적
+      const topBarByMonth = {};
       chart.data.datasets.forEach((ds, di) => {
-        if(ds.yAxisID === 'y2') return; // 비용 라인은 건너뜀
+        if(ds.yAxisID === 'y2') return;
         const meta = chart.getDatasetMeta(di);
         meta.data.forEach((bar, xi) => {
           if(!bar || bar.hidden) return;
-          const val = ds.data[xi];
-          if(!val || val <= 0) return;
-
-          // 건수 라벨: 각 바 세그먼트 중앙에 (값이 충분할 때만)
-          if(val >= 1) {
-            ctx.font = '600 9px sans-serif';
-            ctx.fillStyle = 'rgba(255,255,255,0.9)';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(val+'건', bar.x, bar.y + (bar.height||0)/2);
-          }
-
-          // 스택 최상단에 총 건수 + 마케팅비용 표시
-          if(!drawnMonths.has(xi)) {
-            // 이 월의 마지막(최상단) bar인지 확인
-            let isTop = true;
-            for(let d2=di+1; d2<chart.data.datasets.length; d2++) {
-              const ds2 = chart.data.datasets[d2];
-              if(ds2.yAxisID==='y2') continue;
-              if((ds2.data[xi]||0) > 0) { isTop=false; break; }
-            }
-            if(isTop) {
-              const totalCnt = monthCount[xi];
-              const spendDs  = chart.data.datasets.find(d=>d.yAxisID==='y2');
-              const spendVal = spendDs ? (spendDs.data[xi]||0) : 0;
-              const spendStr = spendVal>=100000000?(spendVal/100000000).toFixed(1)+'억':
-                               spendVal>=10000?(spendVal/10000).toFixed(0)+'만':'';
-
-              // 총 건수 라벨
-              ctx.font = 'bold 10px sans-serif';
-              ctx.fillStyle = '#1a1714';
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'bottom';
-              ctx.fillText(totalCnt+'건', bar.x, bar.y - (spendStr?14:3));
-
-              // 마케팅 비용 라벨
-              if(spendStr) {
-                ctx.font = '600 9px sans-serif';
-                ctx.fillStyle = '#9e4a3a';
-                ctx.fillText('₩'+spendStr, bar.x, bar.y - 2);
-              }
-              drawnMonths.add(xi);
-            }
+          if((ds.data[xi]||0) <= 0) return;
+          if(!topBarByMonth[xi] || bar.y < topBarByMonth[xi].y) {
+            topBarByMonth[xi] = { y: bar.y, x: bar.x };
           }
         });
+      });
+
+      // 스택 최상단에 총 건수만 표시 (현재 월 이하만)
+      var _curMo = new Date().getMonth();
+      Object.keys(topBarByMonth).forEach(xi => {
+        xi = parseInt(xi);
+        if(xi > _curMo) return;
+        const total = monthTotals[xi];
+        if(!total) return;
+        const pos = topBarByMonth[xi];
+        ctx.font = '700 10px sans-serif';
+        ctx.fillStyle = '#1a1714';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(total + '건', pos.x, pos.y - 3);
       });
 
       ctx.restore();
@@ -7809,9 +7783,9 @@ function renderActivityTrendChart(tasks) {
     plugins: [trendLabelPlugin],
     options: {
       responsive: true,
-      layout: { padding: { top: 28 } },
+      layout: { padding: { top: 14, bottom: 0 } },
       plugins: {
-        legend: { labels: { color:'#6b6259', font:{size:10}, boxWidth:10 } },
+        legend: { position:'bottom', align:'start', labels: { color:'#6b6259', font:{size:10}, boxWidth:10, padding:8, usePointStyle:true } },
         tooltip: { callbacks: {
           label: c => c.dataset.yAxisID === 'y2'
             ? `${c.dataset.label}: ${fmtKRW(c.parsed.y)}`
