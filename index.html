@@ -1502,7 +1502,7 @@
           <!-- 우: 추이 차트 + 집행 상세 -->
           <div style="min-width:0;display:flex;flex-direction:column;gap:16px">
             <div>
-              <div style="font-size:10px;font-weight:700;color:#8a8278;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">월별 활동 추이 · 누적 집행률</div>
+              <div style="font-size:10px;font-weight:700;color:#8a8278;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px" id="_trendChartTitle">월별 활동 추이 · 누적 집행률</div>
               <canvas id="activityTrendChart" height="90" style="width:100%"></canvas>
               <div id="activityTrendSummary" style="margin-top:6px"></div>
             </div>
@@ -7628,8 +7628,12 @@ function renderActivityTrendChart(tasks) {
   const totalCount = new Array(len).fill(0);
   const totalSpend = new Array(len).fill(0);
 
+  // _actTypeFilter: 선택된 유형만 표시 (null/'all'이면 전체)
+  var _filterType = (window._actTypeFilter && window._actTypeFilter !== 'all') ? window._actTypeFilter : null;
+
   for(const t of tasks) {
     const tp = t.task_type || '미분류';
+    if(_filterType && tp !== _filterType) continue; // 유형 필터 적용
     const mo = t.started_at ? new Date(t.started_at).getMonth() : -1;
     if(mo < 0) continue;
     const idx = isMonth ? mo : Math.floor(mo/3);
@@ -7646,6 +7650,7 @@ function renderActivityTrendChart(tasks) {
     for(var _zi=0;_zi<len;_zi++) totalSpend[_zi]=0;
     _tcTrend.forEach(function(r){
       if(r.amount<=0) return;
+      if(_filterType && r.mapped !== _filterType) return; // 유형 필터
       var _mo=parseInt((r.mo||'2026-00').split('-')[1]||'0')-1;
       var _idx=isMonth?_mo:Math.floor(_mo/3);
       if(_idx>=0&&_idx<len) totalSpend[_idx]+=r.amount;
@@ -7657,6 +7662,7 @@ function renderActivityTrendChart(tasks) {
   const totalBudget=new Array(len).fill(0);
   if(_budgetMonthlyT){
     Object.keys(_budgetMonthlyT).forEach(function(tp){
+      if(_filterType && tp !== _filterType) return; // 유형 필터
       Object.keys(_budgetMonthlyT[tp]).forEach(function(mo){
         var m2=parseInt(mo.split('-')[1])-1;
         var i2=isMonth?m2:Math.floor(m2/3);
@@ -7730,6 +7736,14 @@ function renderActivityTrendChart(tasks) {
   }
 
   if(window._trendChart) window._trendChart.destroy();
+
+  // 차트 타이틀 유형 반영
+  var _titleEl = document.getElementById('_trendChartTitle');
+  if(_titleEl) {
+    _titleEl.textContent = _filterType
+      ? '월별 활동 추이 · ' + _filterType + ' 집행 현황'
+      : '월별 활동 추이 · 누적 집행률';
+  }
 
   // ── afterDatasetsDraw 플러그인: 바 위에 건수 + 비용 라벨 ──
   const trendLabelPlugin = {
