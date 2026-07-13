@@ -1391,8 +1391,8 @@
       var _sv = null;
       try { _sv = JSON.parse(localStorage.getItem(SURVEY_LS_KEY)||'null'); } catch(_e){}
       var _latest = {
-        total: 8909, countries: 120, groups: 5,
-        monthly: { "2026-01":0,"2026-02":0,"2026-03":0,"2026-04":0,"2026-05":0,"2026-06":0,"2026-07":8909 },
+        total: 9301, countries: 122, groups: 5,
+        monthly: { "2026-01":0,"2026-02":0,"2026-03":0,"2026-04":0,"2026-05":0,"2026-06":0,"2026-07":9301 },
         byRegion: { "China": 8100 },
         _fetchedAt: _sv ? (_sv._fetchedAt||null) : null,
         _updated: "2026-07-06"
@@ -1400,7 +1400,7 @@
       // 기존 캐시보다 최신값이 크거나, monthly가 잘못된 경우 강제 갱신
       // fetch로 최신값을 가져오므로 초기값은 캐시가 없을 때만 주입
       // 저장값이 최신 수치보다 작으면 강제 갱신
-      var _needsMerge = !_sv || !_sv.total || !_sv._fetchedAt || (_sv.total < 8909);
+      var _needsMerge = !_sv || !_sv.total || !_sv._fetchedAt || (_sv.total < 9301);
       if(_needsMerge) {
         localStorage.setItem(SURVEY_LS_KEY, JSON.stringify(_latest));
         console.log('[Survey] 초기값 강제 병합:', _latest.total);
