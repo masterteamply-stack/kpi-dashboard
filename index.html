@@ -4790,6 +4790,17 @@ var _origPushNotif = window._pushNotif;
 // ══════════════════════════════════════════
 
 function openEmailjsSettings() {
+  // 어드민 확인 (비밀번호 보호)
+  var _adminPw = localStorage.getItem('_adminAuth');
+  if (_adminPw !== 'ctr2026admin') {
+    var pw = prompt('관리자 비밀번호를 입력하세요:');
+    if (!pw) return;
+    if (pw !== 'ctr2026admin') {
+      alert('비밀번호가 올바르지 않습니다.');
+      return;
+    }
+    localStorage.setItem('_adminAuth', pw);
+  }
   var ex = document.getElementById('_emailjsModal');
   if (ex) ex.remove();
 
