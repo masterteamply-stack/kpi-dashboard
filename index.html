@@ -4634,70 +4634,84 @@ function _openSubtaskKpiPicker(si, subtasks, anchorBtn, kpiList, callback) {
 async function _syncSubtaskToKpi(subtask, proj, projectId) {
   try {
     var kpiIds = subtask.kpi_ids||[];
-    if (!kpiIds.length) return;
+    if (!kpiIds.length) {
+      console.log('[SubtaskKPI] kpi_ids 없음, 건너뜀:', subtask.title);
+      return;
+    }
+    console.log('[SubtaskKPI] 동기화 시작:', subtask.title, 'KPI수:', kpiIds.length);
 
     for (var i=0; i<kpiIds.length; i++) {
       var kpiId = kpiIds[i];
-      var marker = '[ptask:'+projectId+':'+subtask.id+']';
-
-      // 기존 연동 태스크 찾기 (notes에 marker 포함)
-      var findRes = await state.sb.from('tasks')
-        .select('id,status,progress')
-        .eq('kpi_id', kpiId)
-        .like('notes', '%'+marker+'%')
-        .maybeSingle();
-      var existing = findRes.data;
 
       // due_date → 월/분기 계산
-      var due = subtask.due || new Date().toISOString().slice(0,10);
+      var due = subtask.due || subtask.due_date || new Date().toISOString().slice(0,10);
       var dueDate = new Date(due);
       var qNum = Math.ceil((dueDate.getMonth()+1)/3);
-      var moNum = dueDate.getMonth()+1;
 
       // 상태/진척도 매핑
-      var status   = subtask.done ? 'done' : (subtask.status||'in_progress');
-      var progress = subtask.done ? 100
-                   : status==='done' ? 100
-                   : status==='todo' ? 0 : 50;
+      var stDone = subtask.done === true || subtask.status === 'done';
+      var status   = stDone ? 'done' : 'in_progress';
+      var progress = stDone ? 100 : 50;
 
-      // owners에서 담당자 id 조회
+      // 담당자 id 조회
       var ownerId = null;
       if (subtask.assignee) {
         var ownerMatch = (state.owners||[]).find(function(o){
-          return (o.name||'').trim() === subtask.assignee.trim();
+          return (o.name||'').trim() === (subtask.assignee||'').trim();
         });
         if (ownerMatch) ownerId = ownerMatch.id;
       }
 
+      // 제목으로 기존 태스크 찾기 (마커 방식 대신 title+kpi_id 조합)
+      var titleKey = '\u{1F4C1} ' + (proj.name||'') + '] ' + (subtask.title||'');
+      var titleKey2 = '[ptask:' + projectId + ':' + subtask.id + ']';
+
+      var findRes = await state.sb.from('tasks')
+        .select('id,title,status,progress')
+        .eq('kpi_id', kpiId)
+        .or('title.like.%' + (subtask.id||'') + '%,notes.like.%' + (subtask.id||'') + '%');
+      console.log('[SubtaskKPI] 기존 태스크 검색 결과:', findRes.data, findRes.error);
+
+      var existing = findRes.data && findRes.data.length > 0 ? findRes.data[0] : null;
+
       var payload = {
-        kpi_id:    kpiId,
-        title:     '[📁 '+(proj.name||'')+'] '+(subtask.title||''),
-        status:    status,
-        progress:  progress,
-        due_date:  due,
-        quarter:   '2026-Q'+qNum,
-        task_type: '프로젝트',
-        notes:     '[프로젝트: '+(proj.name||'')+'] '+marker,
+        kpi_id:     kpiId,
+        title:      '[' + (proj.name||'') + '] ' + (subtask.title||''),
+        status:     status,
+        progress:   progress,
+        due_date:   due,
+        quarter:    '2026-Q' + qNum,
+        task_type:  '프로젝트',
+        notes:      'ptask_id:' + subtask.id + ' project:' + projectId,
         updated_at: new Date().toISOString()
       };
       if (ownerId) payload.owner_id = ownerId;
 
+      var saveRes;
       if (existing) {
-        await state.sb.from('tasks').update(payload).eq('id', existing.id);
-        console.log('[SubtaskKPI] 업데이트:', subtask.title, '→ KPI', kpiId, 'status:', status);
+        saveRes = await state.sb.from('tasks').update(payload).eq('id', existing.id);
+        console.log('[SubtaskKPI] ✅ 업데이트 완료:', subtask.title, 'id:', existing.id, 'error:', saveRes.error);
       } else {
         payload.created_at = new Date().toISOString();
-        await state.sb.from('tasks').insert([payload]);
-        console.log('[SubtaskKPI] 생성:', subtask.title, '→ KPI', kpiId);
+        saveRes = await state.sb.from('tasks').insert([payload]);
+        console.log('[SubtaskKPI] ✅ 생성 완료:', subtask.title, 'error:', saveRes.error);
+      }
+
+      if (saveRes.error) {
+        console.error('[SubtaskKPI] ❌ 저장 실패:', saveRes.error);
       }
     }
 
     // 대시보드 즉시 갱신
+    console.log('[SubtaskKPI] 대시보드 갱신 시작');
     await refreshDashboard();
+    console.log('[SubtaskKPI] 대시보드 갱신 완료');
+
   } catch(e) {
-    console.error('[SubtaskKPI] 동기화 실패:', e);
+    console.error('[SubtaskKPI] ❌ 예외 발생:', e.message, e);
   }
 }
+
 
 
 // ── KPI 연동 동기화 (프로젝트 태스크 완료 → KPI 태스크 생성/업데이트) ──
