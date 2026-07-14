@@ -4635,53 +4635,48 @@ async function _syncSubtaskToKpi(subtask, proj, projectId) {
   try {
     var kpiIds = subtask.kpi_ids||[];
     if (!kpiIds.length) return;
-    console.log('[SubtaskKPI] 시작:', subtask.title, '| KPI수:', kpiIds.length);
+    console.log('[SubtaskKPI] 동기화 시작:', subtask.title, 'KPI수:', kpiIds.length);
 
     for (var i=0; i<kpiIds.length; i++) {
       var kpiId = kpiIds[i];
 
-      // due_date → 월/분기 계산
+      // due_date 계산
       var due = subtask.due || subtask.due_date || new Date().toISOString().slice(0,10);
-      var dueDate = new Date(due);
-      var mn  = dueDate.getMonth()+1;
-      var qNum = Math.ceil(mn/3);
+      var qNum = Math.ceil((new Date(due).getMonth()+1)/3);
 
       // 상태/진척도
-      var stDone   = subtask.done === true || subtask.status === 'done';
-      var status   = stDone ? 'done' : 'in_progress';
+      var stDone  = subtask.done === true || subtask.status === 'done';
+      var status  = stDone ? 'done' : 'in_progress';
       var progress = stDone ? 100 : 50;
 
       // 담당자 id
       var ownerId = null;
       if (subtask.assignee) {
-        var ow = (state.owners||[]).find(function(o){
+        var om = (state.owners||[]).find(function(o){
           return (o.name||'').trim() === (subtask.assignee||'').trim();
         });
-        if (ow) ownerId = ow.id;
+        if (om) ownerId = om.id;
       }
 
-      // 기존 태스크 찾기: notes에 subtask.id 포함 여부
-      var noteKey = 'ptask_id:' + subtask.id;
+      // notes에 ptask_id로 기존 태스크 찾기
+      var noteMarker = 'ptask_id:' + subtask.id;
       var findRes = await state.sb.from('tasks')
         .select('id,status,progress')
         .eq('kpi_id', kpiId)
-        .ilike('notes', '%' + noteKey + '%');
+        .like('notes', '%' + noteMarker + '%');
 
       var existing = (findRes.data && findRes.data.length > 0) ? findRes.data[0] : null;
-      console.log('[SubtaskKPI] 기존 태스크:', existing ? existing.id : '없음');
+      console.log('[SubtaskKPI] 기존 태스크:', existing ? existing.id : '없음', findRes.error||'');
 
-      // payload - 정확한 컬럼만 사용
       var payload = {
-        title:      '[' + (proj.name||'') + '] ' + (subtask.title||''),
         kpi_id:     kpiId,
+        title:      '[' + (proj.name||'') + '] ' + (subtask.title||''),
         status:     status,
         progress:   progress,
         due_date:   due,
-        started_at: '2026-' + String(mn).padStart(2,'0') + '-01',
         quarter:    '2026-Q' + qNum,
-        region:     'GLOBAL',
         task_type:  '프로젝트',
-        notes:      noteKey + ' project:' + projectId,
+        notes:      noteMarker + ' project:' + projectId,
         updated_at: new Date().toISOString()
       };
       if (ownerId) payload.owner_id = ownerId;
@@ -4689,15 +4684,11 @@ async function _syncSubtaskToKpi(subtask, proj, projectId) {
       var saveRes;
       if (existing) {
         saveRes = await state.sb.from('tasks').update(payload).eq('id', existing.id);
+        console.log('[SubtaskKPI] ✅ 업데이트:', subtask.title, saveRes.error||'성공');
       } else {
         payload.created_at = new Date().toISOString();
         saveRes = await state.sb.from('tasks').insert([payload]);
-      }
-
-      if (saveRes.error) {
-        console.error('[SubtaskKPI] ❌ 저장 실패:', saveRes.error.message, saveRes.error);
-      } else {
-        console.log('[SubtaskKPI] ✅', existing ? '업데이트' : '생성', '완료:', subtask.title);
+        console.log('[SubtaskKPI] ✅ 생성:', subtask.title, saveRes.error||'성공');
       }
     }
 
@@ -4706,6 +4697,7 @@ async function _syncSubtaskToKpi(subtask, proj, projectId) {
     console.error('[SubtaskKPI] ❌ 예외:', e.message, e);
   }
 }
+
 
 
 
