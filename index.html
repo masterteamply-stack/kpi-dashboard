@@ -2237,7 +2237,7 @@ function renderTaskOwnerChips(t) {
   if(t.co_owners) {
     String(t.co_owners).split(',').map(function(c){return c.trim();}).filter(Boolean).forEach(function(cid){
       var ow=(state.owners||[]).find(function(o){return o.id===cid||o.name===cid;});
-      var n=ow?ow.name:cid;
+      var n=ow?ow.name:''; // 이름 못 찾으면 빈값 (UUID 표시 방지)
       if(n&&n!==mainName) names.push({name:n, ref:cid});
     });
   }
@@ -5431,7 +5431,7 @@ function renderKPIAccordion(kpis, tasks) {
         if(t.co_owners) {
           String(t.co_owners).split(',').map(c=>c.trim()).filter(Boolean).forEach(cid => {
             const ow = (state.owners||[]).find(o=>o.id===cid||o.name===cid);
-            const n = ow ? ow.name : cid;
+            const n = ow ? ow.name : '';
             if(n && n !== mainName) names.push(n);
           });
         }
