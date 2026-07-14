@@ -2432,6 +2432,8 @@ function computeSummary(tasks, kpis) {
 
 function buildOwnerSummary(tasks, kpis) {
   const map=new Map(), today=todayD();
+  // 담당자 카드에서 제외할 팀장/옵저버 목록
+  var _EXCLUDE_OWNERS = ['박정림'];
 
   // ── KPI budget_plan에서 owner별 배분 금액 집계 ──
   const kpiBudgetByOwner = {};
@@ -2455,6 +2457,7 @@ function buildOwnerSummary(tasks, kpis) {
 
   for(const t of tasks) {
     const name=t.owners?.name||'미지정', team=t.owners?.team||'-', key=name;
+    if(_EXCLUDE_OWNERS.indexOf(name)>=0) continue;
     if(!map.has(key)) map.set(key,{name,team,total:0,done:0,inProg:0,delayed:0,blocked:0,todo:0,taskBudget:0,spend:0,revenue:0,_tc:{},tasks:[],progressSum:0});
     const r=map.get(key);
     if(team&&team!=='-') r._tc[team]=(r._tc[team]||0)+1;
