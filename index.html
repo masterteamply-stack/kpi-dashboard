@@ -1601,6 +1601,24 @@
     <div id="kpiAccordionWrap"></div>
     <p class="footer-note">KPI 행 클릭 시 관련 활동 Task 목록이 펼쳐집니다 · Realtime 자동 반영</p>
   </section>
+<!-- ── 프로젝트 버킷 ── -->
+<section class="row-full" id="projectBucketSection" style="margin-top:0">
+  <div class="panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3 style="margin-bottom:0">📁 프로젝트 버킷</h3>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="openProjectModal(null)" style="font-size:11px;background:var(--primary);color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-weight:700">+ 새 프로젝트</button>
+        <button class="panel-collapse-btn" onclick="togglePanel('projectBucketContent',this)">−</button>
+      </div>
+    </div>
+    <div id="projectBucketContent" class="panel-content">
+      <div id="projectBucketGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px">
+        <div style="color:#8a8278;font-size:12px;padding:24px;text-align:center;grid-column:1/-1">로딩 중...</div>
+      </div>
+    </div>
+  </div>
+</section>
+
 </div>
 
 <!-- ── 추가/수정 모달 ── -->
@@ -3468,6 +3486,463 @@ function openKpiSpendModal(kpiId, kpiTitle, kpiType) {
   overlay.appendChild(box);
   document.body.appendChild(overlay);
 }
+
+// ══════════════════════════════════════════
+// 프로젝트 버킷 시스템
+// localStorage 기반 (Supabase projects 테이블 없을 경우 폴백)
+// ══════════════════════════════════════════
+
+var _projectState = { projects: null, editingId: null };
+
+// ── 데이터 로드 ──
+function loadProjects() {
+  try {
+    var raw = localStorage.getItem('_projects_v1');
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+
+function saveProjects(projects) {
+  try {
+    localStorage.setItem('_projects_v1', JSON.stringify(projects));
+  } catch(e) { console.warn('project save failed:', e); }
+}
+
+function loadProjectTasks(projectId) {
+  try {
+    var raw = localStorage.getItem('_ptasks_' + projectId);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+
+function saveProjectTasks(projectId, tasks) {
+  try {
+    localStorage.setItem('_ptasks_' + projectId, JSON.stringify(tasks));
+  } catch(e) {}
+}
+
+// ── 프로젝트 버킷 렌더 ──
+function renderProjectBucket() {
+  var grid = document.getElementById('projectBucketGrid');
+  if(!grid) return;
+
+  var projects = loadProjects();
+  _projectState.projects = projects;
+
+  if(!projects.length) {
+    grid.innerHTML = '<div style="color:#8a8278;font-size:12px;padding:32px;text-align:center;grid-column:1/-1;background:#faf8f4;border-radius:8px;border:2px dashed #e0dbd2">'
+      +'<div style="font-size:24px;margin-bottom:8px">📁</div>'
+      +'<div style="font-weight:700;color:#1a1714;margin-bottom:4px">프로젝트 버킷이 없습니다</div>'
+      +'<div style="font-size:11px">+ 새 프로젝트 버튼으로 추가해보세요</div>'
+      +'</div>';
+    return;
+  }
+
+  var COLORS = ['#5c6b4a','#4a6b7c','#9e4a3a','#7c4a5c','#4a547c','#b8962e','#3a7c6b','#6b3a7c'];
+
+  grid.innerHTML = '';
+  projects.forEach(function(p, pi) {
+    var ptasks   = loadProjectTasks(p.id);
+    var total    = ptasks.length;
+    var done     = ptasks.filter(function(t){return t.status==='done';}).length;
+    var inProg   = ptasks.filter(function(t){return t.status==='in_progress';}).length;
+    var todo     = ptasks.filter(function(t){return t.status==='todo';}).length;
+    var pct      = total ? Math.round(done/total*100) : 0;
+    var col      = p.color || COLORS[pi % COLORS.length];
+
+    // 연동 KPI 목록
+    var linkedKpis = (p.kpi_ids||[]).map(function(kid){
+      var k=(state._lastKpis||[]).find(function(k){return k.id===kid;});
+      return k ? k.title : null;
+    }).filter(Boolean);
+
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#fff;border:1px solid #ede9e2;border-radius:10px;overflow:hidden;display:flex;flex-direction:column';
+
+    // 카드 헤더
+    var hdr = document.createElement('div');
+    hdr.style.cssText = 'background:'+col+';padding:12px 14px;position:relative';
+
+    var hdrTop = document.createElement('div');
+    hdrTop.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start';
+
+    var titleDiv = document.createElement('div');
+    titleDiv.style.cssText = 'font-size:13px;font-weight:800;color:#fff;line-height:1.3;flex:1;margin-right:8px';
+    titleDiv.textContent = p.name;
+
+    var btnGroup = document.createElement('div');
+    btnGroup.style.cssText = 'display:flex;gap:4px;flex-shrink:0';
+
+    var editBtn = document.createElement('button');
+    editBtn.textContent = '✎';
+    editBtn.style.cssText = 'background:rgba(255,255,255,.25);border:none;border-radius:4px;color:#fff;font-size:11px;padding:2px 6px;cursor:pointer';
+    editBtn.onclick = function(){ openProjectModal(p.id); };
+
+    var delBtn = document.createElement('button');
+    delBtn.textContent = '×';
+    delBtn.style.cssText = 'background:rgba(255,255,255,.25);border:none;border-radius:4px;color:#fff;font-size:11px;padding:2px 6px;cursor:pointer';
+    delBtn.onclick = function(){
+      if(!confirm('"'+p.name+'" 프로젝트를 삭제할까요?')) return;
+      var ps = loadProjects().filter(function(x){return x.id!==p.id;});
+      saveProjects(ps);
+      localStorage.removeItem('_ptasks_'+p.id);
+      renderProjectBucket();
+    };
+
+    btnGroup.append(editBtn, delBtn);
+    hdrTop.append(titleDiv, btnGroup);
+
+    // 메타 (담당자·지역)
+    var meta = document.createElement('div');
+    meta.style.cssText = 'display:flex;gap:8px;margin-top:6px;flex-wrap:wrap';
+    if(p.owner) {
+      var ownerBadge = document.createElement('span');
+      ownerBadge.style.cssText = 'font-size:10px;background:rgba(255,255,255,.2);color:#fff;border-radius:10px;padding:1px 7px';
+      ownerBadge.textContent = '👤 '+p.owner;
+      meta.appendChild(ownerBadge);
+    }
+    if(p.region) {
+      var regionBadge = document.createElement('span');
+      regionBadge.style.cssText = 'font-size:10px;background:rgba(255,255,255,.2);color:#fff;border-radius:10px;padding:1px 7px';
+      regionBadge.textContent = '🌏 '+p.region;
+      meta.appendChild(regionBadge);
+    }
+
+    hdr.append(hdrTop, meta);
+
+    // 진척 바
+    var progBar = document.createElement('div');
+    progBar.style.cssText = 'height:4px;background:rgba(255,255,255,.25)';
+    var progFill = document.createElement('div');
+    progFill.style.cssText = 'height:100%;width:'+pct+'%;background:rgba(255,255,255,.8);transition:width .4s';
+    progBar.appendChild(progFill);
+    hdr.appendChild(progBar);
+
+    // 카드 바디
+    var body = document.createElement('div');
+    body.style.cssText = 'padding:12px 14px;flex:1';
+
+    // 설명
+    if(p.description) {
+      var desc = document.createElement('div');
+      desc.style.cssText = 'font-size:11px;color:#5a5048;margin-bottom:10px;line-height:1.4';
+      desc.textContent = p.description;
+      body.appendChild(desc);
+    }
+
+    // 연동 KPI
+    if(linkedKpis.length) {
+      var kpiDiv = document.createElement('div');
+      kpiDiv.style.cssText = 'margin-bottom:8px';
+      var kpiLabel = document.createElement('div');
+      kpiLabel.style.cssText = 'font-size:9px;font-weight:700;color:#8a8278;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px';
+      kpiLabel.textContent = '연동 KPI';
+      kpiDiv.appendChild(kpiLabel);
+      linkedKpis.forEach(function(kt){
+        var chip = document.createElement('span');
+        chip.style.cssText = 'display:inline-block;font-size:10px;background:#f0ede6;color:#3d5228;border-radius:4px;padding:1px 6px;margin:1px 2px 1px 0;border:1px solid #d8d4cc';
+        chip.textContent = '🔗 '+kt;
+        kpiDiv.appendChild(chip);
+      });
+      body.appendChild(kpiDiv);
+    }
+
+    // 태스크 요약
+    var summary = document.createElement('div');
+    summary.style.cssText = 'display:flex;gap:8px;font-size:10px;margin-bottom:10px';
+    [['전체',total,'#1a1714'],['완료',done,'#2a7c2a'],['진행',inProg,'#2a5fa5'],['대기',todo,'#b87800']].forEach(function(arr){
+      var s=document.createElement('span');
+      s.innerHTML='<b style="color:'+arr[2]+'">'+arr[1]+'</b><span style="color:#8a8278"> '+arr[0]+'</span>';
+      summary.appendChild(s);
+    });
+    if(total) {
+      var pctBadge=document.createElement('span');
+      pctBadge.style.cssText='margin-left:auto;font-weight:700;color:'+(pct>=80?'#2a7c2a':pct>=50?'#c17f3a':'#8a8278');
+      pctBadge.textContent=pct+'%';
+      summary.appendChild(pctBadge);
+    }
+    body.appendChild(summary);
+
+    // 태스크 목록 (최대 5개)
+    var taskList = document.createElement('div');
+    taskList.style.cssText = 'display:flex;flex-direction:column;gap:4px;margin-bottom:8px';
+    var showTasks = ptasks.slice(0,5).sort(function(a,b){
+      var order={in_progress:0,todo:1,done:2};
+      return (order[a.status]||1)-(order[b.status]||1);
+    });
+    showTasks.forEach(function(t){
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:5px 8px;background:#faf8f4;border-radius:5px;font-size:11px;cursor:pointer;border:1px solid #f0ede6';
+      row.onmouseenter=function(){row.style.background='#f0ede6';}
+      row.onmouseleave=function(){row.style.background='#faf8f4';}
+      row.onclick=function(){ openProjectTaskModal(p.id, t.id); };
+
+      var statusDot=document.createElement('div');
+      statusDot.style.cssText='width:7px;height:7px;border-radius:50%;flex-shrink:0;background:'+(t.status==='done'?'#2a7c2a':t.status==='in_progress'?'#2a5fa5':'#b87800');
+
+      var titleSpan=document.createElement('span');
+      titleSpan.style.cssText='flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:'+(t.status==='done'?'#8a8278':'#1a1714');
+      if(t.status==='done') titleSpan.style.textDecoration='line-through';
+      titleSpan.textContent=t.title;
+
+      var dueSpan=document.createElement('span');
+      dueSpan.style.cssText='font-size:9px;color:#8a8278;flex-shrink:0';
+      if(t.due_date) dueSpan.textContent=t.due_date.slice(5).replace('-','/');
+
+      row.append(statusDot,titleSpan,dueSpan);
+      taskList.appendChild(row);
+    });
+    if(total>5){
+      var more=document.createElement('div');
+      more.style.cssText='font-size:10px;color:#8a8278;text-align:center;padding:3px';
+      more.textContent='+ '+(total-5)+'개 더 보기';
+      taskList.appendChild(more);
+    }
+    body.appendChild(taskList);
+
+    // 태스크 추가 버튼
+    var addBtn=document.createElement('button');
+    addBtn.style.cssText='width:100%;font-size:11px;color:#5a5048;background:#f5f2ed;border:1px dashed #c8c4bc;border-radius:5px;padding:5px;cursor:pointer;text-align:center';
+    addBtn.textContent='+ 태스크 추가';
+    addBtn.onclick=function(){ openProjectTaskModal(p.id, null); };
+    body.appendChild(addBtn);
+
+    card.append(hdr, body);
+    grid.appendChild(card);
+  });
+}
+
+// ── 프로젝트 생성/수정 모달 ──
+function openProjectModal(projectId) {
+  var ex=document.getElementById('_projModal');
+  if(ex) ex.remove();
+
+  var projects=loadProjects();
+  var proj = projectId ? projects.find(function(p){return p.id===projectId;}) : null;
+  var kpiList = state._lastKpis||[];
+  var owners  = (state.owners||[]).map(function(o){return o.name;});
+
+  var overlay=document.createElement('div');
+  overlay.id='_projModal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
+
+  var box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:12px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;padding:22px';
+
+  var hdr=document.createElement('div');
+  hdr.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:16px';
+  var title=document.createElement('div');
+  title.style.cssText='font-size:15px;font-weight:800;color:#1a1714';
+  title.textContent=proj?'프로젝트 수정':'새 프로젝트';
+  var closeBtn=document.createElement('button');
+  closeBtn.textContent='✕'; closeBtn.style.cssText='background:none;border:none;font-size:18px;cursor:pointer;color:#8a8278';
+  closeBtn.onclick=function(){overlay.remove();};
+  hdr.append(title,closeBtn);
+  box.appendChild(hdr);
+
+  var COLORS=['#5c6b4a','#4a6b7c','#9e4a3a','#7c4a5c','#4a547c','#b8962e','#3a7c6b','#6b3a7c','#2a5fa5','#c17f3a'];
+  var fields=[
+    {id:'pName',label:'프로젝트명 *',type:'text',val:proj?.name||'',ph:'예: SEA Choice Kit 프로모션'},
+    {id:'pDesc',label:'설명',type:'textarea',val:proj?.description||'',ph:'프로젝트 목표나 배경을 입력하세요'},
+    {id:'pOwner',label:'담당자',type:'select_owner',val:proj?.owner||''},
+    {id:'pRegion',label:'지역/권역',type:'text',val:proj?.region||'',ph:'예: SEA, LATAM, MENA...'},
+    {id:'pColor',label:'색상',type:'color_pick',val:proj?.color||COLORS[0]},
+    {id:'pKpis',label:'연동 KPI (선택)',type:'kpi_multi',val:proj?.kpi_ids||[]},
+  ];
+
+  fields.forEach(function(f){
+    var group=document.createElement('div');
+    group.style.cssText='margin-bottom:12px';
+    var label=document.createElement('label');
+    label.style.cssText='display:block;font-size:11px;font-weight:700;color:#5a5048;margin-bottom:4px';
+    label.textContent=f.label;
+    group.appendChild(label);
+
+    var input;
+    if(f.type==='textarea'){
+      input=document.createElement('textarea');
+      input.rows=3;
+      input.placeholder=f.ph||'';
+      input.value=f.val;
+      input.style.cssText='width:100%;box-sizing:border-box;border:1px solid #dedad2;border-radius:6px;padding:7px 10px;font-size:12px;resize:vertical';
+    } else if(f.type==='select_owner'){
+      input=document.createElement('select');
+      input.style.cssText='width:100%;border:1px solid #dedad2;border-radius:6px;padding:6px 10px;font-size:12px';
+      ['',  ...owners].forEach(function(o){
+        var opt=document.createElement('option'); opt.value=o; opt.textContent=o||'-- 담당자 선택 --';
+        if(o===f.val) opt.selected=true;
+        input.appendChild(opt);
+      });
+    } else if(f.type==='color_pick'){
+      var colorWrap=document.createElement('div');
+      colorWrap.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
+      COLORS.forEach(function(c){
+        var dot=document.createElement('div');
+        dot.dataset.color=c;
+        dot.style.cssText='width:24px;height:24px;border-radius:50%;background:'+c+';cursor:pointer;border:3px solid '+(c===f.val?'#1a1714':'transparent');
+        dot.onclick=function(){
+          colorWrap.querySelectorAll('div').forEach(function(d){d.style.borderColor='transparent';});
+          dot.style.borderColor='#1a1714';
+        };
+        colorWrap.appendChild(dot);
+      });
+      input=colorWrap;
+    } else if(f.type==='kpi_multi'){
+      var kpiWrap=document.createElement('div');
+      kpiWrap.style.cssText='max-height:150px;overflow-y:auto;border:1px solid #dedad2;border-radius:6px;padding:6px';
+      kpiList.forEach(function(k){
+        var row2=document.createElement('label');
+        row2.style.cssText='display:flex;align-items:center;gap:6px;padding:3px 4px;font-size:11px;cursor:pointer;border-radius:4px';
+        row2.onmouseenter=function(){row2.style.background='#f5f2ed';}
+        row2.onmouseleave=function(){row2.style.background='';}
+        var cb=document.createElement('input'); cb.type='checkbox'; cb.value=k.id;
+        if(f.val.indexOf(k.id)>=0) cb.checked=true;
+        var span=document.createElement('span'); span.textContent=k.title;
+        row2.append(cb,span); kpiWrap.appendChild(row2);
+      });
+      input=kpiWrap;
+    } else {
+      input=document.createElement('input'); input.type='text';
+      input.placeholder=f.ph||''; input.value=f.val;
+      input.style.cssText='width:100%;box-sizing:border-box;border:1px solid #dedad2;border-radius:6px;padding:7px 10px;font-size:12px';
+    }
+    input.id=f.id;
+    group.appendChild(input);
+    box.appendChild(group);
+  });
+
+  var saveBtn=document.createElement('button');
+  saveBtn.textContent=proj?'수정 저장':'프로젝트 생성';
+  saveBtn.style.cssText='width:100%;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;margin-top:4px';
+  saveBtn.onclick=function(){
+    var name=(document.getElementById('pName')?.value||'').trim();
+    if(!name){alert('프로젝트명을 입력해주세요.');return;}
+
+    var colorEl=box.querySelector('[data-color][style*="1a1714"]');
+    var selColor=colorEl?colorEl.dataset.color:'#5c6b4a';
+    var selKpis=[...box.querySelectorAll('#pKpis input[type="checkbox"]:checked')].map(function(cb){return cb.value;});
+
+    var newProj={
+      id:   proj?proj.id:('p_'+Date.now()),
+      name: name,
+      description: document.getElementById('pDesc')?.value||'',
+      owner: document.getElementById('pOwner')?.value||'',
+      region: document.getElementById('pRegion')?.value||'',
+      color: selColor,
+      kpi_ids: selKpis,
+      created_at: proj?proj.created_at:new Date().toISOString()
+    };
+
+    var ps=loadProjects();
+    if(proj){ var pi2=ps.findIndex(function(x){return x.id===proj.id;}); if(pi2>=0) ps[pi2]=newProj; else ps.push(newProj); }
+    else ps.push(newProj);
+    saveProjects(ps);
+    overlay.remove();
+    renderProjectBucket();
+  };
+  box.appendChild(saveBtn);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
+// ── 프로젝트 태스크 모달 ──
+function openProjectTaskModal(projectId, taskId) {
+  var ex=document.getElementById('_ptaskModal');
+  if(ex) ex.remove();
+
+  var ptasks=loadProjectTasks(projectId);
+  var task=taskId?ptasks.find(function(t){return t.id===taskId;}):null;
+  var proj=(loadProjects()||[]).find(function(p){return p.id===projectId;})||{};
+  var owners=(state.owners||[]).map(function(o){return o.name;});
+
+  var overlay=document.createElement('div');
+  overlay.id='_ptaskModal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
+
+  var box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:12px;width:100%;max-width:440px;padding:22px';
+
+  // 헤더
+  var hdr=document.createElement('div');
+  hdr.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:4px';
+  var htitle=document.createElement('div');
+  htitle.style.cssText='font-size:14px;font-weight:800;color:#1a1714';
+  htitle.textContent=task?'태스크 수정':'태스크 추가';
+  var projName=document.createElement('div');
+  projName.style.cssText='font-size:10px;color:#8a8278;margin-bottom:14px';
+  projName.textContent='📁 '+proj.name;
+  var closeBtn=document.createElement('button');
+  closeBtn.textContent='✕'; closeBtn.style.cssText='background:none;border:none;font-size:18px;cursor:pointer;color:#8a8278';
+  closeBtn.onclick=function(){overlay.remove();};
+  hdr.append(htitle,closeBtn);
+  box.append(hdr,projName);
+
+  var mkField=function(id,label,type,val,options){
+    var g=document.createElement('div'); g.style.cssText='margin-bottom:10px';
+    var lbl=document.createElement('label'); lbl.style.cssText='display:block;font-size:11px;font-weight:700;color:#5a5048;margin-bottom:3px'; lbl.textContent=label;
+    var inp;
+    if(type==='select'){
+      inp=document.createElement('select'); inp.style.cssText='width:100%;border:1px solid #dedad2;border-radius:6px;padding:5px 8px;font-size:12px';
+      (options||[]).forEach(function(o){var opt=document.createElement('option');opt.value=o.v||o;opt.textContent=o.l||o;if((o.v||o)===val)opt.selected=true;inp.appendChild(opt);});
+    } else if(type==='textarea'){
+      inp=document.createElement('textarea'); inp.rows=3; inp.value=val||'';
+      inp.style.cssText='width:100%;box-sizing:border-box;border:1px solid #dedad2;border-radius:6px;padding:5px 8px;font-size:12px;resize:vertical';
+    } else {
+      inp=document.createElement('input'); inp.type=type||'text'; inp.value=val||'';
+      inp.style.cssText='width:100%;box-sizing:border-box;border:1px solid #dedad2;border-radius:6px;padding:5px 8px;font-size:12px';
+    }
+    inp.id=id; g.append(lbl,inp); return g;
+  };
+
+  box.appendChild(mkField('ptTitle','태스크명 *','text',task?.title,''));
+  box.appendChild(mkField('ptAssignee','담당자','select',task?.assignee,[{v:'',l:'-- 선택 --'},...owners.map(function(o){return {v:o,l:o};})]));
+  box.appendChild(mkField('ptStatus','상태','select',task?.status||'todo',[{v:'todo',l:'대기'},{v:'in_progress',l:'진행중'},{v:'done',l:'완료'},{v:'blocked',l:'지연'}]));
+  box.appendChild(mkField('ptPriority','우선순위','select',task?.priority||'normal',[{v:'high',l:'🔴 높음'},{v:'normal',l:'🟡 보통'},{v:'low',l:'🟢 낮음'}]));
+  box.appendChild(mkField('ptDue','마감일','date',task?.due_date||'',''));
+  box.appendChild(mkField('ptGoal','목표/설명','textarea',task?.goal||'',''));
+
+  // 버튼 영역
+  var btnRow=document.createElement('div');
+  btnRow.style.cssText='display:flex;gap:8px;margin-top:14px';
+
+  if(task){
+    var delBtn=document.createElement('button');
+    delBtn.textContent='삭제'; delBtn.style.cssText='flex:0;background:#faeaea;color:#c0392b;border:1px solid #e8c4c4;border-radius:6px;padding:8px 14px;font-size:12px;cursor:pointer;font-weight:700';
+    delBtn.onclick=function(){
+      if(!confirm('태스크를 삭제할까요?')) return;
+      var updated=ptasks.filter(function(t){return t.id!==taskId;});
+      saveProjectTasks(projectId,updated); overlay.remove(); renderProjectBucket();
+    };
+    btnRow.appendChild(delBtn);
+  }
+
+  var saveBtn=document.createElement('button');
+  saveBtn.textContent=task?'저장':'추가'; saveBtn.style.cssText='flex:1;background:var(--primary);color:#fff;border:none;border-radius:6px;padding:8px;font-size:13px;font-weight:700;cursor:pointer';
+  saveBtn.onclick=function(){
+    var ttl=(document.getElementById('ptTitle')?.value||'').trim();
+    if(!ttl){alert('태스크명을 입력해주세요.');return;}
+    var newTask={
+      id:   task?task.id:('pt_'+Date.now()),
+      title: ttl,
+      assignee: document.getElementById('ptAssignee')?.value||'',
+      status: document.getElementById('ptStatus')?.value||'todo',
+      priority: document.getElementById('ptPriority')?.value||'normal',
+      due_date: document.getElementById('ptDue')?.value||'',
+      goal: document.getElementById('ptGoal')?.value||'',
+      created_at: task?task.created_at:new Date().toISOString()
+    };
+    var updated=ptasks.filter(function(t){return t.id!==(task?.id);});
+    updated.push(newTask);
+    saveProjectTasks(projectId,updated); overlay.remove(); renderProjectBucket();
+  };
+  btnRow.appendChild(saveBtn);
+  box.appendChild(btnRow);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
 
 function openKpiGoalModal(kpi) {
   var ex = document.getElementById('_kpiGoalModal');
