@@ -3877,10 +3877,16 @@ function openProjectTaskModal(projectId, taskId) {
   var kpiList = state._lastKpis || [];
 
   // 서브태스크 / 코멘트 / 파일 상태
-  var _subtasks  = task ? (task.subtasks  || []) : [];
-  var _comments  = task ? (task.comments  || []) : [];
-  var _files     = task ? (task.files     || []) : [];
-  var _linkedKpi = task ? (task.kpi_ids   || []) : (proj.kpi_ids || []);
+  var _subtasks      = task ? (task.subtasks      || []) : [];
+  var _comments      = task ? (task.comments      || []) : [];
+  var _files         = task ? (task.files         || []) : [];
+  var _linkedKpi     = task ? (task.kpi_ids       || []) : (proj.kpi_ids || []);
+  var _collaborators = task ? (task.collaborators  || []) : [];
+  // 전체 멤버 풀 = owners + 사용자가 추가한 커스텀 멤버
+  var _allMembers = (function(){
+    try { return JSON.parse(localStorage.getItem('_extraMembers')||'[]'); } catch(e){return [];}
+  })();
+  var _memberPool = [...new Set([...owners, ..._allMembers])];
 
   // ── 오버레이 ──
   var overlay = document.createElement('div');
@@ -3970,6 +3976,61 @@ function openProjectTaskModal(projectId, taskId) {
   left.appendChild(mkFld('ptGoal',  '목표/설명', 'textarea', task?.goal));
   left.appendChild(mkFld('ptAssignee', '담당자', 'select', task?.assignee,
     [{v:'',l:'-- 선택 --'}, ...owners.map(function(o){return {v:o,l:o};})]));
+  // ── 콜라보레이터 UI ──
+  var collabSec = document.createElement('div'); collabSec.style.marginBottom='12px';
+  var collabLbl = document.createElement('label');
+  collabLbl.style.cssText='display:block;font-size:11px;font-weight:700;color:#5a5048;margin-bottom:4px';
+  collabLbl.textContent='콜라보레이터';
+  var collabChips = document.createElement('div');
+  collabChips.id='_collabChips';
+  collabChips.style.cssText='display:flex;flex-wrap:wrap;gap:4px;min-height:28px;padding:4px;border:1px solid #dedad2;border-radius:6px;background:#faf8f4;align-items:center;margin-bottom:4px';
+
+  var renderCollabChips = function(){
+    collabChips.innerHTML='';
+    _collaborators.forEach(function(name,ci){
+      var chip=document.createElement('span');
+      chip.style.cssText='display:inline-flex;align-items:center;gap:3px;background:#e8f0f8;border:1px solid #bed3ee;border-radius:12px;padding:2px 8px;font-size:11px;color:#2a5fa5;font-weight:700';
+      chip.textContent='👤 '+name;
+      var x=document.createElement('span');x.textContent='×';x.style.cssText='cursor:pointer;margin-left:2px;font-size:12px;color:#8a8278';
+      x.onclick=function(){_collaborators.splice(ci,1);renderCollabChips();};
+      chip.appendChild(x);collabChips.appendChild(chip);
+    });
+  };
+  renderCollabChips();
+
+  // 멤버 추가 행
+  var collabAddRow=document.createElement('div');collabAddRow.style.cssText='display:flex;gap:6px';
+  var collabSel=document.createElement('select');
+  collabSel.style.cssText='flex:1;border:1px solid #dedad2;border-radius:6px;padding:4px 8px;font-size:11px';
+  var _refreshCollabSel=function(){
+    collabSel.innerHTML='<option value="">+ 멤버 선택</option>';
+    _memberPool.filter(function(m){return _collaborators.indexOf(m)<0;}).forEach(function(m){
+      var o=document.createElement('option');o.value=m;o.textContent=m;collabSel.appendChild(o);
+    });
+    // 새 멤버 직접 입력 옵션
+    var o2=document.createElement('option');o2.value='__new__';o2.textContent='✏️ 직접 입력...';collabSel.appendChild(o2);
+  };
+  _refreshCollabSel();
+
+  collabSel.onchange=function(){
+    var v=collabSel.value;
+    if(!v) return;
+    if(v==='__new__'){
+      var name=(prompt('추가할 멤버 이름을 입력하세요:')||'').trim();
+      if(!name){collabSel.value='';return;}
+      if(_allMembers.indexOf(name)<0){_allMembers.push(name);try{localStorage.setItem('_extraMembers',JSON.stringify(_allMembers));}catch(e){}}
+      if(_memberPool.indexOf(name)<0) _memberPool.push(name);
+      if(_collaborators.indexOf(name)<0){_collaborators.push(name);renderCollabChips();}
+      _refreshCollabSel();
+    } else {
+      if(_collaborators.indexOf(v)<0){_collaborators.push(v);renderCollabChips();}
+    }
+    collabSel.value='';
+  };
+  collabAddRow.appendChild(collabSel);
+  collabSec.append(collabLbl,collabChips,collabAddRow);
+  left.appendChild(collabSec);
+
   left.appendChild(mkFld('ptStatus', '상태', 'select', task?.status||'todo',
     [{v:'todo',l:'대기'},{v:'in_progress',l:'진행중'},{v:'done',l:'완료'},{v:'blocked',l:'지연'}]));
   left.appendChild(mkFld('ptPriority', '우선순위', 'select', task?.priority||'normal',
@@ -4153,8 +4214,60 @@ function openProjectTaskModal(projectId, taskId) {
   [{v:'',l:'-- 작성자 선택 --'}, ...owners.map(function(o){return{v:o,l:o};})].forEach(function(o){
     var opt=document.createElement('option'); opt.value=o.v; opt.textContent=o.l; cmtAuthorSel.appendChild(opt);
   });
-  var cmtTa = document.createElement('textarea'); cmtTa.rows=2; cmtTa.placeholder='코멘트를 입력하세요...';
+  var cmtTa = document.createElement('textarea'); cmtTa.rows=2; cmtTa.placeholder='코멘트... (@로 멘션, Ctrl+Enter 등록)';
   cmtTa.style.cssText = 'border:1px solid #dedad2;border-radius:6px;padding:6px 8px;font-size:12px;resize:vertical';
+  // @멘션 드롭다운
+  var mentionDD = document.createElement('div');
+  mentionDD.style.cssText = 'display:none;position:absolute;background:#fff;border:1px solid #ede9e2;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:99999;min-width:180px;max-height:200px;overflow-y:auto';
+  var _mentionAnchor = {active:false, start:0};
+  cmtTa.addEventListener('input', function(){
+    var val=cmtTa.value, pos=cmtTa.selectionStart;
+    var before=val.slice(0,pos);
+    var atIdx=before.lastIndexOf('@');
+    if(atIdx>=0 && !/\s/.test(before.slice(atIdx+1))) {
+      var q=before.slice(atIdx+1).toLowerCase();
+      var matches=_memberPool.filter(function(m){return m.toLowerCase().includes(q)&&_collaborators.concat([document.getElementById('ptAssignee')?.value||'']).indexOf(m)>=0||_memberPool.indexOf(m)>=0;}).filter(function(m){return m.toLowerCase().includes(q);}).slice(0,6);
+      if(matches.length){
+        mentionDD.innerHTML='';
+        matches.forEach(function(m){
+          var item=document.createElement('div');
+          item.style.cssText='padding:7px 12px;cursor:pointer;font-size:12px;font-weight:600;color:#1a1714;display:flex;align-items:center;gap:6px';
+          item.innerHTML='<span style="font-size:16px">👤</span>'+m;
+          item.onmouseenter=function(){item.style.background='#f0ede6';}
+          item.onmouseleave=function(){item.style.background='';}
+          item.onmousedown=function(e){
+            e.preventDefault();
+            var newVal=val.slice(0,atIdx)+'@'+m+' '+val.slice(pos);
+            cmtTa.value=newVal;
+            cmtTa.setSelectionRange(atIdx+m.length+2,atIdx+m.length+2);
+            mentionDD.style.display='none';
+            _mentionAnchor.active=false;
+          };
+          mentionDD.appendChild(item);
+        });
+        // 위치 계산
+        var rect2=cmtTa.getBoundingClientRect();
+        mentionDD.style.display='block';
+        mentionDD.style.top=(rect2.bottom+window.scrollY+2)+'px';
+        mentionDD.style.left=(rect2.left+window.scrollX)+'px';
+        _mentionAnchor.active=true; _mentionAnchor.start=atIdx;
+        return;
+      }
+    }
+    mentionDD.style.display='none'; _mentionAnchor.active=false;
+  });
+  cmtTa.addEventListener('keydown',function(e){
+    if(mentionDD.style.display!=='none'){
+      var items=mentionDD.querySelectorAll('div');
+      var active=mentionDD.querySelector('div._active');
+      if(e.key==='ArrowDown'){e.preventDefault();var next=active?active.nextElementSibling:items[0];if(active)active.classList.remove('_active');if(next){next.classList.add('_active');next.style.background='#f0ede6';}}
+      else if(e.key==='ArrowUp'){e.preventDefault();var prev=active?active.previousElementSibling:items[items.length-1];if(active)active.classList.remove('_active');if(prev){prev.classList.add('_active');prev.style.background='#f0ede6';}}
+      else if(e.key==='Enter'&&active){e.preventDefault();active.onmousedown(e);}
+      else if(e.key==='Escape'){mentionDD.style.display='none';}
+    }
+  });
+  document.body.appendChild(mentionDD);
+  overlay.addEventListener('remove',function(){mentionDD.remove();});
   var cmtAddBtn = document.createElement('button');
   cmtAddBtn.textContent = '등록';
   cmtAddBtn.style.cssText = 'align-self:flex-end;background:var(--primary);color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer';
@@ -4200,6 +4313,34 @@ function openProjectTaskModal(projectId, taskId) {
     if (!content2) return;
     _comments.push({ author: cmtAuthorSel.value||'익명', content: content2, ts: Date.now() });
     cmtTa.value = '';
+    mentionDD.style.display = 'none';
+
+    // @멘션 추출 후 알림 발송
+    var mentions = [];
+    var _words = content2.replace(/\n/g,' ').split(' ');
+    _words.forEach(function(w){ if(w.charAt(0)==='@') { var m=w.slice(1).replace(/[^a-zA-Z0-9가-힣]/g,''); if(m) mentions.push(m); }});
+    if (mentions.length) {
+      // localStorage 알림 저장
+      try {
+        var store = JSON.parse(localStorage.getItem('_mentionNotifs')||'{}');
+        var taskKey = 'proj:'+projectId+(taskId?':'+taskId:'');
+        if(!store[taskKey]) store[taskKey]=[];
+        store[taskKey].push({
+          author: cmtAuthorSel.value||_currentUser?.name||'익명',
+          mentions: mentions,
+          content: content2.slice(0,100),
+          ts: Date.now(), read: false,
+          projectId: projectId, taskId: taskId,
+          taskTitle: document.getElementById('ptTitle')?.value||'태스크'
+        });
+        localStorage.setItem('_mentionNotifs', JSON.stringify(store));
+      } catch(e){}
+      // 푸시 알림
+      mentions.forEach(function(m){
+        _broadcastMention(m, cmtAuthorSel.value||(_currentUser&&_currentUser.name)||'익명', content2.slice(0,80), projectId, taskId);
+      });
+      if(typeof _checkMentionNotifs === 'function') _checkMentionNotifs();
+    }
     renderComments();
   };
   cmtTa.addEventListener('keydown', function(e){
@@ -4241,18 +4382,19 @@ function openProjectTaskModal(projectId, taskId) {
     var newStatus = document.getElementById('ptStatus')?.value||'todo';
 
     var newTask = {
-      id:       task ? task.id : ('pt_'+Date.now()),
-      title:    ttl,
-      assignee: document.getElementById('ptAssignee')?.value||'',
-      status:   newStatus,
-      priority: document.getElementById('ptPriority')?.value||'normal',
-      due_date: document.getElementById('ptDue')?.value||'',
-      goal:     document.getElementById('ptGoal')?.value||'',
-      kpi_ids:  selKpiIds,
-      subtasks: _subtasks,
-      comments: _comments,
-      files:    _files.map(function(f){ return {name:f.name,size:f.size,url:f.url,type:f.type}; }),
-      created_at: task ? task.created_at : new Date().toISOString()
+      id:            task ? task.id : ('pt_'+Date.now()),
+      title:         ttl,
+      assignee:      document.getElementById('ptAssignee')?.value||'',
+      collaborators: _collaborators,
+      status:        newStatus,
+      priority:      document.getElementById('ptPriority')?.value||'normal',
+      due_date:      document.getElementById('ptDue')?.value||'',
+      goal:          document.getElementById('ptGoal')?.value||'',
+      kpi_ids:       selKpiIds,
+      subtasks:      _subtasks,
+      comments:      _comments,
+      files:         _files.map(function(f){ return {name:f.name,size:f.size,url:f.url,type:f.type}; }),
+      created_at:    task ? task.created_at : new Date().toISOString()
     };
 
     var updated = ptasks.filter(function(t){ return t.id !== (task&&task.id); });
@@ -4509,7 +4651,11 @@ function _checkMentionNotifs() {
     Object.keys(store).forEach(function(tid) {
       (store[tid]||[]).forEach(function(n) {
         if (!n.read && (n.mentions||[]).indexOf(_currentUser.name) >= 0) {
-          myNotifs.push({ taskId:tid, author:n.author, content:n.content, ts:n.ts });
+          myNotifs.push({
+            taskId: n.taskId||tid, author: n.author||n.from||'',
+            content: n.content||'', ts: n.ts,
+            projectId: n.projectId, taskTitle: n.taskTitle
+          });
         }
       });
     });
@@ -4525,6 +4671,113 @@ function _renderNotifBadge(notifs) {
   badge.textContent = notifs.length;
   badge.title = notifs.map(function(n){ return n.author+': '+n.content; }).join('\n');
   badge.onclick = function() { _showNotifPanel(notifs); };
+}
+
+// ── 푸시 토스트 알림 ──
+function _pushNotif(targetName, fromName, message, projectId, taskId) {
+  // 현재 로그인한 사용자에게만 표시
+  if (!_currentUser || _currentUser.isObserver) return;
+  if (_currentUser.name !== targetName) return;
+
+  var toast = document.createElement('div');
+  toast.style.cssText = [
+    'position:fixed;bottom:24px;right:24px;z-index:99999',
+    'background:#1a1714;color:#fff;border-radius:12px',
+    'padding:14px 18px;max-width:320px;min-width:260px',
+    'box-shadow:0 8px 32px rgba(0,0,0,.4)',
+    'display:flex;flex-direction:column;gap:6px',
+    'animation:_slideIn .3s ease',
+    'cursor:pointer;border-left:4px solid var(--primary)'
+  ].join(';');
+
+  // 애니메이션 CSS
+  if (!document.getElementById('_toastStyle')) {
+    var s = document.createElement('style');
+    s.id = '_toastStyle';
+    s.textContent = '@keyframes _slideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}'
+      + '@keyframes _slideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(120%);opacity:0}}';
+    document.head.appendChild(s);
+  }
+
+  var toastHdr = document.createElement('div');
+  toastHdr.style.cssText = 'display:flex;align-items:center;gap:8px;justify-content:space-between';
+  var toastTitle = document.createElement('div');
+  toastTitle.style.cssText = 'font-size:12px;font-weight:800;color:#fff;display:flex;align-items:center;gap:5px';
+  toastTitle.innerHTML = '<span style="font-size:16px">🔔</span> 멘션 알림';
+  var toastClose = document.createElement('button');
+  toastClose.textContent = '✕';
+  toastClose.style.cssText = 'background:none;border:none;color:rgba(255,255,255,.6);font-size:14px;cursor:pointer;padding:0;line-height:1';
+  toastClose.onclick = function(e){ e.stopPropagation(); _removeToast(toast); };
+  toastHdr.append(toastTitle, toastClose);
+
+  var toastBody = document.createElement('div');
+  toastBody.style.cssText = 'font-size:11px;color:rgba(255,255,255,.85);line-height:1.5';
+  toastBody.innerHTML = '<b>@'+targetName+'</b> ← '+fromName+'<br>'
+    + '<span style="color:rgba(255,255,255,.7)">'+message.replace(/</g,'&lt;')+'</span>';
+
+  var toastFoot = document.createElement('div');
+  toastFoot.style.cssText = 'font-size:10px;color:rgba(255,255,255,.5)';
+  toastFoot.textContent = '클릭하여 태스크 확인';
+
+  toast.append(toastHdr, toastBody, toastFoot);
+  toast.onclick = function() {
+    _removeToast(toast);
+    if (projectId) {
+      openProjectTaskModal(projectId, taskId||null);
+    }
+  };
+
+  document.body.appendChild(toast);
+
+  // 5초 후 자동 닫기
+  var autoClose = setTimeout(function(){ _removeToast(toast); }, 5000);
+  toast._autoClose = autoClose;
+
+  // 여러 토스트 스택 (위로 밀기)
+  _stackToasts();
+}
+
+function _removeToast(toast) {
+  clearTimeout(toast._autoClose);
+  toast.style.animation = '_slideOut .3s ease forwards';
+  setTimeout(function(){ if(toast.parentNode) toast.remove(); _stackToasts(); }, 280);
+}
+
+function _stackToasts() {
+  var toasts = [...document.querySelectorAll('[style*="_slideIn"],[style*="bottom:24px"]')]
+    .filter(function(el){ return el.style.position==='fixed' && el.style.bottom; });
+  var bottom = 24;
+  toasts.reverse().forEach(function(t) {
+    t.style.bottom = bottom + 'px';
+    bottom += t.offsetHeight + 10;
+  });
+}
+
+// ── BroadcastChannel로 탭 간 알림 동기화 ──
+(function(){
+  try {
+    if (!window._bc && typeof BroadcastChannel !== 'undefined') {
+      window._bc = new BroadcastChannel('ctr_dashboard_notif');
+      window._bc.onmessage = function(e) {
+        var data = e.data;
+        if (data && data.type === 'mention' && _currentUser && _currentUser.name === data.target) {
+          _pushNotif(data.target, data.from, data.message, data.projectId, data.taskId);
+          if (typeof _checkMentionNotifs === 'function') _checkMentionNotifs();
+        }
+      };
+    }
+  } catch(e){}
+})();
+
+// 멘션 발송 시 BroadcastChannel로 다른 탭에도 전파
+var _origPushNotif = window._pushNotif;
+function _broadcastMention(targetName, fromName, message, projectId, taskId) {
+  try {
+    if (window._bc) {
+      window._bc.postMessage({ type:'mention', target:targetName, from:fromName, message:message, projectId:projectId, taskId:taskId });
+    }
+  } catch(e){}
+  _pushNotif(targetName, fromName, message, projectId, taskId);
 }
 
 function _showNotifPanel(notifs) {
