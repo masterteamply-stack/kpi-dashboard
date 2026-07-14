@@ -3658,11 +3658,15 @@ async function deleteProjectTask(projectId, taskId) {
   localStorage.setItem(_PTASK_CACHE_PREFIX + projectId, JSON.stringify(cached));
 }
 
-// 하위 호환: 구 localStorage 데이터 마이그레이션
+// 하위 호환: 구 localStorage 데이터 마이그레이션 (최초 1회)
 async function migrateLocalProjects() {
+  if (localStorage.getItem('_proj_migrated_v2')) return; // 이미 완료
   var old = null;
   try { old = JSON.parse(localStorage.getItem('_projects_v1')||'null'); } catch(e){}
-  if (!old || !old.length) return;
+  if (!old || !old.length) {
+    localStorage.setItem('_proj_migrated_v2', '1');
+    return;
+  }
   console.log('[Projects] 구 데이터 마이그레이션:', old.length+'개');
   for (var i=0; i<old.length; i++) {
     var p = old[i];
@@ -3676,6 +3680,7 @@ async function migrateLocalProjects() {
     }
   }
   localStorage.removeItem('_projects_v1');
+  localStorage.setItem('_proj_migrated_v2', '1');
   console.log('[Projects] 마이그레이션 완료');
 }
 
@@ -3689,22 +3694,17 @@ async function renderProjectBucket() {
   var grid = document.getElementById('projectBucketGrid');
   if(!grid) return;
 
-  // 캐시로 즉시 표시 후 Supabase에서 최신 데이터 fetch
-  var projects = loadProjects();
+  // 로딩 표시
+  grid.innerHTML = '<div style="color:#8a8278;font-size:11px;padding:24px;text-align:center;grid-column:1/-1">🔄 불러오는 중...</div>';
+
+  // 구 localStorage 마이그레이션 (최초 1회)
+  await migrateLocalProjects();
+
+  // Supabase에서 항상 최신 fetch
+  var projects = await fetchProjects();
   _projectState.projects = projects;
-  if (!projects.length) {
-    grid.innerHTML = '<div style="color:#8a8278;font-size:12px;padding:24px;text-align:center;grid-column:1/-1">로딩 중...</div>';
-  }
-  // 비동기로 Supabase fetch
-  fetchProjects().then(function(fresh) {
-    _projectState.projects = fresh;
-    _renderProjectCards(fresh);
-    // 각 프로젝트 태스크도 갱신
-    fresh.forEach(function(p){ fetchProjectTasks(p.id); });
-  });
-  // 캐시 데이터로 즉시 렌더
-  if (projects.length) _renderProjectCards(projects);
-  return;
+  projects.forEach(function(p){ fetchProjectTasks(p.id); });
+  _renderProjectCards(projects);
 }
 
 function _renderProjectCards(projects) {
@@ -4018,12 +4018,7 @@ function openProjectModal(projectId) {
     saveProject(newProj).then(function(){
       overlay.remove();
       // 구 localStorage 데이터 마이그레이션 (최초 1회)
-  if (!window._projMigrated) {
-    window._projMigrated = true;
-    migrateLocalProjects().then(function(){ renderProjectBucket(); });
-  } else {
-    renderProjectBucket();
-  }
+  renderProjectBucket();
     });
   };
   box.appendChild(saveBtn);
