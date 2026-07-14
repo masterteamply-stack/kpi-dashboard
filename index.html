@@ -4639,24 +4639,30 @@ function _openSubtaskKpiPicker(si, subtasks, anchorBtn, kpiList, callback) {
 async function _syncSubtaskToKpi(subtask, proj, projectId) {
   try {
     var kpiIds = subtask.kpi_ids||[];
-    if (!kpiIds.length) {
-      console.log('[SubtaskKPI] kpi_ids 없음:', subtask.title); return;
+    if (!kpiIds.length) return;
+
+    // proj 안전하게 재확인
+    var _proj = proj;
+    if (!_proj || !_proj.name) {
+      var allProj = loadProjects();
+      _proj = allProj.find(function(p){return p.id===projectId;}) || {name:'프로젝트'};
     }
-    console.log('[SubtaskKPI] ▶ 시작:', subtask.title, 'kpiIds:', kpiIds);
 
     for (var i=0; i<kpiIds.length; i++) {
       var kpiId = kpiIds[i];
 
-      // due_date 계산
-      var due = subtask.due || subtask.due_date || new Date().toISOString().slice(0,10);
-      var qNum = Math.ceil((new Date(due).getMonth()+1)/3);
+      // 날짜
+      var due = subtask.due || subtask.due_date || '';
+      if (!due) due = new Date().toISOString().slice(0,10);
+      var mo  = new Date(due).getMonth()+1;
+      var qNum= Math.ceil(mo/3);
 
-      // 상태/진척도
-      var stDone   = subtask.done === true || subtask.status === 'done';
-      var status   = stDone ? 'done' : 'in_progress';
-      var progress = stDone ? 100 : 50;
+      // 상태
+      var isDone   = subtask.done === true || subtask.status === 'done';
+      var status   = isDone ? 'done' : 'in_progress';
+      var progress = isDone ? 100 : 50;
 
-      // 담당자 id
+      // 담당자
       var ownerId = null;
       if (subtask.assignee) {
         var om = (state.owners||[]).find(function(o){
@@ -4665,23 +4671,22 @@ async function _syncSubtaskToKpi(subtask, proj, projectId) {
         if (om) ownerId = om.id;
       }
 
-      // subtask.id로 기존 태스크 검색 (ilike로 한글/특수문자 안전하게)
-      var stId = String(subtask.id||'');
+      var stId    = String(subtask.id||Date.now());
+      var noteStr = 'stid=' + stId;
+
+      // 기존 태스크 찾기
       var findRes = await state.sb.from('tasks')
-        .select('id,status,progress')
+        .select('id')
         .eq('kpi_id', kpiId)
-        .ilike('notes', '%' + stId + '%');
+        .ilike('notes', '%' + stId + '%')
+        .limit(1);
 
-      console.log('[SubtaskKPI] 검색결과:', findRes.data, 'error:', findRes.error);
+      var existingId = (findRes.data && findRes.data[0]) ? findRes.data[0].id : null;
+      console.log('[Sync] kpiId:', kpiId, '/ 기존:', existingId, '/ 에러:', findRes.error);
 
-      var existing = (findRes.data && findRes.data.length > 0) ? findRes.data[0] : null;
-
-      var taskTitle = '[' + (proj.name||'') + '] ' + (subtask.title||'');
-      var noteStr   = 'stid=' + stId + ' pid=' + String(projectId||'');
-
-      var payload = {
+      var row = {
         kpi_id:     kpiId,
-        title:      taskTitle,
+        title:      '[' + _proj.name + '] ' + (subtask.title||''),
         status:     status,
         progress:   progress,
         due_date:   due,
@@ -4690,31 +4695,26 @@ async function _syncSubtaskToKpi(subtask, proj, projectId) {
         notes:      noteStr,
         updated_at: new Date().toISOString()
       };
-      if (ownerId) payload.owner_id = ownerId;
+      if (ownerId) row.owner_id = ownerId;
 
-      var saveRes;
-      if (existing) {
-        saveRes = await state.sb.from('tasks')
-          .update(payload).eq('id', existing.id).select();
-        console.log('[SubtaskKPI] ✅ 업데이트:', taskTitle, existing.id, saveRes.error||'성공');
+      var r;
+      if (existingId) {
+        r = await state.sb.from('tasks').update(row).eq('id', existingId);
       } else {
-        payload.created_at = new Date().toISOString();
-        saveRes = await state.sb.from('tasks').insert([payload]).select();
-        console.log('[SubtaskKPI] ✅ 생성:', taskTitle, saveRes.error||'성공', saveRes.data);
+        row.id = 'pt_' + stId + '_' + kpiId.slice(0,8);
+        row.created_at = new Date().toISOString();
+        // upsert로 중복 방지
+        r = await state.sb.from('tasks').upsert([row], {onConflict: 'id'});
       }
-
-      if (saveRes && saveRes.error) {
-        console.error('[SubtaskKPI] ❌ 저장 에러:', JSON.stringify(saveRes.error));
-      }
+      console.log('[Sync] 저장결과 error:', r.error, 'data:', r.data);
     }
 
-    console.log('[SubtaskKPI] 대시보드 갱신');
-    await refreshDashboard();
-
+    setTimeout(function(){ refreshDashboard().catch(function(){}); }, 300);
   } catch(e) {
-    console.error('[SubtaskKPI] ❌ 예외:', e.message, e);
+    console.error('[Sync] 예외:', e.message);
   }
 }
+
 
 
 
