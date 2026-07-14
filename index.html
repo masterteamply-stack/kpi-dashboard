@@ -1444,6 +1444,16 @@
         style="display:flex;align-items:center;gap:6px;font-size:13px">
         <span>👥</span> 담당 관리
       </button>
+      <!-- 알림 뱃지 -->
+      <div style="position:relative;display:inline-flex;align-items:center">
+        <span id="_notifBadge"
+          style="display:none;background:#c0392b;color:#fff;font-size:10px;font-weight:800;border-radius:10px;padding:2px 7px;cursor:pointer;min-width:18px;text-align:center">0</span>
+      </div>
+      <!-- 현재 사용자 배지 -->
+      <button id="_userBadge" onclick="_showUserSelectModal()"
+        style="font-size:12px;background:#f0ede6;border:1px solid #d8d4cc;border-radius:20px;padding:5px 12px;cursor:pointer;color:#1a1714;font-weight:700">
+        👤 설정 중...
+      </button>
     </div>
   </section>
 
@@ -3587,6 +3597,13 @@ function renderProjectBucket() {
       saveProjects(ps);
       localStorage.removeItem('_ptasks_'+p.id);
       renderProjectBucket();
+    initCurrentUser();
+    // URL 딥링크 처리
+    (function(){
+      var params = new URLSearchParams(location.search);
+      var pId = params.get('project'), tId = params.get('task');
+      if (pId) setTimeout(function(){ openProjectTaskModal(pId, tId==='new'?null:tId); }, 1000);
+    })();
     };
 
     btnGroup.append(editBtn, delBtn);
@@ -3883,11 +3900,24 @@ function openProjectTaskModal(projectId, taskId) {
   mSub.textContent = '📁 ' + proj.name;
   var mTitleWrap = document.createElement('div');
   mTitleWrap.append(mTitle, mSub);
+  // 딥링크 버튼
+  var linkBtn = document.createElement('button');
+  linkBtn.title = '이 태스크 링크 복사';
+  linkBtn.style.cssText = 'background:#f0ede6;border:1px solid #dedad2;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;color:#5a5048;margin-right:4px';
+  linkBtn.innerHTML = '🔗 링크';
+  linkBtn.onclick = function() {
+    var url = location.origin + location.pathname + '?project='+encodeURIComponent(projectId)+'&task='+encodeURIComponent(taskId||'new');
+    navigator.clipboard.writeText(url).then(function(){
+      linkBtn.textContent='✓ 복사됨'; linkBtn.style.color='#2a7c2a';
+      setTimeout(function(){ linkBtn.innerHTML='🔗 링크'; linkBtn.style.color='#5a5048'; },1500);
+    }).catch(function(){ prompt('링크를 복사하세요:', url); });
+  };
+
   var closeBtn = document.createElement('button');
   closeBtn.textContent = '✕';
   closeBtn.style.cssText = 'background:none;border:none;font-size:20px;cursor:pointer;color:#8a8278';
   closeBtn.onclick = function(){ overlay.remove(); };
-  mHdr.append(mTitleWrap, closeBtn);
+  mHdr.append(mTitleWrap, linkBtn, closeBtn);
   box.appendChild(mHdr);
 
   // ── 바디 (2컬럼) ──
@@ -3980,15 +4010,23 @@ function openProjectTaskModal(projectId, taskId) {
     stList.innerHTML = '';
     _subtasks.forEach(function(st, si) {
       var row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:5px 8px;background:#faf8f4;border-radius:6px;border:1px solid #ede9e2';
+      row.style.cssText = 'background:#faf8f4;border-radius:6px;border:1px solid #ede9e2;padding:6px 8px;display:flex;flex-direction:column;gap:4px';
+
+      // 상단: 체크박스 + 제목 + 삭제
+      var rowTop = document.createElement('div');
+      rowTop.style.cssText = 'display:flex;align-items:center;gap:6px';
       var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = st.done||false;
       cb.onchange = function() {
         _subtasks[si].done = cb.checked;
         title.style.textDecoration = cb.checked ? 'line-through' : '';
         title.style.color = cb.checked ? '#8a8278' : '#1a1714';
+        // KPI 연동 완료 처리
+        if (cb.checked && _subtasks[si].kpi_ids && _subtasks[si].kpi_ids.length) {
+          _syncSubtaskToKpi(_subtasks[si], proj, projectId);
+        }
       };
       var title = document.createElement('span');
-      title.style.cssText = 'flex:1;font-size:12px;color:'+(st.done?'#8a8278':'#1a1714');
+      title.style.cssText = 'flex:1;font-size:12px;font-weight:600;color:'+(st.done?'#8a8278':'#1a1714');
       if (st.done) title.style.textDecoration = 'line-through';
       title.textContent = st.title;
       var due = document.createElement('span');
@@ -3997,7 +4035,37 @@ function openProjectTaskModal(projectId, taskId) {
       var delB = document.createElement('button');
       delB.textContent = '×'; delB.style.cssText = 'background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px;padding:0 2px;flex-shrink:0';
       delB.onclick = function(){ _subtasks.splice(si,1); renderSubtasks(); };
-      row.append(cb, title, due, delB);
+      rowTop.append(cb, title, due, delB);
+      row.appendChild(rowTop);
+
+      // 하단: 담당자 + KPI 선택 (접힌 형태)
+      var rowMeta = document.createElement('div');
+      rowMeta.style.cssText = 'display:flex;gap:6px;align-items:center;padding-left:22px;flex-wrap:wrap';
+
+      // 담당자 select (compact)
+      var stAssign = document.createElement('select');
+      stAssign.style.cssText = 'font-size:10px;border:1px solid #dedad2;border-radius:4px;padding:1px 4px;color:#5a5048;background:#fff;max-width:80px';
+      [{v:'',l:'담당자'},...owners.map(function(o){return{v:o,l:o};})].forEach(function(o){
+        var opt=document.createElement('option'); opt.value=o.v; opt.textContent=o.l;
+        if(o.v===st.assignee) opt.selected=true; stAssign.appendChild(opt);
+      });
+      stAssign.onchange=function(){ _subtasks[si].assignee=stAssign.value; };
+
+      // KPI 선택 버튼 (팝오버)
+      var stKpiBtn = document.createElement('button');
+      var _stKpiIds = st.kpi_ids||[];
+      stKpiBtn.textContent = _stKpiIds.length ? '🔗 KPI '+_stKpiIds.length+'개' : '🔗 KPI 연동';
+      stKpiBtn.style.cssText = 'font-size:10px;background:'+(_stKpiIds.length?'#e8f0f8':'#f0ede6')+';border:1px solid '+(_stKpiIds.length?'#bed3ee':'#dedad2')+';border-radius:4px;padding:1px 6px;cursor:pointer;color:'+(_stKpiIds.length?'#2a5fa5':'#5a5048');
+      stKpiBtn.onclick = function(e) {
+        e.stopPropagation();
+        _openSubtaskKpiPicker(si, _subtasks, stKpiBtn, kpiList, function(ids){
+          _subtasks[si].kpi_ids = ids;
+          renderSubtasks();
+        });
+      };
+
+      rowMeta.append(stAssign, stKpiBtn);
+      row.appendChild(rowMeta);
       stList.appendChild(row);
     });
   };
@@ -4203,6 +4271,91 @@ function openProjectTaskModal(projectId, taskId) {
   document.body.appendChild(overlay);
 }
 
+// ── 서브태스크 KPI 피커 ──
+function _openSubtaskKpiPicker(si, subtasks, anchorBtn, kpiList, callback) {
+  var ex = document.getElementById('_stKpiPicker');
+  if (ex) { ex.remove(); return; }
+
+  var picker = document.createElement('div');
+  picker.id = '_stKpiPicker';
+  picker.style.cssText = 'position:fixed;z-index:99999;background:#fff;border:1px solid #ede9e2;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.15);padding:10px;width:260px;max-height:300px;overflow-y:auto';
+
+  var rect = anchorBtn.getBoundingClientRect();
+  picker.style.top  = (rect.bottom + 4) + 'px';
+  picker.style.left = Math.min(rect.left, window.innerWidth-280) + 'px';
+
+  var curIds = (subtasks[si].kpi_ids||[]).slice();
+
+  var hdr = document.createElement('div');
+  hdr.style.cssText = 'font-size:11px;font-weight:800;color:#5a5048;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #ede9e2';
+  hdr.textContent = '연동할 KPI 선택';
+  picker.appendChild(hdr);
+
+  kpiList.forEach(function(k) {
+    var row = document.createElement('label');
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 4px;font-size:11px;cursor:pointer;border-radius:4px';
+    row.onmouseenter=function(){row.style.background='#f5f2ed';}
+    row.onmouseleave=function(){row.style.background='';}
+    var cb = document.createElement('input'); cb.type='checkbox'; cb.value=k.id;
+    if (curIds.indexOf(k.id)>=0) cb.checked=true;
+    cb.onchange=function(){
+      if(cb.checked){ if(curIds.indexOf(k.id)<0) curIds.push(k.id); }
+      else { curIds=curIds.filter(function(x){return x!==k.id;}); }
+    };
+    var span=document.createElement('span'); span.textContent=k.title;
+    row.append(cb,span); picker.appendChild(row);
+  });
+
+  var done = document.createElement('button');
+  done.textContent='확인'; done.style.cssText='width:100%;margin-top:8px;background:var(--primary);color:#fff;border:none;border-radius:6px;padding:6px;font-size:12px;font-weight:700;cursor:pointer';
+  done.onclick=function(){ picker.remove(); callback(curIds); };
+  picker.appendChild(done);
+  document.body.appendChild(picker);
+
+  setTimeout(function(){
+    document.addEventListener('click', function _cl(e){
+      if(!picker.contains(e.target)&&e.target!==anchorBtn){ picker.remove(); document.removeEventListener('click',_cl); }
+    });
+  },100);
+}
+
+// ── 서브태스크 → KPI 태스크 동기화 ──
+async function _syncSubtaskToKpi(subtask, proj, projectId) {
+  try {
+    var kpiIds = subtask.kpi_ids||[];
+    if (!kpiIds.length) return;
+    for (var i=0; i<kpiIds.length; i++) {
+      var kpiId = kpiIds[i];
+      var marker = '[ptask:'+projectId+':'+subtask.id+']';
+      var { data: existing } = await state.sb.from('tasks')
+        .select('id').eq('kpi_id',kpiId).like('notes','%'+marker+'%').maybeSingle();
+
+      var due = subtask.due || new Date().toISOString().slice(0,10);
+      var qNum = Math.ceil((new Date(due).getMonth()+1)/3);
+      var payload = {
+        kpi_id:    kpiId,
+        title:     '[📁 '+proj.name+'] '+(subtask.title||''),
+        status:    subtask.done?'done':'in_progress',
+        due_date:  due,
+        quarter:   '2026-Q'+qNum,
+        task_type: '프로젝트',
+        progress:  subtask.done?100:50,
+        notes:     (subtask.goal||proj.name||'') + ' ' + marker,
+        updated_at:new Date().toISOString()
+      };
+      if (subtask.assignee) payload.assignee = subtask.assignee;
+
+      if (existing) {
+        await state.sb.from('tasks').update(payload).eq('id',existing.id);
+      } else {
+        await state.sb.from('tasks').insert([{...payload, created_at:new Date().toISOString()}]);
+      }
+    }
+    // 대시보드 갱신
+    setTimeout(function(){ refreshDashboard().catch(function(){}); }, 500);
+  } catch(e) { console.warn('[SubtaskKPI] 동기화 실패:', e); }
+}
+
 // ── KPI 연동 동기화 (프로젝트 태스크 완료 → KPI 태스크 생성/업데이트) ──
 async function _syncProjectTaskToKpi(ptask, proj) {
   try {
@@ -4246,6 +4399,178 @@ async function _syncProjectTaskToKpi(ptask, proj) {
 }
 
 
+
+
+// ══════════════════════════════════════════
+// 사용자 시스템 - 진입 시 본인 선택
+// ══════════════════════════════════════════
+
+var _currentUser = null; // { name, isObserver }
+
+function initCurrentUser() {
+  var saved = null;
+  try { saved = JSON.parse(localStorage.getItem('_currentUser')||'null'); } catch(e){}
+  if (saved && saved.name) {
+    _currentUser = saved;
+    _updateUserBadge();
+    return;
+  }
+  // 첫 진입 - 사용자 선택 모달
+  setTimeout(_showUserSelectModal, 600);
+}
+
+function _showUserSelectModal() {
+  var ex = document.getElementById('_userSelectModal');
+  if (ex) ex.remove();
+
+  var owners = (state.owners||[]).map(function(o){ return o.name; });
+  var overlay = document.createElement('div');
+  overlay.id = '_userSelectModal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,12,8,.7);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)';
+
+  var box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:16px;width:100%;max-width:400px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.3)';
+
+  var logo = document.createElement('div');
+  logo.style.cssText = 'text-align:center;margin-bottom:20px';
+  logo.innerHTML = '<div style="font-size:32px;margin-bottom:8px">👋</div>'
+    +'<div style="font-size:18px;font-weight:800;color:#1a1714">CTR 마케팅 대시보드</div>'
+    +'<div style="font-size:12px;color:#8a8278;margin-top:4px">본인을 선택하거나 옵저버로 진입하세요</div>';
+  box.appendChild(logo);
+
+  // 담당자 목록
+  var memberSection = document.createElement('div');
+  memberSection.style.cssText = 'margin-bottom:14px';
+  var memberLabel = document.createElement('div');
+  memberLabel.style.cssText = 'font-size:11px;font-weight:700;color:#5a5048;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px';
+  memberLabel.textContent = '팀원으로 진입';
+  memberSection.appendChild(memberLabel);
+
+  var memberGrid = document.createElement('div');
+  memberGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px';
+  owners.forEach(function(name) {
+    var btn = document.createElement('button');
+    btn.style.cssText = 'background:#f5f2ed;border:2px solid #ede9e2;border-radius:8px;padding:10px 8px;cursor:pointer;text-align:left;transition:all .15s;font-size:12px;font-weight:700;color:#1a1714';
+    btn.innerHTML = '<span style="display:block;font-size:18px;margin-bottom:2px">👤</span>'+name;
+    btn.onmouseenter = function(){ btn.style.borderColor='var(--primary)'; btn.style.background='#eef3e8'; };
+    btn.onmouseleave = function(){ btn.style.borderColor='#ede9e2'; btn.style.background='#f5f2ed'; };
+    btn.onclick = function() { _setCurrentUser(name, false); overlay.remove(); };
+    memberGrid.appendChild(btn);
+  });
+  memberSection.appendChild(memberGrid);
+  box.appendChild(memberSection);
+
+  // 구분선
+  var divider = document.createElement('div');
+  divider.style.cssText = 'display:flex;align-items:center;gap:8px;margin:14px 0';
+  divider.innerHTML = '<div style="flex:1;height:1px;background:#ede9e2"></div><span style="font-size:11px;color:#8a8278">또는</span><div style="flex:1;height:1px;background:#ede9e2"></div>';
+  box.appendChild(divider);
+
+  // 옵저버 버튼
+  var obsBtn = document.createElement('button');
+  obsBtn.style.cssText = 'width:100%;background:#f5f2ed;border:2px solid #dedad2;border-radius:8px;padding:10px;cursor:pointer;font-size:12px;color:#5a5048;font-weight:700';
+  obsBtn.textContent = '👁 옵저버로 진입 (보기 전용)';
+  obsBtn.onclick = function() { _setCurrentUser('옵저버', true); overlay.remove(); };
+  box.appendChild(obsBtn);
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
+function _setCurrentUser(name, isObserver) {
+  _currentUser = { name: name, isObserver: isObserver };
+  try { localStorage.setItem('_currentUser', JSON.stringify(_currentUser)); } catch(e){}
+  _updateUserBadge();
+  _checkMentionNotifs();
+}
+
+function _updateUserBadge() {
+  var badge = document.getElementById('_userBadge');
+  if (!badge) return;
+  badge.textContent = (_currentUser?.isObserver ? '👁 ' : '👤 ') + (_currentUser?.name||'');
+  badge.title = '클릭하여 사용자 변경';
+}
+
+// ── 알림 체크 ──
+function _checkMentionNotifs() {
+  if (!_currentUser || _currentUser.isObserver) return;
+  try {
+    var store = JSON.parse(localStorage.getItem('_mentionNotifs')||'{}');
+    var myNotifs = [];
+    Object.keys(store).forEach(function(tid) {
+      (store[tid]||[]).forEach(function(n) {
+        if (!n.read && (n.mentions||[]).indexOf(_currentUser.name) >= 0) {
+          myNotifs.push({ taskId:tid, author:n.author, content:n.content, ts:n.ts });
+        }
+      });
+    });
+    _renderNotifBadge(myNotifs);
+  } catch(e){}
+}
+
+function _renderNotifBadge(notifs) {
+  var badge = document.getElementById('_notifBadge');
+  if (!badge) return;
+  if (!notifs.length) { badge.style.display='none'; return; }
+  badge.style.display = 'inline-flex';
+  badge.textContent = notifs.length;
+  badge.title = notifs.map(function(n){ return n.author+': '+n.content; }).join('\n');
+  badge.onclick = function() { _showNotifPanel(notifs); };
+}
+
+function _showNotifPanel(notifs) {
+  var ex = document.getElementById('_notifPanel');
+  if (ex) { ex.remove(); return; }
+
+  var panel = document.createElement('div');
+  panel.id = '_notifPanel';
+  panel.style.cssText = 'position:fixed;top:56px;right:16px;width:320px;max-height:400px;overflow-y:auto;background:#fff;border:1px solid #ede9e2;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.15);z-index:9998;padding:12px';
+
+  var hdr = document.createElement('div');
+  hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #ede9e2';
+  hdr.innerHTML = '<span style="font-size:12px;font-weight:800;color:#1a1714">🔔 멘션 알림 ('+notifs.length+')</span>';
+  var closeP = document.createElement('button');
+  closeP.textContent='✕'; closeP.style.cssText='background:none;border:none;cursor:pointer;color:#8a8278;font-size:14px';
+  closeP.onclick=function(){ panel.remove(); };
+  hdr.appendChild(closeP);
+  panel.appendChild(hdr);
+
+  notifs.sort(function(a,b){return b.ts-a.ts;}).forEach(function(n) {
+    var item = document.createElement('div');
+    item.style.cssText = 'padding:8px;background:#f5f2ed;border-radius:6px;margin-bottom:6px;cursor:pointer;border-left:3px solid var(--primary)';
+    item.innerHTML = '<div style="font-size:11px;font-weight:700;color:#1a1714">@'+_currentUser.name+' ← '+n.author+'</div>'
+      +'<div style="font-size:11px;color:#5a5048;margin-top:2px;line-height:1.4">'+n.content+'</div>'
+      +'<div style="font-size:10px;color:#8a8278;margin-top:3px">'+new Date(n.ts).toLocaleDateString('ko-KR',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})+'</div>';
+    item.onclick = function() {
+      panel.remove();
+      // 해당 태스크 드로어 열기
+      openDrawer(n.taskId);
+      setTimeout(function(){
+        var cmtTab = document.querySelector('.dtab[onclick*="comments"]');
+        if (cmtTab) cmtTab.click();
+        // 읽음 처리
+        try {
+          var store = JSON.parse(localStorage.getItem('_mentionNotifs')||'{}');
+          (store[n.taskId]||[]).forEach(function(notif){ if(notif.ts===n.ts) notif.read=true; });
+          localStorage.setItem('_mentionNotifs', JSON.stringify(store));
+          _checkMentionNotifs();
+        } catch(e){}
+      }, 300);
+    };
+    panel.appendChild(item);
+  });
+
+  document.body.appendChild(panel);
+  // 외부 클릭 시 닫기
+  setTimeout(function(){
+    document.addEventListener('click', function _close(e){
+      if (!panel.contains(e.target) && !document.getElementById('_notifBadge').contains(e.target)) {
+        panel.remove();
+        document.removeEventListener('click', _close);
+      }
+    });
+  }, 100);
+}
 
 
 function openKpiGoalModal(kpi) {
