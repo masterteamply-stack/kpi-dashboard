@@ -4566,14 +4566,16 @@ function openProjectTaskModal(projectId, taskId) {
 
     await saveProjectTask(projectId, newTask);
 
-    // ── 서브태스크 KPI 연동 동기화 (KPI 있는 서브태스크 전체) ──
-    var _syncPromises = newTask.subtasks.filter(function(st){
-      return st.kpi_ids && st.kpi_ids.length;
-    }).map(function(st){
-      return _syncSubtaskToKpi(st, proj, projectId);
+    // ── 서브태스크 KPI 연동 동기화 ──
+    console.log('[Save] 서브태스크 전체:', JSON.stringify(newTask.subtasks.map(function(s){
+      return {title:s.title, kpi_ids:s.kpi_ids, done:s.done};
+    })));
+    var kpiSubtasks = newTask.subtasks.filter(function(st){
+      return st.kpi_ids && st.kpi_ids.length > 0;
     });
-    if (_syncPromises.length) {
-      await Promise.all(_syncPromises);
+    console.log('[Save] KPI 연동 서브태스크 수:', kpiSubtasks.length);
+    for (var _si=0; _si<kpiSubtasks.length; _si++) {
+      await _syncSubtaskToKpi(kpiSubtasks[_si], proj, projectId);
     }
 
     overlay.remove();
@@ -4637,8 +4639,10 @@ function _openSubtaskKpiPicker(si, subtasks, anchorBtn, kpiList, callback) {
 async function _syncSubtaskToKpi(subtask, proj, projectId) {
   try {
     var kpiIds = subtask.kpi_ids||[];
-    if (!kpiIds.length) return;
-    console.log('[SubtaskKPI] 동기화 시작:', subtask.title, 'KPI수:', kpiIds.length);
+    if (!kpiIds.length) {
+      console.log('[SubtaskKPI] kpi_ids 없음:', subtask.title); return;
+    }
+    console.log('[SubtaskKPI] ▶ 시작:', subtask.title, 'kpiIds:', kpiIds);
 
     for (var i=0; i<kpiIds.length; i++) {
       var kpiId = kpiIds[i];
@@ -4648,8 +4652,8 @@ async function _syncSubtaskToKpi(subtask, proj, projectId) {
       var qNum = Math.ceil((new Date(due).getMonth()+1)/3);
 
       // 상태/진척도
-      var stDone  = subtask.done === true || subtask.status === 'done';
-      var status  = stDone ? 'done' : 'in_progress';
+      var stDone   = subtask.done === true || subtask.status === 'done';
+      var status   = stDone ? 'done' : 'in_progress';
       var progress = stDone ? 100 : 50;
 
       // 담당자 id
@@ -4661,45 +4665,57 @@ async function _syncSubtaskToKpi(subtask, proj, projectId) {
         if (om) ownerId = om.id;
       }
 
-      // notes에 ptask_id로 기존 태스크 찾기
-      var noteMarker = 'ptask_id:' + subtask.id;
+      // subtask.id로 기존 태스크 검색 (ilike로 한글/특수문자 안전하게)
+      var stId = String(subtask.id||'');
       var findRes = await state.sb.from('tasks')
         .select('id,status,progress')
         .eq('kpi_id', kpiId)
-        .like('notes', '%' + noteMarker + '%');
+        .ilike('notes', '%' + stId + '%');
+
+      console.log('[SubtaskKPI] 검색결과:', findRes.data, 'error:', findRes.error);
 
       var existing = (findRes.data && findRes.data.length > 0) ? findRes.data[0] : null;
-      console.log('[SubtaskKPI] 기존 태스크:', existing ? existing.id : '없음', findRes.error||'');
+
+      var taskTitle = '[' + (proj.name||'') + '] ' + (subtask.title||'');
+      var noteStr   = 'stid=' + stId + ' pid=' + String(projectId||'');
 
       var payload = {
         kpi_id:     kpiId,
-        title:      '[' + (proj.name||'') + '] ' + (subtask.title||''),
+        title:      taskTitle,
         status:     status,
         progress:   progress,
         due_date:   due,
         quarter:    '2026-Q' + qNum,
         task_type:  '프로젝트',
-        notes:      noteMarker + ' project:' + projectId,
+        notes:      noteStr,
         updated_at: new Date().toISOString()
       };
       if (ownerId) payload.owner_id = ownerId;
 
       var saveRes;
       if (existing) {
-        saveRes = await state.sb.from('tasks').update(payload).eq('id', existing.id);
-        console.log('[SubtaskKPI] ✅ 업데이트:', subtask.title, saveRes.error||'성공');
+        saveRes = await state.sb.from('tasks')
+          .update(payload).eq('id', existing.id).select();
+        console.log('[SubtaskKPI] ✅ 업데이트:', taskTitle, existing.id, saveRes.error||'성공');
       } else {
         payload.created_at = new Date().toISOString();
-        saveRes = await state.sb.from('tasks').insert([payload]);
-        console.log('[SubtaskKPI] ✅ 생성:', subtask.title, saveRes.error||'성공');
+        saveRes = await state.sb.from('tasks').insert([payload]).select();
+        console.log('[SubtaskKPI] ✅ 생성:', taskTitle, saveRes.error||'성공', saveRes.data);
+      }
+
+      if (saveRes && saveRes.error) {
+        console.error('[SubtaskKPI] ❌ 저장 에러:', JSON.stringify(saveRes.error));
       }
     }
 
+    console.log('[SubtaskKPI] 대시보드 갱신');
     await refreshDashboard();
+
   } catch(e) {
     console.error('[SubtaskKPI] ❌ 예외:', e.message, e);
   }
 }
+
 
 
 
