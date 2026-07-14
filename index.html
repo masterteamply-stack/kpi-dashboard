@@ -3526,40 +3526,190 @@ function openKpiSpendModal(kpiId, kpiTitle, kpiType) {
 
 var _projectState = { projects: null, editingId: null };
 
-// ── 데이터 로드 ──
+// ── 프로젝트 데이터: Supabase 기반 (localStorage 캐시 병용) ──
+
+// 캐시 키
+var _PROJ_CACHE_KEY = '_proj_cache_v2';
+var _PTASK_CACHE_PREFIX = '_ptask_cache_';
+
+// 캐시에서 즉시 로드
 function loadProjects() {
   try {
-    var raw = localStorage.getItem('_projects_v1');
+    var raw = localStorage.getItem(_PROJ_CACHE_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch(e) { return []; }
-}
-
-function saveProjects(projects) {
-  try {
-    localStorage.setItem('_projects_v1', JSON.stringify(projects));
-  } catch(e) { console.warn('project save failed:', e); }
 }
 
 function loadProjectTasks(projectId) {
   try {
-    var raw = localStorage.getItem('_ptasks_' + projectId);
+    var raw = localStorage.getItem(_PTASK_CACHE_PREFIX + projectId);
     return raw ? JSON.parse(raw) : [];
   } catch(e) { return []; }
 }
 
-function saveProjectTasks(projectId, tasks) {
+// Supabase에서 프로젝트 목록 fetch 후 캐시 갱신
+async function fetchProjects() {
   try {
-    localStorage.setItem('_ptasks_' + projectId, JSON.stringify(tasks));
-  } catch(e) {}
+    var res = await state.sb.from('projects').select('*').order('created_at', {ascending:true});
+    if (res.error) throw res.error;
+    var projects = (res.data||[]).map(function(p){
+      return {
+        id: p.id, name: p.name, description: p.description||'',
+        owner: p.owner||'', region: p.region||'', color: p.color||'#5c6b4a',
+        kpi_ids: p.kpi_ids||[], created_at: p.created_at
+      };
+    });
+    localStorage.setItem(_PROJ_CACHE_KEY, JSON.stringify(projects));
+    return projects;
+  } catch(e) {
+    console.warn('[Projects] fetch 실패, 캐시 사용:', e.message);
+    return loadProjects();
+  }
+}
+
+// Supabase에서 태스크 fetch 후 캐시 갱신
+async function fetchProjectTasks(projectId) {
+  try {
+    var res = await state.sb.from('project_tasks')
+      .select('*').eq('project_id', projectId).order('created_at', {ascending:true});
+    if (res.error) throw res.error;
+    var tasks = (res.data||[]).map(function(t){
+      return {
+        id: t.id, project_id: t.project_id, title: t.title,
+        assignee: t.assignee||'', collaborators: t.collaborators||[],
+        status: t.status||'todo', priority: t.priority||'normal',
+        due_date: t.due_date||'', goal: t.goal||'',
+        kpi_ids: t.kpi_ids||[], subtasks: t.subtasks||[],
+        comments: t.comments||[], files: t.files||[],
+        created_at: t.created_at
+      };
+    });
+    localStorage.setItem(_PTASK_CACHE_PREFIX + projectId, JSON.stringify(tasks));
+    return tasks;
+  } catch(e) {
+    console.warn('[ProjectTasks] fetch 실패, 캐시 사용:', e.message);
+    return loadProjectTasks(projectId);
+  }
+}
+
+// 프로젝트 저장 (Supabase upsert + 캐시 갱신)
+async function saveProject(proj) {
+  try {
+    var payload = {
+      id: proj.id, name: proj.name, description: proj.description||'',
+      owner: proj.owner||'', region: proj.region||'', color: proj.color||'#5c6b4a',
+      kpi_ids: proj.kpi_ids||[], updated_at: new Date().toISOString()
+    };
+    if (!proj.created_at) payload.created_at = new Date().toISOString();
+    var res = await state.sb.from('projects').upsert([payload]);
+    if (res.error) throw res.error;
+  } catch(e) {
+    console.warn('[Projects] 저장 실패:', e.message);
+  }
+  // 캐시 갱신
+  var cached = loadProjects();
+  var idx = cached.findIndex(function(p){return p.id===proj.id;});
+  if (idx>=0) cached[idx]=proj; else cached.push(proj);
+  localStorage.setItem(_PROJ_CACHE_KEY, JSON.stringify(cached));
+}
+
+// 프로젝트 삭제 (Supabase + 캐시)
+async function deleteProject(projectId) {
+  try {
+    await state.sb.from('project_tasks').delete().eq('project_id', projectId);
+    await state.sb.from('projects').delete().eq('id', projectId);
+  } catch(e) { console.warn('[Projects] 삭제 실패:', e.message); }
+  var cached = loadProjects().filter(function(p){return p.id!==projectId;});
+  localStorage.setItem(_PROJ_CACHE_KEY, JSON.stringify(cached));
+  localStorage.removeItem(_PTASK_CACHE_PREFIX + projectId);
+}
+
+// 태스크 저장 (Supabase upsert + 캐시)
+async function saveProjectTask(projectId, task) {
+  try {
+    var payload = {
+      id: task.id, project_id: projectId, title: task.title,
+      assignee: task.assignee||null, collaborators: task.collaborators||[],
+      status: task.status||'todo', priority: task.priority||'normal',
+      due_date: task.due_date||null, goal: task.goal||'',
+      kpi_ids: task.kpi_ids||[], subtasks: task.subtasks||[],
+      comments: task.comments||[], files: (task.files||[]).map(function(f){
+        return {name:f.name, size:f.size, type:f.type}; // URL 제외 (용량)
+      }),
+      updated_at: new Date().toISOString()
+    };
+    if (!task.created_at) payload.created_at = new Date().toISOString();
+    var res = await state.sb.from('project_tasks').upsert([payload]);
+    if (res.error) throw res.error;
+  } catch(e) { console.warn('[ProjectTasks] 저장 실패:', e.message); }
+  // 캐시 갱신
+  var cached = loadProjectTasks(projectId);
+  var idx = cached.findIndex(function(t){return t.id===task.id;});
+  if (idx>=0) cached[idx]=task; else cached.push(task);
+  localStorage.setItem(_PTASK_CACHE_PREFIX + projectId, JSON.stringify(cached));
+}
+
+// 태스크 삭제
+async function deleteProjectTask(projectId, taskId) {
+  try {
+    await state.sb.from('project_tasks').delete().eq('id', taskId);
+  } catch(e) { console.warn('[ProjectTasks] 삭제 실패:', e.message); }
+  var cached = loadProjectTasks(projectId).filter(function(t){return t.id!==taskId;});
+  localStorage.setItem(_PTASK_CACHE_PREFIX + projectId, JSON.stringify(cached));
+}
+
+// 하위 호환: 구 localStorage 데이터 마이그레이션
+async function migrateLocalProjects() {
+  var old = null;
+  try { old = JSON.parse(localStorage.getItem('_projects_v1')||'null'); } catch(e){}
+  if (!old || !old.length) return;
+  console.log('[Projects] 구 데이터 마이그레이션:', old.length+'개');
+  for (var i=0; i<old.length; i++) {
+    var p = old[i];
+    await saveProject(p);
+    var oldTasks = null;
+    try { oldTasks = JSON.parse(localStorage.getItem('_ptasks_'+p.id)||'null'); } catch(e){}
+    if (oldTasks && oldTasks.length) {
+      for (var j=0; j<oldTasks.length; j++) {
+        await saveProjectTask(p.id, oldTasks[j]);
+      }
+    }
+  }
+  localStorage.removeItem('_projects_v1');
+  console.log('[Projects] 마이그레이션 완료');
+}
+
+// 구 saveProjects (하위 호환)
+function saveProjects(projects) {
+  localStorage.setItem(_PROJ_CACHE_KEY, JSON.stringify(projects));
 }
 
 // ── 프로젝트 버킷 렌더 ──
-function renderProjectBucket() {
+async function renderProjectBucket() {
   var grid = document.getElementById('projectBucketGrid');
   if(!grid) return;
 
+  // 캐시로 즉시 표시 후 Supabase에서 최신 데이터 fetch
   var projects = loadProjects();
   _projectState.projects = projects;
+  if (!projects.length) {
+    grid.innerHTML = '<div style="color:#8a8278;font-size:12px;padding:24px;text-align:center;grid-column:1/-1">로딩 중...</div>';
+  }
+  // 비동기로 Supabase fetch
+  fetchProjects().then(function(fresh) {
+    _projectState.projects = fresh;
+    _renderProjectCards(fresh);
+    // 각 프로젝트 태스크도 갱신
+    fresh.forEach(function(p){ fetchProjectTasks(p.id); });
+  });
+  // 캐시 데이터로 즉시 렌더
+  if (projects.length) _renderProjectCards(projects);
+  return;
+}
+
+function _renderProjectCards(projects) {
+  var grid = document.getElementById('projectBucketGrid');
+  if(!grid) return;
 
   if(!projects.length) {
     grid.innerHTML = '<div style="color:#8a8278;font-size:12px;padding:32px;text-align:center;grid-column:1/-1;background:#faf8f4;border-radius:8px;border:2px dashed #e0dbd2">'
@@ -3615,10 +3765,7 @@ function renderProjectBucket() {
     delBtn.style.cssText = 'background:rgba(255,255,255,.25);border:none;border-radius:4px;color:#fff;font-size:11px;padding:2px 6px;cursor:pointer';
     delBtn.onclick = function(){
       if(!confirm('"'+p.name+'" 프로젝트를 삭제할까요?')) return;
-      var ps = loadProjects().filter(function(x){return x.id!==p.id;});
-      saveProjects(ps);
-      localStorage.removeItem('_ptasks_'+p.id);
-      renderProjectBucket();
+      deleteProject(p.id).then(function(){ renderProjectBucket(); });
     };
 
     btnGroup.append(editBtn, delBtn);
@@ -3707,7 +3854,9 @@ function renderProjectBucket() {
       row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:5px 8px;background:#faf8f4;border-radius:5px;font-size:11px;cursor:pointer;border:1px solid #f0ede6';
       row.onmouseenter=function(){row.style.background='#f0ede6';}
       row.onmouseleave=function(){row.style.background='#faf8f4';}
-      row.onclick=function(){ openProjectTaskModal(p.id, t.id); };
+      row.onclick=function(){
+      fetchProjectTasks(p.id).then(function(){ openProjectTaskModal(p.id, t.id); });
+    };
 
       var statusDot=document.createElement('div');
       statusDot.style.cssText='width:7px;height:7px;border-radius:50%;flex-shrink:0;background:'+(t.status==='done'?'#2a7c2a':t.status==='in_progress'?'#2a5fa5':'#b87800');
@@ -3736,7 +3885,7 @@ function renderProjectBucket() {
     var addBtn=document.createElement('button');
     addBtn.style.cssText='width:100%;font-size:11px;color:#5a5048;background:#f5f2ed;border:1px dashed #c8c4bc;border-radius:5px;padding:5px;cursor:pointer;text-align:center';
     addBtn.textContent='+ 태스크 추가';
-    addBtn.onclick=function(){ openProjectTaskModal(p.id, null); };
+    addBtn.onclick=function(){ openProjectTaskModal(p.id, null); renderProjectBucket(); };
     body.appendChild(addBtn);
 
     card.append(hdr, body);
@@ -3866,12 +4015,16 @@ function openProjectModal(projectId) {
       created_at: proj?proj.created_at:new Date().toISOString()
     };
 
-    var ps=loadProjects();
-    if(proj){ var pi2=ps.findIndex(function(x){return x.id===proj.id;}); if(pi2>=0) ps[pi2]=newProj; else ps.push(newProj); }
-    else ps.push(newProj);
-    saveProjects(ps);
-    overlay.remove();
+    saveProject(newProj).then(function(){
+      overlay.remove();
+      // 구 localStorage 데이터 마이그레이션 (최초 1회)
+  if (!window._projMigrated) {
+    window._projMigrated = true;
+    migrateLocalProjects().then(function(){ renderProjectBucket(); });
+  } else {
     renderProjectBucket();
+  }
+    });
   };
   box.appendChild(saveBtn);
   overlay.appendChild(box);
@@ -4378,9 +4531,9 @@ function openProjectTaskModal(projectId, taskId) {
     delBtn.style.cssText = 'background:#faeaea;color:#c0392b;border:1px solid #e8c4c4;border-radius:6px;padding:9px 18px;font-size:12px;cursor:pointer;font-weight:700';
     delBtn.onclick = function() {
       if (!confirm('태스크를 삭제할까요?')) return;
-      var updated = ptasks.filter(function(t){ return t.id !== taskId; });
-      saveProjectTasks(projectId, updated);
-      overlay.remove(); renderProjectBucket();
+      deleteProjectTask(projectId, taskId).then(function(){
+        overlay.remove(); renderProjectBucket();
+      });
     };
     footer.appendChild(delBtn);
   }
@@ -4411,9 +4564,7 @@ function openProjectTaskModal(projectId, taskId) {
       created_at:    task ? task.created_at : new Date().toISOString()
     };
 
-    var updated = ptasks.filter(function(t){ return t.id !== (task&&task.id); });
-    updated.push(newTask);
-    saveProjectTasks(projectId, updated);
+    saveProjectTask(projectId, newTask);
 
     // ── KPI 연동: 완료 시 KPI 태스크에 반영 ──
     if (selKpiIds.length && newStatus === 'done') {
