@@ -4244,8 +4244,10 @@ function openProjectTaskModal(projectId, taskId) {
         _subtasks[si].done = cb.checked;
         title.style.textDecoration = cb.checked ? 'line-through' : '';
         title.style.color = cb.checked ? '#8a8278' : '#1a1714';
-        // KPI 연동 완료 처리
-        if (cb.checked && _subtasks[si].kpi_ids && _subtasks[si].kpi_ids.length) {
+        // KPI 연동 실시간 동기화 (완료/미완료 모두)
+        if (_subtasks[si].kpi_ids && _subtasks[si].kpi_ids.length) {
+          _subtasks[si].done = cb.checked;
+          _subtasks[si].status = cb.checked ? 'done' : 'in_progress';
           _syncSubtaskToKpi(_subtasks[si], proj, projectId);
         }
       };
@@ -4536,7 +4538,7 @@ function openProjectTaskModal(projectId, taskId) {
   var saveBtn = document.createElement('button');
   saveBtn.textContent = task ? '저장' : '태스크 추가';
   saveBtn.style.cssText = 'flex:1;background:var(--primary);color:#fff;border:none;border-radius:6px;padding:9px;font-size:13px;font-weight:700;cursor:pointer';
-  saveBtn.onclick = function() {
+  saveBtn.onclick = async function() {
     var ttl = (document.getElementById('ptTitle')?.value||'').trim();
     if (!ttl) { alert('태스크명을 입력해주세요.'); return; }
 
@@ -4559,11 +4561,16 @@ function openProjectTaskModal(projectId, taskId) {
       created_at:    task ? task.created_at : new Date().toISOString()
     };
 
-    saveProjectTask(projectId, newTask);
+    await saveProjectTask(projectId, newTask);
 
-    // ── KPI 연동: 완료 시 KPI 태스크에 반영 ──
-    if (selKpiIds.length && newStatus === 'done') {
-      _syncProjectTaskToKpi(newTask, proj);
+    // ── 서브태스크 KPI 연동 동기화 (KPI 있는 서브태스크 전체) ──
+    var _syncPromises = newTask.subtasks.filter(function(st){
+      return st.kpi_ids && st.kpi_ids.length;
+    }).map(function(st){
+      return _syncSubtaskToKpi(st, proj, projectId);
+    });
+    if (_syncPromises.length) {
+      await Promise.all(_syncPromises);
     }
 
     overlay.remove();
@@ -4628,37 +4635,70 @@ async function _syncSubtaskToKpi(subtask, proj, projectId) {
   try {
     var kpiIds = subtask.kpi_ids||[];
     if (!kpiIds.length) return;
+
     for (var i=0; i<kpiIds.length; i++) {
       var kpiId = kpiIds[i];
       var marker = '[ptask:'+projectId+':'+subtask.id+']';
-      var { data: existing } = await state.sb.from('tasks')
-        .select('id').eq('kpi_id',kpiId).like('notes','%'+marker+'%').maybeSingle();
 
+      // 기존 연동 태스크 찾기 (notes에 marker 포함)
+      var findRes = await state.sb.from('tasks')
+        .select('id,status,progress')
+        .eq('kpi_id', kpiId)
+        .like('notes', '%'+marker+'%')
+        .maybeSingle();
+      var existing = findRes.data;
+
+      // due_date → 월/분기 계산
       var due = subtask.due || new Date().toISOString().slice(0,10);
-      var qNum = Math.ceil((new Date(due).getMonth()+1)/3);
+      var dueDate = new Date(due);
+      var qNum = Math.ceil((dueDate.getMonth()+1)/3);
+      var moNum = dueDate.getMonth()+1;
+
+      // 상태/진척도 매핑
+      var status   = subtask.done ? 'done' : (subtask.status||'in_progress');
+      var progress = subtask.done ? 100
+                   : status==='done' ? 100
+                   : status==='todo' ? 0 : 50;
+
+      // owners에서 담당자 id 조회
+      var ownerId = null;
+      if (subtask.assignee) {
+        var ownerMatch = (state.owners||[]).find(function(o){
+          return (o.name||'').trim() === subtask.assignee.trim();
+        });
+        if (ownerMatch) ownerId = ownerMatch.id;
+      }
+
       var payload = {
         kpi_id:    kpiId,
-        title:     '[📁 '+proj.name+'] '+(subtask.title||''),
-        status:    subtask.done?'done':'in_progress',
+        title:     '[📁 '+(proj.name||'')+'] '+(subtask.title||''),
+        status:    status,
+        progress:  progress,
         due_date:  due,
         quarter:   '2026-Q'+qNum,
         task_type: '프로젝트',
-        progress:  subtask.done?100:50,
-        notes:     (subtask.goal||proj.name||'') + ' ' + marker,
-        updated_at:new Date().toISOString()
+        notes:     '[프로젝트: '+(proj.name||'')+'] '+marker,
+        updated_at: new Date().toISOString()
       };
-      if (subtask.assignee) payload.assignee = subtask.assignee;
+      if (ownerId) payload.owner_id = ownerId;
 
       if (existing) {
-        await state.sb.from('tasks').update(payload).eq('id',existing.id);
+        await state.sb.from('tasks').update(payload).eq('id', existing.id);
+        console.log('[SubtaskKPI] 업데이트:', subtask.title, '→ KPI', kpiId, 'status:', status);
       } else {
-        await state.sb.from('tasks').insert([{...payload, created_at:new Date().toISOString()}]);
+        payload.created_at = new Date().toISOString();
+        await state.sb.from('tasks').insert([payload]);
+        console.log('[SubtaskKPI] 생성:', subtask.title, '→ KPI', kpiId);
       }
     }
-    // 대시보드 갱신
-    setTimeout(function(){ refreshDashboard().catch(function(){}); }, 500);
-  } catch(e) { console.warn('[SubtaskKPI] 동기화 실패:', e); }
+
+    // 대시보드 즉시 갱신
+    await refreshDashboard();
+  } catch(e) {
+    console.error('[SubtaskKPI] 동기화 실패:', e);
+  }
 }
+
 
 // ── KPI 연동 동기화 (프로젝트 태스크 완료 → KPI 태스크 생성/업데이트) ──
 async function _syncProjectTaskToKpi(ptask, proj) {
@@ -5268,7 +5308,7 @@ function openKpiGoalModal(kpi) {
   var saveBtn = document.createElement('button');
   saveBtn.textContent = '저장';
   saveBtn.style.cssText = 'background:#2a7c2a;color:#fff;border:none;border-radius:6px;padding:8px 20px;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-top:4px';
-  saveBtn.onclick = function() {
+  saveBtn.onclick = async function() {
     var goal = {direction: document.getElementById('_kgmDir').value};
     box.querySelectorAll('input[data-key]').forEach(function(inp){ if(inp.value) goal[inp.dataset.key]=inp.value; });
     localStorage.setItem('kpi_goal_'+kpi.id, JSON.stringify(goal));
