@@ -8448,45 +8448,157 @@ function renderDrawerComments() {
       return;
     }
     listEl.innerHTML = '';
-    comments.forEach(function(c) {
+
+    // 최신순 정렬
+    var sorted = comments.slice().sort(function(a,b){
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+
+    sorted.forEach(function(c) {
       var item = document.createElement('div');
       item.style.cssText = 'border:1px solid #ede9e2;border-radius:6px;padding:10px 12px;background:#fdfcf9;margin-bottom:6px';
 
       // 헤더
       var hdr = document.createElement('div');
-      hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:6px';
-      var author = document.createElement('span');
-      author.style.cssText = 'font-size:11px;font-weight:700;color:#1a1714';
-      author.textContent = c.author_name || '익명';
-      var date = document.createElement('span');
-      date.style.cssText = 'font-size:10px;color:#8a8278';
-      date.textContent = c.created_at ? new Date(c.created_at).toLocaleDateString('ko-KR',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
-      hdr.append(author, date);
+      hdr.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px';
 
-      // 본문 (멘션 하이라이트)
+      var authorSpan = document.createElement('span');
+      authorSpan.style.cssText = 'font-size:11px;font-weight:700;color:#1a1714';
+      authorSpan.textContent = c.author_name || '익명';
+
+      var dateSpan = document.createElement('span');
+      dateSpan.style.cssText = 'font-size:10px;color:#8a8278;margin-right:auto';
+      dateSpan.textContent = c.created_at
+        ? new Date(c.created_at).toLocaleDateString('ko-KR',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
+        : '';
+
+      // 수정/삭제 버튼
+      var btnWrap = document.createElement('div');
+      btnWrap.style.cssText = 'display:flex;gap:4px;flex-shrink:0';
+
+      var editBtn = document.createElement('button');
+      editBtn.textContent = '수정';
+      editBtn.style.cssText = 'font-size:10px;background:#f0ede6;border:1px solid #dedad2;border-radius:4px;padding:1px 6px;cursor:pointer;color:#5a5048';
+
+      var delBtn = document.createElement('button');
+      delBtn.textContent = '삭제';
+      delBtn.style.cssText = 'font-size:10px;background:#faeaea;border:1px solid #e8c4c4;border-radius:4px;padding:1px 6px;cursor:pointer;color:#c0392b';
+
+      btnWrap.append(editBtn, delBtn);
+      hdr.append(authorSpan, dateSpan, btnWrap);
+
+      // 본문
       var body = document.createElement('div');
       body.style.cssText = 'font-size:12px;color:#3d3830;line-height:1.5;white-space:pre-wrap;word-break:break-word';
-      var html = (c.content||'').replace(/</g,'&lt;').replace(/@([^\s@]+)/g, '<span style="color:#3a5fa5;font-weight:700">@$1</span>');
+      var html = (c.content||'').replace(/</g,'&lt;').replace(/@([^\s@]+)/g,'<span style="color:#3a5fa5;font-weight:700">@$1</span>');
       body.innerHTML = html;
 
-      item.append(hdr, body);
+      // 수정 폼 (숨김)
+      var editForm = document.createElement('div');
+      editForm.style.display = 'none';
+      var editTa = document.createElement('textarea');
+      editTa.value = c.content||'';
+      editTa.rows = 2;
+      editTa.style.cssText = 'width:100%;box-sizing:border-box;border:1px solid #dedad2;border-radius:6px;padding:5px 8px;font-size:12px;resize:vertical;margin-top:6px';
+      var editBtnRow = document.createElement('div');
+      editBtnRow.style.cssText = 'display:flex;gap:6px;margin-top:4px;justify-content:flex-end';
+
+      var saveEditBtn = document.createElement('button');
+      saveEditBtn.textContent = '저장';
+      saveEditBtn.style.cssText = 'font-size:11px;background:var(--primary);color:#fff;border:none;border-radius:5px;padding:3px 10px;cursor:pointer;font-weight:700';
+
+      var cancelEditBtn = document.createElement('button');
+      cancelEditBtn.textContent = '취소';
+      cancelEditBtn.style.cssText = 'font-size:11px;background:#f0ede6;border:1px solid #dedad2;border-radius:5px;padding:3px 10px;cursor:pointer;color:#5a5048';
+
+      editBtnRow.append(cancelEditBtn, saveEditBtn);
+      editForm.append(editTa, editBtnRow);
+
+      item.append(hdr, body, editForm);
       listEl.appendChild(item);
+
+      // ── 수정 버튼 이벤트 ──
+      editBtn.onclick = function() {
+        var isEditing = editForm.style.display !== 'none';
+        if (isEditing) {
+          editForm.style.display = 'none';
+          body.style.display = '';
+        } else {
+          editForm.style.display = 'block';
+          body.style.display = 'none';
+          editTa.focus();
+        }
+      };
+
+      cancelEditBtn.onclick = function() {
+        editForm.style.display = 'none';
+        body.style.display = '';
+        editTa.value = c.content||'';
+      };
+
+      saveEditBtn.onclick = async function() {
+        var newContent = editTa.value.trim();
+        if (!newContent) return;
+        saveEditBtn.disabled = true;
+        saveEditBtn.textContent = '저장 중...';
+        try {
+          var { error } = await state.sb.from('task_comments')
+            .update({ content: newContent, updated_at: new Date().toISOString() })
+            .eq('id', c.id);
+          if (error) throw error;
+          editForm.style.display = 'none';
+          body.innerHTML = newContent.replace(/</g,'&lt;').replace(/@([^\s@]+)/g,'<span style="color:#3a5fa5;font-weight:700">@$1</span>');
+          body.style.display = '';
+          c.content = newContent;
+        } catch(e) {
+          alert('수정 실패: ' + (e.message||String(e)));
+        } finally {
+          saveEditBtn.disabled = false;
+          saveEditBtn.textContent = '저장';
+        }
+      };
+
+      // ── 삭제 버튼 이벤트 ──
+      delBtn.onclick = async function() {
+        if (!confirm('댓글을 삭제할까요?')) return;
+        delBtn.disabled = true;
+        try {
+          var { error } = await state.sb.from('task_comments').delete().eq('id', c.id);
+          if (error) throw error;
+          item.remove();
+          // 목록이 비면 안내 표시
+          if (!listEl.children.length) {
+            listEl.innerHTML = '<div style="color:#8a8278;font-size:11px;padding:8px">댓글이 없습니다.</div>';
+          }
+        } catch(e) {
+          alert('삭제 실패: ' + (e.message||String(e)));
+          delBtn.disabled = false;
+        }
+      };
     });
 
-    // 멘션 뱃지 갱신
     _refreshMentionBadges(comments, taskId);
   }).catch(function(e) {
     console.warn('fetchComments failed:', e);
     if (listEl) listEl.innerHTML = '<div style="color:#c0392b;font-size:11px;padding:8px">댓글을 불러올 수 없습니다.</div>';
   });
 
-  // 등록 버튼 바인딩
+  // 등록 버튼 바인딩 (중복 방지)
   var btn = document.getElementById('commentSubmitBtn');
   if (btn && !btn._bound) {
     btn._bound = true;
     btn.addEventListener('click', function() { _submitComment(taskId); });
   }
+  // Ctrl+Enter 단축키
+  var ta = document.getElementById('commentContent');
+  if (ta && !ta._bound) {
+    ta._bound = true;
+    ta.addEventListener('keydown', function(e){
+      if (e.key==='Enter' && e.ctrlKey) { e.preventDefault(); _submitComment(taskId); }
+    });
+  }
 }
+
 
 // ── 코멘트 저장 ──
 async function _submitComment(taskId) {
