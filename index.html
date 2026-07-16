@@ -8493,38 +8493,79 @@ async function _submitComment(taskId) {
   var authorEl  = document.getElementById('commentAuthor');
   var contentEl = document.getElementById('commentContent');
   var errorEl   = document.getElementById('commentError');
-  var author  = (authorEl&&authorEl.value||'').trim();
-  var content = (contentEl&&contentEl.value||'').trim();
-  if (!content) { if(errorEl) errorEl.textContent='내용을 입력해주세요.'; return; }
+  var author  = (authorEl&&authorEl.value||'').trim() || (_currentUser&&_currentUser.name) || '익명';
+  var content2 = (contentEl&&contentEl.value||'').trim();
+  if (!content2) { if(errorEl) errorEl.textContent='내용을 입력해주세요.'; return; }
   if (errorEl) errorEl.textContent = '';
-
-  // @멘션 추출
-  var mentions = [];
-  var rx = /@([^\s@]+)/g, match;
-  while ((match = rx.exec(content)) !== null) mentions.push(match[1]);
 
   var btn = document.getElementById('commentSubmitBtn');
   if (btn) { btn.disabled=true; btn.textContent='등록 중...'; }
 
   try {
-    var row = { task_id: taskId, author_name: author||'익명', content: content };
-    if (mentions.length) row.mentions = mentions.join(',');
+    // mentions 컬럼 없이 content에만 저장
+    var row = { task_id: taskId, author_name: author, content: content2 };
     var { error } = await state.sb.from('task_comments').insert([row]);
     if (error) throw error;
 
-    // 입력창 초기화
     if (contentEl) contentEl.value = '';
-    // 멘션 localStorage에 저장 (읽지 않은 알림)
-    if (mentions.length) _storeMentionNotif(taskId, author||'익명', mentions, content);
+
+    // @멘션 추출 (split 방식 - 정규식 이스케이프 문제 없음)
+    var mentions = [];
+    content2.replace(/\n/g,' ').split(' ').forEach(function(w){
+      if (w.charAt(0)==='@') {
+        var m2 = w.slice(1).replace(/[^a-zA-Z0-9가-힣]/g,'');
+        if (m2) mentions.push(m2);
+      }
+    });
+
+    if (mentions.length) {
+      // 태스크 정보 가져오기 (제목)
+      var taskTitle = '';
+      var taskObj = (state._allKpiTasks||state._lastKpiTasks||[]).find(function(t){
+        return String(t.id)===String(taskId);
+      });
+      if (taskObj) taskTitle = taskObj.title||'';
+
+      // 태스크 딥링크
+      var taskLink = location.origin + location.pathname + '?task=' + encodeURIComponent(taskId);
+
+      mentions.forEach(function(name) {
+        // localStorage 알림 저장
+        try {
+          var store = JSON.parse(localStorage.getItem('_mentionNotifs')||'{}');
+          if (!store[taskId]) store[taskId] = [];
+          store[taskId].push({
+            author: author, mentions: [name],
+            content: content2.slice(0,100),
+            ts: Date.now(), read: false,
+            taskId: taskId, taskTitle: taskTitle
+          });
+          localStorage.setItem('_mentionNotifs', JSON.stringify(store));
+        } catch(_e){}
+
+        // 푸시 토스트 + BroadcastChannel
+        if (typeof _broadcastMention === 'function') {
+          _broadcastMention(name, author, content2.slice(0,80), null, taskId, taskTitle);
+        }
+
+        // 이메일 발송
+        if (typeof _sendMentionEmail === 'function') {
+          _sendMentionEmail(name, author, content2.slice(0,80), taskLink, taskTitle);
+        }
+      });
+
+      if (typeof _checkMentionNotifs === 'function') _checkMentionNotifs();
+    }
 
     renderDrawerComments();
   } catch(e) {
     console.error('comment insert failed:', e);
-    if (errorEl) errorEl.textContent = '저장 실패: ' + (e.message||e);
+    if (errorEl) errorEl.textContent = '저장 실패: ' + (e.message||e.details||String(e));
   } finally {
     if (btn) { btn.disabled=false; btn.textContent='댓글 등록'; }
   }
 }
+
 
 // ── 멘션 알림 localStorage 저장 ──
 function _storeMentionNotif(taskId, author, mentions, content) {
