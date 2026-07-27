@@ -9266,7 +9266,8 @@ async function renderRegionOrderChart(tasks, kpis) {
     var spU=d.spK/_KRW_USD;
     var roi=spU>0?(d.rev-spU)/spU*100:null;
     var ckBU=d.ckB/_KRW_USD;
-    var pRoi=ckBU>0?(d.ckA-ckBU)/ckBU*100:null;  // ROMI = (오더-집행)/집행
+    var ckSpU=d.ckSp/_KRW_USD;    // CK 집행비(USD)
+    var pRoi=ckSpU>0?(d.ckA-ckSpU)/ckSpU*100:null;  // ROMI=(오더-집행비)/집행비
     var bg=i%2===0?'#fdfcf9':'#f8f5f0';
     h+='<tr style="background:'+bg+'">';
     h+='<td style="'+tdS+';font-weight:700;color:#1a1714">'+d.r+'</td>';
