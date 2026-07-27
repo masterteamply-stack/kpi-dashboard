@@ -1278,23 +1278,25 @@
 (function(){
   try {
     var ckCache = {
-      total:   2127356,
-      count:   6222,
+      total:   2217281,
+      count:   6291,
       monthly: {
         "2026-01": 10154,
         "2026-02": 893,
-        "2026-03": 330673,
-        "2026-04": 453820,
-        "2026-05": 730028,
-        "2026-06": 601788
+        "2026-03": 245982,
+        "2026-04": 289995,
+        "2026-05": 377131,
+        "2026-06": 434372,
+        "2026-07": 858754
       },
       byRegion: {
         "CIS":     1295586,
-        "ASIA":    545224,
-        "LATAM":   204968,
-        "NA":      72380,
-        "MENA":    9199,
-        "GLOBAL":  0
+        "ASIA":    470149,
+        "LATAM":   224946,
+        "NA":      144760,
+        "KOREA":   56332,
+        "OCEANIA": 16310,
+        "MENA":    9199
       },
       lastUpdated: new Date().toISOString()
     };
@@ -9107,14 +9109,13 @@ async function renderRegionOrderChart(tasks, kpis) {
   // CK 마케팅예산(₩) — 법인/지사/영업 광고선전비 예산 시트 기준
   // Promo + BizRewards 합계 (KRW)
   const ckBudByRegion = {
-    'NA':     23646400,   // Promo 14,034,400 + BizRewards 9,612,000
-    'LATAM':  24845200,   // Promo 15,179,200 + BizRewards 9,666,000
-    'MENA':   22170000,   // Promo 12,720,000 + BizRewards 9,450,000
-    'EUROPE':  4823000,   // Promo 4,823,000 + BizRewards 0
-    'CIS':    28037600,   // Promo 17,129,600 + BizRewards 10,908,000
-    'ASIA':   26467800,   // Promo 15,613,800 + BizRewards 10,854,000
-    'ASEAN':   8810000,   // Promo 5,300,000 + BizRewards 3,510,000 (호주+한국 포함)
-    'GLOBAL': 34700000,   // Reserve: Promo 21,200,000 + BizRewards 13,500,000
+    'NA':      31003131,  // marketing.csv 기준
+    'LATAM':   15712468,
+    'MENA':    20355000,
+    'CIS':     25200000,
+    'ASIA':    81318810,
+    'KOREA':    4000000,
+    'OCEANIA':  2000000,
   };
   // CK 집행비/예산: marketing.csv 실시간 fetch (캐시 30분)
   const REG_NORM = {
