@@ -9212,7 +9212,7 @@ async function renderRegionOrderChart(tasks, kpis) {
   const _KRW_USD=1502;
   const fmtU=function(v){return v>=1000000?'$'+(v/1000000).toFixed(2)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':v>0?'$'+Math.round(v):'–';};
   const fmtK=function(v){return v>=100000000?'₩'+(v/100000000).toFixed(1)+'억':v>=10000?'₩'+(v/10000).toFixed(0)+'만':v>0?'₩'+v.toLocaleString():'–';};
-  const fmtP=function(v){return v===null?'–':(v>=0?'+':'')+v.toFixed(0)+'%';};
+  const fmtP=function(v){if(v===null)return '–'; var s=(v>=0?'+':'')+Math.round(v).toLocaleString()+'%'; return s;};
   const rCol=function(v){return v===null?'#8a8278':v>=0?'#2a7c2a':'#c0392b';};
 
   const allR=new Set([...Object.keys(revByRegion),...Object.keys(spendByRegion),...Object.keys(ckByRegion),...Object.keys(ckBudFromCsv),...Object.keys(ckSpendByRegion)]);
@@ -9266,7 +9266,7 @@ async function renderRegionOrderChart(tasks, kpis) {
     var spU=d.spK/_KRW_USD;
     var roi=spU>0?(d.rev-spU)/spU*100:null;
     var ckBU=d.ckB/_KRW_USD;
-    var pRoi=d.ckA>0?(d.ckA-ckBU)/d.ckA*100:null;
+    var pRoi=ckBU>0?(d.ckA-ckBU)/ckBU*100:null;  // ROMI = (오더-집행)/집행
     var bg=i%2===0?'#fdfcf9':'#f8f5f0';
     h+='<tr style="background:'+bg+'">';
     h+='<td style="'+tdS+';font-weight:700;color:#1a1714">'+d.r+'</td>';
