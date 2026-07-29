@@ -3010,13 +3010,7 @@ function renderSummary(s) {
   h += '</div>';
 
 
-      // 3. Engagement + Click
-  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-  h += richCard('Engagement', 'B2D-10', '#4a6b7c', engVal);
-  h += richCard('Click', 'B2D-11', '#7a6010', clkVal);
-  h += '</div>';
-
-  // 4. Digital Channel + Channel Subscribers (2컬럼)
+      // 3. Digital Channel + Channel Subscribers (2컬럼)
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:0">';
 
   // 4-a. Digital Channel Operations (요약)
@@ -3035,6 +3029,12 @@ function renderSummary(s) {
   // 4-b. Channel Subscribers
   h += richCard('Channel Subscribers', 'channel_discriber', '#3a6b5a', discVal);
 
+  h += '</div>';
+
+  // 4. Engagement + Click
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+  h += richCard('Engagement', 'B2D-10', '#4a6b7c', engVal);
+  h += richCard('Click', 'B2D-11', '#7a6010', clkVal);
   h += '</div>';
 
   // 4-1. Marketing Asset Library Downloads
