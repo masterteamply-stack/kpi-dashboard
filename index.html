@@ -1484,9 +1484,14 @@ document.addEventListener('DOMContentLoaded', function() {
     <span id="filterBadge" style="font-size:10px;color:#4a6b7c;font-weight:700;padding:2px 8px;background:#e8f0e8;border-radius:4px;display:none"></span>
     <select id="quarterFilter" class="control" onchange="applyFilters()"><option value="all">전체 분기</option></select>
     <select id="regionFilter"  class="control" onchange="applyFilters()"><option value="all">전체 지역</option></select>
-    <select id="ownerFilter"   class="control" onchange="window._activeOwnerFilter=null;document.querySelectorAll('#_ownerCardGrid [data-owner]').forEach(function(c){c.style.outline='none';});applyFilters();"><option value="all">전체 담당자</option></select>
+    <select id="ownerFilter"   class="control" onchange="window._activeOwnerFilter=null;document.querySelectorAll('#_ownerCardGrid [data-owner]').forEach(function(c){c.style.outline='none';c.style.background='#fff';c.style.transform='none';c.style.boxShadow='none';});_updateOwnerFilterUI(null);applyFilters();"><option value="all">전체 담당자</option></select>
     <button id="refreshBtn"  class="btn btn-secondary">↻ 새로고침</button>
     <button id="addTaskBtn"  class="btn btn-primary">＋ 업무 추가</button>
+    <!-- 담당자 필터 활성 배지 -->
+    <div id="_ownerFilterBadge" style="display:none;align-items:center;gap:6px;background:#3a5fa5;color:#fff;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="_clearOwnerFilter()">
+      <span id="_ownerFilterBadgeName"></span>
+      <span style="font-size:14px;opacity:.8">×</span>
+    </div>
   </section>
 
   <div id="statusLine" class="status-line">초기화 중…</div>
@@ -1628,6 +1633,11 @@ document.addEventListener('DOMContentLoaded', function() {
   </section>
 
   <!-- Task table -->
+<!-- 담당자 필터 배너 -->
+<div id="_ownerFilterBanner" style="display:none;background:#e8f0f8;border-left:4px solid #3a5fa5;padding:8px 16px;margin-bottom:4px;font-size:12px;color:#2a4a8a;align-items:center;justify-content:space-between">
+  <span>👤 <b id="_ownerFilterBannerName"></b> 담당 업무만 표시 중</span>
+  <button onclick="_clearOwnerFilter()" style="background:none;border:1px solid #3a5fa5;color:#3a5fa5;border-radius:4px;padding:2px 10px;font-size:11px;cursor:pointer;font-weight:700">✕ 전체 보기</button>
+</div>
   <section class="panel" id="kpiAccordionPanel">
     <h3>업무 상세 테이블</h3>
     <div id="kpiAccordionWrap"></div>
@@ -3431,13 +3441,7 @@ function openOwnerPanel(evt, ownerName) {
 
   // 이미 선택된 카드 다시 클릭 → 필터 해제
   if (window._activeOwnerFilter === ownerName) {
-    window._activeOwnerFilter = null;
-    if (ownerSel) ownerSel.value = 'all';
-    applyFilters();
-    document.querySelectorAll('#_ownerCardGrid [data-owner]').forEach(function(c){
-      c.style.outline = 'none';
-      c.style.boxShadow = 'none';
-    });
+    _clearOwnerFilter();
     return;
   }
 
@@ -3446,10 +3450,15 @@ function openOwnerPanel(evt, ownerName) {
 
   // 카드 강조
   document.querySelectorAll('#_ownerCardGrid [data-owner]').forEach(function(c){
-    c.style.outline = c.dataset.owner === ownerName ? '2px solid var(--primary)' : 'none';
+    var isSelected = c.dataset.owner === ownerName;
+    c.style.outline    = isSelected ? '2.5px solid #3a5fa5' : 'none';
+    c.style.background = isSelected ? '#e8f0f8' : '#fff';
+    c.style.transform  = isSelected ? 'translateY(-2px)' : 'none';
+    c.style.boxShadow  = isSelected ? '0 4px 12px rgba(58,95,165,.2)' : 'none';
+    c.style.transition = 'all .15s';
   });
 
-  // select에 option 확실히 추가 후 선택
+  // select 동기화
   if (ownerSel) {
     if (!Array.from(ownerSel.options).some(function(o){ return o.value === ownerName; })) {
       var opt = document.createElement('option');
@@ -3459,8 +3468,8 @@ function openOwnerPanel(evt, ownerName) {
     ownerSel.value = ownerName;
   }
 
-  // applyFilters 호출 (select 값 세팅 후)
   applyFilters();
+  _updateOwnerFilterUI(ownerName);
 
   // 업무 상세 테이블로 스크롤
   var accordionEl = document.getElementById('kpiAccordionPanel');
@@ -3470,6 +3479,50 @@ function openOwnerPanel(evt, ownerName) {
     }, 200);
   }
 }
+
+// ── 담당자 필터 해제 ──
+function _clearOwnerFilter() {
+  window._activeOwnerFilter = null;
+  var ownerSel = el.ownerFilter || document.getElementById('ownerFilter');
+  if (ownerSel) ownerSel.value = 'all';
+
+  // 카드 강조 해제
+  document.querySelectorAll('#_ownerCardGrid [data-owner]').forEach(function(c){
+    c.style.outline = 'none';
+    c.style.background = '#fff';
+    c.style.transform = 'none';
+    c.style.boxShadow = 'none';
+  });
+
+  _updateOwnerFilterUI(null);
+  applyFilters();
+}
+
+// ── 담당자 필터 UI 전체 업데이트 ──
+function _updateOwnerFilterUI(ownerName) {
+  var badge   = document.getElementById('_ownerFilterBadge');
+  var badgeNm = document.getElementById('_ownerFilterBadgeName');
+  var banner  = document.getElementById('_ownerFilterBanner');
+  var bannerNm= document.getElementById('_ownerFilterBannerName');
+
+  if (ownerName) {
+    // 툴바 배지
+    if (badge)   { badge.style.display = 'inline-flex'; }
+    if (badgeNm) { badgeNm.textContent = '👤 ' + ownerName; }
+    // KPI 아코디언 배너
+    if (banner)  { banner.style.display = 'flex'; }
+    if (bannerNm){ bannerNm.textContent = ownerName; }
+    // ownerFilter select 색상 강조
+    var sel = document.getElementById('ownerFilter');
+    if (sel) { sel.style.background = '#e8f0f8'; sel.style.color = '#2a4a8a'; sel.style.fontWeight = '700'; }
+  } else {
+    if (badge)  { badge.style.display = 'none'; }
+    if (banner) { banner.style.display = 'none'; }
+    var sel = document.getElementById('ownerFilter');
+    if (sel) { sel.style.background = ''; sel.style.color = ''; sel.style.fontWeight = ''; }
+  }
+}
+
 
 
 
