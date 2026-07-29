@@ -1511,6 +1511,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <button class="toggle-btn active" id="kpiPanelBackBtn"
           onclick="resetKpiPanel()" style="display:none;font-size:11px">← 전체</button>
       </div>
+      <button id="_dcDetailBtnStatic" onclick="openDigitalChannelModal()" style="display:none;width:100%;margin-bottom:6px;font-size:10px;background:#3a5fa5;color:#fff;border:none;border-radius:5px;padding:5px;cursor:pointer;font-weight:700">📡 디지털 채널 운영 현황 상세보기</button>
       <div id="summaryBox" style="overflow-y:auto;max-height:580px;padding-right:2px"></div>
       <div id="kpiDetailPanel" class="kpi-detail-panel" style="display:none"></div>
     </div>
@@ -3022,7 +3023,7 @@ function renderSummary(s) {
   _dcGrid += '<span style="font-size:10px;color:#8a8278">언어</span>';
   _dcGrid += '</div>';
   _dcGrid += '<div style="font-size:10px;color:#8a8278">19개국 · HQ 27 · 법인 10 · 딜러 8</div>';
-  _dcGrid += '<button id="_dcDetailBtn" style="margin-top:6px;font-size:9px;background:#3a5fa5;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-weight:700">상세보기 →</button>';
+  // 상세보기 버튼은 정적 HTML에 있음 (summaryBox 위)
   _dcGrid += '</div>';
   _dcGrid += richCard('Channel Subscribers', 'channel_discriber', '#3a6b5a', discVal);
   _dcGrid += '</div>';
@@ -3072,15 +3073,9 @@ function renderSummary(s) {
   h += '</div>';
   el.summaryBox.innerHTML = h;
 
-  // 상세보기 버튼 바인딩 (DOM 렌더 후)
-  setTimeout(function() {
-    var dcBtn = document.getElementById('_dcDetailBtn');
-    if (dcBtn) {
-      dcBtn.onclick = function() {
-        window.openDigitalChannelModal();
-      };
-    }
-  }, 0);
+  // 정적 상세보기 버튼 표시
+  var _staticBtn = document.getElementById('_dcDetailBtnStatic');
+  if (_staticBtn) _staticBtn.style.display = 'block';
 }
 
 
