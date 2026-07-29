@@ -3023,7 +3023,7 @@ function renderSummary(s) {
   h += '<span style="font-size:10px;color:#8a8278">언어</span>';
   h += '</div>';
   h += '<div style="font-size:10px;color:#8a8278">19개국 · HQ 27 · 법인 10 · 딜러 8</div>';
-  h += '<button onclick="openDigitalChannelModal()" style="margin-top:6px;font-size:9px;background:#3a5fa5;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-weight:700">상세보기 →</button>';
+  h += '<button onclick="window.openDigitalChannelModal()" style="margin-top:6px;font-size:9px;background:#3a5fa5;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-weight:700">상세보기 →</button>';
   h += '</div>';
 
   // 4-b. Channel Subscribers
@@ -5347,7 +5347,7 @@ function _showNotifPanel(notifs) {
 
 
 // ── 디지털 채널 운영 현황 상세 모달 ──
-function openDigitalChannelModal() {
+window.openDigitalChannelModal = function openDigitalChannelModal() {
   var ex = document.getElementById('_dcModal');
   if (ex) ex.remove();
 
