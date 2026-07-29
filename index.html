@@ -3010,74 +3010,32 @@ function renderSummary(s) {
   h += '</div>';
 
 
-  // 2-1. 디지털 채널 운영 현황
-  h += (function(){
-    var _ch = {
-      total: 45, hq: 27, corp: 10, dealer: 8,
-      platforms: {FB:14, IG:13, IN:5, YT:9, WhatsApp:3, VK:1, DRIVE2U:1, TikTok:1, WeChat:1, Amazon:1},
-      countries: [
-        {name:'Korea',     region:'GLOBAL', hq:5, corp:0, dealer:0, ch:['FB','IG','IN','YT','WhatsApp']},
-        {name:'USA',       region:'AMERICA',hq:1, corp:1, dealer:0, ch:['YT','Amazon']},
-        {name:'Thailand',  region:'ASIA',   hq:3, corp:0, dealer:0, ch:['FB','IG','YT']},
-        {name:'Philippines',region:'ASIA',  hq:0, corp:0, dealer:1, ch:['FB']},
-        {name:'Vietnam',   region:'ASIA',   hq:0, corp:1, dealer:0, ch:['FB','WeChat']},
-        {name:'Indonesia', region:'ASIA',   hq:2, corp:2, dealer:0, ch:['FB','IG']},
-        {name:'Mexico',    region:'LATAM',  hq:0, corp:0, dealer:1, ch:['FB']},
-        {name:'Chile',     region:'LATAM',  hq:4, corp:0, dealer:0, ch:['FB','IG','IN','YT','WhatsApp']},
-        {name:'Colombia',  region:'LATAM',  hq:0, corp:0, dealer:1, ch:['IG']},
-        {name:'Russia',    region:'CIS',    hq:0, corp:5, dealer:0, ch:['FB','IG','YT','VK','DRIVE2U']},
-        {name:'UK',        region:'EUROPE', hq:1, corp:0, dealer:0, ch:['FB']},
-        {name:'Poland',    region:'EUROPE', hq:2, corp:1, dealer:0, ch:['FB','IG','IN','YT']},
-        {name:'UAE',       region:'MENA',   hq:4, corp:0, dealer:0, ch:['FB','IG','YT','WhatsApp']},
-        {name:'China',     region:'ASIA',   hq:0, corp:0, dealer:1, ch:['WeChat']},
-        {name:'Eurasia',   region:'CIS',    hq:2, corp:0, dealer:0, ch:['IG','YT']},
-        {name:'Panama',    region:'LATAM',  hq:0, corp:0, dealer:2, ch:['IG','YT']},
-        {name:'Ecuador',   region:'LATAM',  hq:0, corp:0, dealer:1, ch:['IN']},
-        {name:'Brazil',    region:'LATAM',  hq:3, corp:0, dealer:0, ch:['FB','IG','YT']},
-        {name:'Uzbekistan',region:'CIS',    hq:0, corp:0, dealer:1, ch:['FB','IG']},
-      ]
-    };
-    var PLAT_COLORS = {FB:'#1877f2',IG:'#e1306c',IN:'#0a66c2',YT:'#ff0000',WhatsApp:'#25d366',VK:'#4a76a8',DRIVE2U:'#ff6b35',TikTok:'#010101',WeChat:'#07c160',Amazon:'#ff9900'};
-    var REGION_COLORS = {GLOBAL:'#5c6b4a',AMERICA:'#4a6b7c',ASIA:'#3a7c6b',LATAM:'#7c4a5c',CIS:'#6b4a7c',EUROPE:'#4a547c',MENA:'#9e4a3a'};
-
-    var h2 = '<div style="background:#f5f2ed;border-radius:6px;padding:10px 12px;margin-bottom:8px">';
-    // 헤더
-    h2 += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">';
-    h2 += '<div>';
-    h2 += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:3px">Digital Channel Operations</div>';
-    h2 += '<div style="display:flex;align-items:baseline;gap:6px">';
-    h2 += '<span style="font-size:17px;font-weight:800;color:#3a5fa5;line-height:1">' + _ch.total + '</span>';
-    h2 += '<span style="font-size:10px;color:#8a8278">채널</span>';
-    h2 += '</div>';
-    h2 += '<div style="font-size:10px;color:#8a8278;margin-top:2px">HQ <b style="color:#1a1714">' + _ch.hq + '</b> · 법인 <b style="color:#1a1714">' + _ch.corp + '</b> · 딜러 <b style="color:#1a1714">' + _ch.dealer + '</b></div>';
-    h2 += '</div>';
-    // 플랫폼 아이콘 뱃지
-    h2 += '<div style="display:flex;flex-wrap:wrap;gap:3px;max-width:160px;justify-content:flex-end">';
-    Object.keys(_ch.platforms).forEach(function(p){
-      var c = PLAT_COLORS[p]||'#8a8278';
-      h2 += '<span style="font-size:9px;background:'+c+';color:#fff;border-radius:3px;padding:1px 5px;font-weight:700">'+p+'<span style="opacity:.8"> '+_ch.platforms[p]+'</span></span>';
-    });
-    h2 += '</div>';
-    h2 += '</div>';
-    // 국가 목록 (간략)
-    h2 += '<div style="display:flex;flex-wrap:wrap;gap:3px">';
-    _ch.countries.forEach(function(c){
-      var rc = REGION_COLORS[c.region]||'#8a8278';
-      h2 += '<span style="font-size:9px;background:'+rc+'22;color:'+rc+';border:1px solid '+rc+'44;border-radius:3px;padding:1px 5px;font-weight:600" title="'+c.region+' | '+c.ch.join(', ')+'">'+c.name+'</span>';
-    });
-    h2 += '</div>';
-    h2 += '</div>';
-    return h2;
-  })();
-
-    // 3. Engagement + Click
+      // 3. Engagement + Click
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
   h += richCard('Engagement', 'B2D-10', '#4a6b7c', engVal);
   h += richCard('Click', 'B2D-11', '#7a6010', clkVal);
   h += '</div>';
 
-  // 4. Channel 구독자
+  // 4. Digital Channel + Channel Subscribers (2컬럼)
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:0">';
+
+  // 4-a. Digital Channel Operations (요약)
+  h += '<div style="background:#f5f2ed;border-radius:6px;padding:8px 10px">';
+  h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:3px">Digital Channels</div>';
+  h += '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:2px">';
+  h += '<span style="font-size:17px;font-weight:800;color:#3a5fa5;line-height:1">45</span>';
+  h += '<span style="font-size:10px;color:#8a8278">채널</span>';
+  h += '<span style="font-size:13px;font-weight:800;color:#5a3a7c;margin-left:4px">13</span>';
+  h += '<span style="font-size:10px;color:#8a8278">언어</span>';
+  h += '</div>';
+  h += '<div style="font-size:10px;color:#8a8278">19개국 · HQ 27 · 법인 10 · 딜러 8</div>';
+  h += '<button onclick="openDigitalChannelModal()" style="margin-top:6px;font-size:9px;background:#3a5fa5;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-weight:700">상세보기 →</button>';
+  h += '</div>';
+
+  // 4-b. Channel Subscribers
   h += richCard('Channel Subscribers', 'channel_discriber', '#3a6b5a', discVal);
+
+  h += '</div>';
 
   // 4-1. Marketing Asset Library Downloads
   var _assetD = (function(){
@@ -5385,6 +5343,185 @@ function _showNotifPanel(notifs) {
       }
     });
   }, 100);
+}
+
+
+// ── 디지털 채널 운영 현황 상세 모달 ──
+function openDigitalChannelModal() {
+  var ex = document.getElementById('_dcModal');
+  if (ex) ex.remove();
+
+  var DATA = [
+    {country:'Republic of Korea', region:'GLOBAL',  hq:5, corp:0, dealer:0, ch:['FB','IG','IN','YT','WhatsApp'], lang:'English'},
+    {country:'USA',                region:'AMERICA', hq:1, corp:1, dealer:0, ch:['YT','Amazon'],                  lang:'English'},
+    {country:'Thailand',           region:'ASIA',    hq:3, corp:0, dealer:0, ch:['FB','IG','YT'],                 lang:'Thailand'},
+    {country:'Philippines',        region:'ASIA',    hq:0, corp:0, dealer:1, ch:['FB'],                           lang:'English'},
+    {country:'Vietnam',            region:'ASIA',    hq:0, corp:1, dealer:0, ch:['FB','WeChat'],                  lang:'Vietnam'},
+    {country:'Indonesia',          region:'ASIA',    hq:2, corp:2, dealer:0, ch:['FB','IG'],                      lang:'Indonesia'},
+    {country:'Mexico',             region:'LATAM',   hq:0, corp:0, dealer:1, ch:['FB'],                           lang:'Spanish'},
+    {country:'Chile',              region:'LATAM',   hq:4, corp:0, dealer:0, ch:['FB','IG','IN','YT','WhatsApp'], lang:'Spanish'},
+    {country:'Colombia',           region:'LATAM',   hq:0, corp:0, dealer:1, ch:['IG'],                           lang:'Spanish'},
+    {country:'Russia',             region:'CIS',     hq:0, corp:5, dealer:0, ch:['FB','IG','YT','VK','DRIVE2U'],  lang:'Russian'},
+    {country:'UK',                 region:'EUROPE',  hq:1, corp:0, dealer:0, ch:['FB'],                           lang:'English'},
+    {country:'Poland',             region:'EUROPE',  hq:2, corp:1, dealer:0, ch:['FB','IG','IN','YT'],            lang:'Polish/Dutch'},
+    {country:'UAE',                region:'MENA',    hq:4, corp:0, dealer:0, ch:['FB','IG','YT','WhatsApp'],      lang:'Arabic'},
+    {country:'China',              region:'ASIA',    hq:0, corp:0, dealer:1, ch:['WeChat'],                       lang:'Chinese'},
+    {country:'Eurasia',            region:'CIS',     hq:2, corp:0, dealer:0, ch:['IG','YT'],                      lang:'Cyrillic'},
+    {country:'Panama',             region:'LATAM',   hq:0, corp:0, dealer:2, ch:['IG','YT'],                      lang:'Spanish'},
+    {country:'Ecuador',            region:'LATAM',   hq:0, corp:0, dealer:1, ch:['IN'],                           lang:'Spanish'},
+    {country:'Brazil',             region:'LATAM',   hq:3, corp:0, dealer:0, ch:['FB','IG','YT'],                 lang:'Portuguese'},
+    {country:'Uzbekistan',         region:'CIS',     hq:0, corp:0, dealer:1, ch:['FB','IG'],                      lang:'Uzbek'},
+  ];
+
+  var PLATFORMS = ['FB','IG','IN','YT','WhatsApp','VK','DRIVE2U','TikTok','WeChat','Amazon'];
+  var PLAT_COLOR = {FB:'#1877f2',IG:'#c13584',IN:'#0a66c2',YT:'#ff0000',WhatsApp:'#25d366',VK:'#4a76a8',DRIVE2U:'#ff6b35',TikTok:'#010101',WeChat:'#07c160',Amazon:'#ff9900'};
+  var REG_COLOR  = {GLOBAL:'#5c6b4a',AMERICA:'#4a6b7c',ASIA:'#3a7c6b',LATAM:'#7c4a5c',CIS:'#6b4a7c',EUROPE:'#4a547c',MENA:'#9e4a3a'};
+
+  // 플랫폼 합계
+  var platTot = {};
+  DATA.forEach(function(r){ r.ch.forEach(function(p){ platTot[p]=(platTot[p]||0)+1; }); });
+
+  var overlay = document.createElement('div');
+  overlay.id = '_dcModal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.onclick = function(e){ if(e.target===overlay) overlay.remove(); };
+
+  var box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:12px;width:100%;max-width:900px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column';
+
+  // 헤더
+  var hdr = document.createElement('div');
+  hdr.style.cssText = 'padding:16px 20px;border-bottom:1px solid #ede9e2;background:#faf8f4;display:flex;justify-content:space-between;align-items:center;flex-shrink:0';
+  hdr.innerHTML = '<div>'
+    +'<div style="font-size:15px;font-weight:800;color:#1a1714">📡 디지털 채널 운영 현황</div>'
+    +'<div style="font-size:11px;color:#8a8278;margin-top:2px">총 45채널 · 19개국 · 13언어 · HQ 27 · 법인 10 · 딜러 8</div>'
+    +'</div>'
+    +'<button onclick="document.getElementById(\'_dcModal\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#8a8278">✕</button>';
+
+  // 플랫폼 요약
+  var platBar = document.createElement('div');
+  platBar.style.cssText = 'padding:10px 20px;border-bottom:1px solid #ede9e2;display:flex;gap:6px;flex-wrap:wrap;background:#fff;flex-shrink:0';
+  PLATFORMS.forEach(function(p){
+    var cnt = platTot[p]||0;
+    if(!cnt) return;
+    var chip = document.createElement('span');
+    chip.style.cssText = 'font-size:10px;font-weight:700;background:'+(PLAT_COLOR[p]||'#888')+';color:#fff;border-radius:4px;padding:3px 8px;display:inline-flex;align-items:center;gap:4px';
+    chip.innerHTML = p + ' <span style="opacity:.8;font-size:9px">'+cnt+'개국</span>';
+    platBar.appendChild(chip);
+  });
+
+  // 테이블
+  var body = document.createElement('div');
+  body.style.cssText = 'overflow-y:auto;flex:1;padding:0';
+
+  var table = document.createElement('table');
+  table.style.cssText = 'width:100%;border-collapse:collapse;font-size:11px';
+
+  // 헤더 행
+  var thead = document.createElement('thead');
+  var thRow = document.createElement('tr');
+  thRow.style.cssText = 'background:#f5f2ed;position:sticky;top:0';
+  var thCols = ['국가','지역','채널수','HQ','법인','딜러','플랫폼','언어'];
+  thCols.forEach(function(t){
+    var th = document.createElement('th');
+    th.style.cssText = 'padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:#5a5048;border-bottom:2px solid #dedad2;white-space:nowrap';
+    th.textContent = t;
+    thRow.appendChild(th);
+  });
+  thead.appendChild(thRow);
+  table.appendChild(thead);
+
+  // 데이터 행
+  var tbody = document.createElement('tbody');
+  // 지역별 정렬
+  var sorted = DATA.slice().sort(function(a,b){ return a.region.localeCompare(b.region); });
+  var prevReg = '';
+  sorted.forEach(function(r, i){
+    // 지역 구분선
+    if (r.region !== prevReg) {
+      prevReg = r.region;
+      var sepRow = document.createElement('tr');
+      var sepTd = document.createElement('td');
+      sepTd.colSpan = 8;
+      sepTd.style.cssText = 'padding:4px 10px;font-size:9px;font-weight:800;color:'+(REG_COLOR[r.region]||'#8a8278')+';background:'+(REG_COLOR[r.region]||'#8a8278')+'15;letter-spacing:.1em;text-transform:uppercase';
+      sepTd.textContent = r.region;
+      sepRow.appendChild(sepTd);
+      tbody.appendChild(sepRow);
+    }
+
+    var tr = document.createElement('tr');
+    tr.style.cssText = 'border-bottom:1px solid #f0ede6;' + (i%2===0?'background:#fdfcf9':'background:#fff');
+    tr.onmouseenter = function(){ tr.style.background='#f5f2ed'; };
+    tr.onmouseleave = function(){ tr.style.background = i%2===0?'#fdfcf9':'#fff'; };
+
+    var cells = [
+      {v: r.country, style:'font-weight:700;color:#1a1714'},
+      {v: r.region,  style:'color:'+(REG_COLOR[r.region]||'#8a8278')+';font-weight:700'},
+      {v: r.ch.length, style:'font-weight:800;color:#3a5fa5;text-align:center'},
+      {v: r.hq||'–',   style:'text-align:center;color:#5c6b4a'},
+      {v: r.corp||'–', style:'text-align:center;color:#4a6b7c'},
+      {v: r.dealer||'–',style:'text-align:center;color:#7c4a5c'},
+    ];
+    cells.forEach(function(c){
+      var td = document.createElement('td');
+      td.style.cssText = 'padding:7px 10px;' + (c.style||'');
+      td.textContent = c.v;
+      tr.appendChild(td);
+    });
+
+    // 플랫폼 칩
+    var tdPl = document.createElement('td');
+    tdPl.style.cssText = 'padding:5px 10px';
+    r.ch.forEach(function(p){
+      var chip = document.createElement('span');
+      chip.style.cssText = 'display:inline-block;font-size:9px;font-weight:700;background:'+(PLAT_COLOR[p]||'#888')+';color:#fff;border-radius:3px;padding:1px 5px;margin:1px 2px 1px 0';
+      chip.textContent = p;
+      tdPl.appendChild(chip);
+    });
+    tr.appendChild(tdPl);
+
+    // 언어
+    var tdLang = document.createElement('td');
+    tdLang.style.cssText = 'padding:7px 10px;color:#5a5048;font-size:10px';
+    tdLang.textContent = r.lang;
+    tr.appendChild(tdLang);
+
+    tbody.appendChild(tr);
+  });
+
+  // 합계 행
+  var totRow = document.createElement('tr');
+  totRow.style.cssText = 'background:#e8e4dc;font-weight:800;border-top:2px solid #c8c4bc;position:sticky;bottom:0';
+  var totCells = ['TOTAL','–','45','27','10','8'];
+  totCells.forEach(function(v){
+    var td = document.createElement('td');
+    td.style.cssText = 'padding:8px 10px;font-weight:800;color:#1a1714;text-align:center';
+    td.textContent = v;
+    tr.appendChild(td);
+    totRow.appendChild(td);
+  });
+  var tdPlTot = document.createElement('td');
+  tdPlTot.style.cssText = 'padding:5px 10px';
+  PLATFORMS.forEach(function(p){
+    var cnt = platTot[p]||0; if(!cnt) return;
+    var chip = document.createElement('span');
+    chip.style.cssText = 'display:inline-block;font-size:9px;font-weight:700;background:'+(PLAT_COLOR[p]||'#888')+';color:#fff;border-radius:3px;padding:1px 5px;margin:1px 2px 1px 0';
+    chip.textContent = p+' '+cnt;
+    tdPlTot.appendChild(chip);
+  });
+  totRow.appendChild(tdPlTot);
+  var tdLangTot = document.createElement('td');
+  tdLangTot.style.cssText = 'padding:8px 10px;font-weight:700;color:#1a1714';
+  tdLangTot.textContent = '13개 언어';
+  totRow.appendChild(tdLangTot);
+  tbody.appendChild(totRow);
+
+  table.appendChild(tbody);
+  body.appendChild(table);
+
+  box.append(hdr, platBar, body);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
 }
 
 
