@@ -3009,6 +3009,67 @@ function renderSummary(s) {
   h += '</div></div>';
   h += '</div>';
 
+
+  // 2-1. 디지털 채널 운영 현황
+  h += (function(){
+    var _ch = {
+      total: 45, hq: 27, corp: 10, dealer: 8,
+      platforms: {FB:14, IG:13, IN:5, YT:9, WhatsApp:3, VK:1, DRIVE2U:1, TikTok:1, WeChat:1, Amazon:1},
+      countries: [
+        {name:'Korea',     region:'GLOBAL', hq:5, corp:0, dealer:0, ch:['FB','IG','IN','YT','WhatsApp']},
+        {name:'USA',       region:'AMERICA',hq:1, corp:1, dealer:0, ch:['YT','Amazon']},
+        {name:'Thailand',  region:'ASIA',   hq:3, corp:0, dealer:0, ch:['FB','IG','YT']},
+        {name:'Philippines',region:'ASIA',  hq:0, corp:0, dealer:1, ch:['FB']},
+        {name:'Vietnam',   region:'ASIA',   hq:0, corp:1, dealer:0, ch:['FB','WeChat']},
+        {name:'Indonesia', region:'ASIA',   hq:2, corp:2, dealer:0, ch:['FB','IG']},
+        {name:'Mexico',    region:'LATAM',  hq:0, corp:0, dealer:1, ch:['FB']},
+        {name:'Chile',     region:'LATAM',  hq:4, corp:0, dealer:0, ch:['FB','IG','IN','YT','WhatsApp']},
+        {name:'Colombia',  region:'LATAM',  hq:0, corp:0, dealer:1, ch:['IG']},
+        {name:'Russia',    region:'CIS',    hq:0, corp:5, dealer:0, ch:['FB','IG','YT','VK','DRIVE2U']},
+        {name:'UK',        region:'EUROPE', hq:1, corp:0, dealer:0, ch:['FB']},
+        {name:'Poland',    region:'EUROPE', hq:2, corp:1, dealer:0, ch:['FB','IG','IN','YT']},
+        {name:'UAE',       region:'MENA',   hq:4, corp:0, dealer:0, ch:['FB','IG','YT','WhatsApp']},
+        {name:'China',     region:'ASIA',   hq:0, corp:0, dealer:1, ch:['WeChat']},
+        {name:'Eurasia',   region:'CIS',    hq:2, corp:0, dealer:0, ch:['IG','YT']},
+        {name:'Panama',    region:'LATAM',  hq:0, corp:0, dealer:2, ch:['IG','YT']},
+        {name:'Ecuador',   region:'LATAM',  hq:0, corp:0, dealer:1, ch:['IN']},
+        {name:'Brazil',    region:'LATAM',  hq:3, corp:0, dealer:0, ch:['FB','IG','YT']},
+        {name:'Uzbekistan',region:'CIS',    hq:0, corp:0, dealer:1, ch:['FB','IG']},
+      ]
+    };
+    var PLAT_COLORS = {FB:'#1877f2',IG:'#e1306c',IN:'#0a66c2',YT:'#ff0000',WhatsApp:'#25d366',VK:'#4a76a8',DRIVE2U:'#ff6b35',TikTok:'#010101',WeChat:'#07c160',Amazon:'#ff9900'};
+    var REGION_COLORS = {GLOBAL:'#5c6b4a',AMERICA:'#4a6b7c',ASIA:'#3a7c6b',LATAM:'#7c4a5c',CIS:'#6b4a7c',EUROPE:'#4a547c',MENA:'#9e4a3a'};
+
+    var h2 = '<div style="background:#f5f2ed;border-radius:6px;padding:10px 12px;margin-bottom:8px">';
+    // 헤더
+    h2 += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">';
+    h2 += '<div>';
+    h2 += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:3px">Digital Channel Operations</div>';
+    h2 += '<div style="display:flex;align-items:baseline;gap:6px">';
+    h2 += '<span style="font-size:17px;font-weight:800;color:#3a5fa5;line-height:1">' + _ch.total + '</span>';
+    h2 += '<span style="font-size:10px;color:#8a8278">채널</span>';
+    h2 += '</div>';
+    h2 += '<div style="font-size:10px;color:#8a8278;margin-top:2px">HQ <b style="color:#1a1714">' + _ch.hq + '</b> · 법인 <b style="color:#1a1714">' + _ch.corp + '</b> · 딜러 <b style="color:#1a1714">' + _ch.dealer + '</b></div>';
+    h2 += '</div>';
+    // 플랫폼 아이콘 뱃지
+    h2 += '<div style="display:flex;flex-wrap:wrap;gap:3px;max-width:160px;justify-content:flex-end">';
+    Object.keys(_ch.platforms).forEach(function(p){
+      var c = PLAT_COLORS[p]||'#8a8278';
+      h2 += '<span style="font-size:9px;background:'+c+';color:#fff;border-radius:3px;padding:1px 5px;font-weight:700">'+p+'<span style="opacity:.8"> '+_ch.platforms[p]+'</span></span>';
+    });
+    h2 += '</div>';
+    h2 += '</div>';
+    // 국가 목록 (간략)
+    h2 += '<div style="display:flex;flex-wrap:wrap;gap:3px">';
+    _ch.countries.forEach(function(c){
+      var rc = REGION_COLORS[c.region]||'#8a8278';
+      h2 += '<span style="font-size:9px;background:'+rc+'22;color:'+rc+';border:1px solid '+rc+'44;border-radius:3px;padding:1px 5px;font-weight:600" title="'+c.region+' | '+c.ch.join(', ')+'">'+c.name+'</span>';
+    });
+    h2 += '</div>';
+    h2 += '</div>';
+    return h2;
+  })();
+
     // 3. Engagement + Click
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
   h += richCard('Engagement', 'B2D-10', '#4a6b7c', engVal);
