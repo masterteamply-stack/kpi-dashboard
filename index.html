@@ -3011,19 +3011,9 @@ function renderSummary(s) {
 
 
       // 3. Digital Channel + Channel Subscribers (2컬럼)
-  // Digital Channel 카드 - 카드 전체 클릭으로 모달 오픈
+  // Channel Subscribers만 (DC카드는 정적 HTML에 별도 배치)
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:0">';
-  h += '<div id="_dcCard" style="background:#f5f2ed;border-radius:6px;padding:8px 10px;cursor:pointer" title="클릭하여 상세보기">';
-  h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:3px">Digital Channels <span style="color:#3a5fa5">↗</span></div>';
-  h += '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:2px">';
-  h += '<span style="font-size:17px;font-weight:800;color:#3a5fa5;line-height:1">45</span>';
-  h += '<span style="font-size:10px;color:#8a8278">채널</span>';
-  h += '<span style="font-size:13px;font-weight:800;color:#5a3a7c;margin-left:4px">13</span>';
-  h += '<span style="font-size:10px;color:#8a8278">언어</span>';
-  h += '</div>';
-  h += '<div style="font-size:10px;color:#8a8278">19개국 · HQ 27 · 법인 10 · 딜러 8</div>';
-  h += '<div style="font-size:9px;color:#3a5fa5;margin-top:4px;font-weight:700">상세보기 →</div>';
-  h += '</div>';
+  h += '<div id="_dcCardPlaceholder" style="background:#f5f2ed;border-radius:6px;padding:8px 10px"></div>';
   h += richCard('Channel Subscribers', 'channel_discriber', '#3a6b5a', discVal);
   h += '</div>';
 
@@ -3071,6 +3061,18 @@ function renderSummary(s) {
   h += '</div>';
   el.summaryBox.innerHTML = h;
 
+  // DC 카드 placeholder에 내용 + onclick 직접 바인딩
+  var ph = document.getElementById('_dcCardPlaceholder');
+  if (ph) {
+    ph.innerHTML = '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:3px">Digital Channels <span style="color:#3a5fa5">\u2197</span></div>'
+      + '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:2px"><span style="font-size:17px;font-weight:800;color:#3a5fa5">45</span><span style="font-size:10px;color:#8a8278">\uccc4\ub110</span><span style="font-size:13px;font-weight:800;color:#5a3a7c;margin-left:4px">13</span><span style="font-size:10px;color:#8a8278">\uc5b8\uc5b4</span></div>'
+      + '<div style="font-size:10px;color:#8a8278">19\uac1c\uad6d &middot; HQ 27 &middot; \ubc95\uc778 10 &middot; \ub515\ub7ec 8</div>'
+      + '<div style="font-size:9px;color:#3a5fa5;margin-top:4px;font-weight:700">\uc0c1\uc138\ubcf4\uae30 &rarr;</div>';
+    ph.style.cursor = 'pointer';
+    ph.onclick = openDigitalChannelModal;
+    ph.onmouseenter = function(){ ph.style.background='#ebe7df'; };
+    ph.onmouseleave = function(){ ph.style.background='#f5f2ed'; };
+  }
 }
 
 
