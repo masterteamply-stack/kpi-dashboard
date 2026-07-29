@@ -3011,25 +3011,22 @@ function renderSummary(s) {
 
 
       // 3. Digital Channel + Channel Subscribers (2컬럼)
-  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:0">';
-
-  // 4-a. Digital Channel Operations (요약)
-  h += '<div style="background:#f5f2ed;border-radius:6px;padding:8px 10px">';
-  h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:3px">Digital Channels</div>';
-  h += '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:2px">';
-  h += '<span style="font-size:17px;font-weight:800;color:#3a5fa5;line-height:1">45</span>';
-  h += '<span style="font-size:10px;color:#8a8278">채널</span>';
-  h += '<span style="font-size:13px;font-weight:800;color:#5a3a7c;margin-left:4px">13</span>';
-  h += '<span style="font-size:10px;color:#8a8278">언어</span>';
-  h += '</div>';
-  h += '<div style="font-size:10px;color:#8a8278">19개국 · HQ 27 · 법인 10 · 딜러 8</div>';
-  h += '<button class="_dcDetailBtn" style="margin-top:6px;font-size:9px;background:#3a5fa5;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-weight:700">상세보기 →</button>';
-  h += '</div>';
-
-  // 4-b. Channel Subscribers
-  h += richCard('Channel Subscribers', 'channel_discriber', '#3a6b5a', discVal);
-
-  h += '</div>';
+  // Digital Channel 카드는 DOM으로 직접 생성 (버튼 이벤트 바인딩을 위해)
+  var _dcGrid = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:0" id="_dcSubsGrid">';
+  _dcGrid += '<div style="background:#f5f2ed;border-radius:6px;padding:8px 10px">';
+  _dcGrid += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:3px">Digital Channels</div>';
+  _dcGrid += '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:2px">';
+  _dcGrid += '<span style="font-size:17px;font-weight:800;color:#3a5fa5;line-height:1">45</span>';
+  _dcGrid += '<span style="font-size:10px;color:#8a8278">채널</span>';
+  _dcGrid += '<span style="font-size:13px;font-weight:800;color:#5a3a7c;margin-left:4px">13</span>';
+  _dcGrid += '<span style="font-size:10px;color:#8a8278">언어</span>';
+  _dcGrid += '</div>';
+  _dcGrid += '<div style="font-size:10px;color:#8a8278">19개국 · HQ 27 · 법인 10 · 딜러 8</div>';
+  _dcGrid += '<button id="_dcDetailBtn" style="margin-top:6px;font-size:9px;background:#3a5fa5;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-weight:700">상세보기 →</button>';
+  _dcGrid += '</div>';
+  _dcGrid += richCard('Channel Subscribers', 'channel_discriber', '#3a6b5a', discVal);
+  _dcGrid += '</div>';
+  h += _dcGrid;
 
   // 4. Engagement + Click
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
@@ -3075,13 +3072,15 @@ function renderSummary(s) {
   h += '</div>';
   el.summaryBox.innerHTML = h;
 
-  // 상세보기 버튼 직접 바인딩
-  var dcBtn = el.summaryBox.querySelector('._dcDetailBtn');
-  if (dcBtn) {
-    dcBtn.addEventListener('click', function() {
-      window.openDigitalChannelModal();
-    });
-  }
+  // 상세보기 버튼 바인딩 (DOM 렌더 후)
+  setTimeout(function() {
+    var dcBtn = document.getElementById('_dcDetailBtn');
+    if (dcBtn) {
+      dcBtn.onclick = function() {
+        window.openDigitalChannelModal();
+      };
+    }
+  }, 0);
 }
 
 
