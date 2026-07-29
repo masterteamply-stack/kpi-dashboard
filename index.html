@@ -3008,6 +3008,34 @@ function renderSummary(s) {
   // 4. Channel 구독자
   h += richCard('Channel Subscribers', 'channel_discriber', '#3a6b5a', discVal);
 
+  // 4-1. Marketing Asset Library Downloads
+  var _assetD = (function(){
+    try {
+      var d = JSON.parse(localStorage.getItem('dkpi_monthly_asset_download')||'{}');
+      var keys = Object.keys(d).sort();
+      if(!keys.length) return null;
+      // 가장 최근 누적 값
+      var lastKey = keys[keys.length-1];
+      return d[lastKey].accumulated || 0;
+    } catch(e){ return null; }
+  })();
+  var _assetNet = (function(){
+    try {
+      var d = JSON.parse(localStorage.getItem('dkpi_monthly_asset_download')||'{}');
+      var keys = Object.keys(d).sort();
+      if(!keys.length) return {mo:0, moNum:0};
+      var lastKey = keys[keys.length-1];
+      return { mo: d[lastKey].actual||0, moNum: parseInt(lastKey.split('-')[1]) };
+    } catch(e){ return {mo:0, moNum:0}; }
+  })();
+  h += '<div style="background:#fff;border:1px solid #ede9e2;border-radius:8px;padding:10px 12px;margin-top:0">'
+     + '<div style="font-size:9px;font-weight:700;color:#8a8278;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">Marketing Asset Downloads</div>'
+     + '<div style="display:flex;align-items:baseline;gap:6px">'
+     + '<div style="font-size:22px;font-weight:800;color:#5a3a7c">' + (_assetD!==null ? (_assetD>=1000000?(_assetD/1000000).toFixed(2)+'M':_assetD>=1000?(_assetD/1000).toFixed(0)+'K':_assetD.toLocaleString()) : '–') + '</div>'
+     + '</div>'
+     + (_assetNet.mo>0 ? '<div style="font-size:10px;color:#8a8278;margin-top:2px">' + _assetNet.moNum + '월 다운로드 <b style="color:#5a3a7c">+' + _assetNet.mo.toLocaleString() + '</b></div>' : '')
+     + '</div>';
+
   // 5. 완료율 · 지연 · ROI
   h += '<div style="font-size:11px;color:#6b6259;line-height:1.8;padding-top:2px">';
   h += '완료율 <strong style="color:var(--green)">' + fmtPct(s.compRate) + '</strong>';
@@ -10894,6 +10922,11 @@ function initDkpiDefaultData() {
       localStorage.setItem("region_sub_grand_total","1423979");
         localStorage.setItem("region_sub_ver","2026-06-v1");
     }
+      // ── Marketing Asset Library Downloads ──
+      if(localStorage.getItem("asset_dl_ver")!=="2026-06-v1"){
+        localStorage.setItem("dkpi_monthly_asset_download","{\"2026-01\":{\"actual\":1,\"target\":0,\"accumulated\":22179},\"2026-02\":{\"actual\":11564,\"target\":0,\"accumulated\":33743},\"2026-03\":{\"actual\":18246,\"target\":0,\"accumulated\":51989},\"2026-04\":{\"actual\":74643,\"target\":0,\"accumulated\":126632},\"2026-05\":{\"actual\":70304,\"target\":0,\"accumulated\":196936},\"2026-06\":{\"actual\":20240,\"target\":0,\"accumulated\":217176}}");
+        localStorage.setItem("asset_dl_ver","2026-06-v1");
+      }
     // revenue: head 스크립트에서 초기 주입, 이후 사용자 직접 입력값 보존 (덮어쓰기 제거)
     console.log("[DKPI] 초기화 완료 (사용자 입력 보존)");
   } catch(e) { console.warn("DKPI init failed:", e); }
