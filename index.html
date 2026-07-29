@@ -3071,14 +3071,6 @@ function renderSummary(s) {
   h += '</div>';
   el.summaryBox.innerHTML = h;
 
-  var _dcCard = el.summaryBox.querySelector('#_dcCard');
-  if (_dcCard) {
-    _dcCard.addEventListener('click', function() {
-      if (typeof openDigitalChannelModal === 'function') openDigitalChannelModal();
-    });
-    _dcCard.addEventListener('mouseenter', function(){ _dcCard.style.background='#ebe7df'; });
-    _dcCard.addEventListener('mouseleave', function(){ _dcCard.style.background='#f5f2ed'; });
-  }
 }
 
 
@@ -4961,6 +4953,15 @@ function _setCurrentUser(name, isObserver) {
   _updateUserBadge();
   _checkMentionNotifs();
 }
+
+// ── 이벤트 위임: summaryBox 내 클릭 처리 ──
+document.addEventListener('click', function(e) {
+  var card = e.target.closest('#_dcCard');
+  if (card) {
+    e.stopPropagation();
+    if (typeof openDigitalChannelModal === 'function') openDigitalChannelModal();
+  }
+});
 
 function _updateUserBadge() {
   var badge = document.getElementById('_userBadge');
