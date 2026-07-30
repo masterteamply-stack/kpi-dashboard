@@ -1511,17 +1511,6 @@ document.addEventListener('DOMContentLoaded', function() {
         <button class="toggle-btn active" id="kpiPanelBackBtn"
           onclick="resetKpiPanel()" style="display:none;font-size:11px">← 전체</button>
       </div>
-      <div id="_dcStaticCard" onclick="openDigitalChannelModal()" style="display:none;background:#f5f2ed;border-radius:6px;padding:8px 10px;cursor:pointer;margin-bottom:6px">
-        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:3px">Digital Channels ↗</div>
-        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:2px">
-          <span style="font-size:17px;font-weight:800;color:#3a5fa5">45</span>
-          <span style="font-size:10px;color:#8a8278">채널</span>
-          <span style="font-size:13px;font-weight:800;color:#5a3a7c;margin-left:4px">13</span>
-          <span style="font-size:10px;color:#8a8278">언어</span>
-        </div>
-        <div style="font-size:10px;color:#8a8278">19개국 · HQ 27 · 법인 10 · 딜러 8</div>
-        <div style="font-size:9px;color:#3a5fa5;margin-top:4px;font-weight:700">상세보기 →</div>
-      </div>
       <div id="summaryBox" style="overflow-y:auto;max-height:580px;padding-right:2px"></div>
       <div id="kpiDetailPanel" class="kpi-detail-panel" style="display:none"></div>
     </div>
@@ -2724,7 +2713,7 @@ function toggleLeadDetail() {
 }
 
 // ── 디지털 채널 운영 현황 상세 모달 ──
-window.openDigitalChannelModal = function openDigitalChannelModal() {
+function openDigitalChannelModal() {
   var ex = document.getElementById('_dcModal');
   if (ex) ex.remove();
 
@@ -3201,8 +3190,19 @@ function renderSummary(s) {
 
 
       // 3. Digital Channel + Channel Subscribers (2컬럼)
-  // Channel Subscribers (DC카드는 summaryBox 위 정적 HTML)
-  h += '<div style="margin-bottom:0">';
+  // Digital Channel + Channel Subscribers 2컬럼
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+  h += '<div style="background:#f5f2ed;border-radius:6px;padding:8px 10px;cursor:pointer" id="_dcCard">';
+  h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:3px">Digital Channels</div>';
+  h += '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:2px">';
+  h += '<span style="font-size:17px;font-weight:800;color:#3a5fa5">45</span>';
+  h += '<span style="font-size:10px;color:#8a8278">채널</span>';
+  h += '<span style="font-size:13px;font-weight:800;color:#5a3a7c;margin-left:4px">13</span>';
+  h += '<span style="font-size:10px;color:#8a8278">언어</span>';
+  h += '</div>';
+  h += '<div style="font-size:10px;color:#8a8278">19개국 · HQ27 · 법인10 · 딜러8</div>';
+  h += '<div style="font-size:9px;color:#3a5fa5;margin-top:4px;font-weight:700">상세보기 →</div>';
+  h += '</div>';
   h += richCard('Channel Subscribers', 'channel_discriber', '#3a6b5a', discVal);
   h += '</div>';
 
@@ -3251,9 +3251,6 @@ function renderSummary(s) {
   el.summaryBox.innerHTML = h;
 
   // DC 카드 placeholder에 내용 + onclick 직접 바인딩
-  // 정적 DC카드 표시
-  var sc = document.getElementById('_dcStaticCard');
-  if (sc) sc.style.display = 'block';
 }
 
 
