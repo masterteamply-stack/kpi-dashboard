@@ -3250,6 +3250,10 @@ function renderSummary(s) {
   h += '</div>';
   el.summaryBox.innerHTML = h;
 
+  // _dcCard에 onclick 직접 설정
+  var _dc = el.summaryBox.querySelector('#_dcCard');
+  if (_dc) _dc.setAttribute('onclick', 'openDigitalChannelModal()');
+
   // DC 카드 placeholder에 내용 + onclick 직접 바인딩
 }
 
