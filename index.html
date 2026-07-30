@@ -7675,8 +7675,8 @@ function switchDkpiSheet(kpiKey) {
   const map = {'B2D-10':'dkpiSheet10Btn','B2D-11':'dkpiSheet11Btn',
     'channel_discriber':'dkpiSheetCDBtn','region_sub':'dkpiSheetRegBtn','revenue':'dkpiSheetRevBtn'};
   document.getElementById(map[kpiKey])?.classList.add('active');
-  // revenue 아닌 탭 전환 시 thead를 기본(월) 헤더로 복원
-  if(kpiKey !== 'revenue') {
+  // region_sub가 아닐 때만 기본(월) 헤더 복원 (region_sub는 자체 헤더 사용)
+  if(kpiKey !== 'revenue' && kpiKey !== 'region_sub' && kpiKey !== 'channel_discriber') {
     const tbl = document.querySelector('#dkpiSheetTable');
     if(tbl) {
       const thead = tbl.querySelector('thead');
@@ -7736,7 +7736,7 @@ function renderDkpiSheetBody(kpiKey) {
     +   '<div style="font-size:20px;font-weight:800;color:'+_achvColor+';line-height:1">'+(_achvRate!==null?_achvRate+'%':(_sumTarget>0?'미입력':'–'))+'</div>'
     +   (_sumTarget>0?'<div style="font-size:9px;color:#8a8278;margin-top:2px">목표 '+_fmtN(_sumTarget)+'</div>':'')
     + '</div>';
-  if(_bannerEl){ _bannerEl.id='dkpiBanner'; const _tp=tbody.parentElement?.parentElement; if(_tp) _tp.insertBefore(_bannerEl, tbody.parentElement); }
+  if(_bannerEl && kpiKey !== 'channel_discriber'){ _bannerEl.id='dkpiBanner'; const _tp=tbody.parentElement?.parentElement; if(_tp) _tp.insertBefore(_bannerEl, tbody.parentElement); }
 
 
   if(kpiKey === 'channel_discriber') {
