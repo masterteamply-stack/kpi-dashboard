@@ -7546,6 +7546,17 @@ function renderActivityTypeChart(tasks) {
     typeMap[tp].count++;
   }
 
+  // _planAnnual(head 스크립트 예산)을 typeMap에 병합
+  try {
+    var _pa = JSON.parse(sessionStorage.getItem('budget_plan_annual')||'null');
+    if (_pa) {
+      Object.keys(_pa).forEach(function(tp) {
+        if (!typeMap[tp]) typeMap[tp] = { spend:0, budget:0, count:0 };
+        typeMap[tp].budget = Math.max(typeMap[tp].budget, _pa[tp]||0);
+      });
+    }
+  } catch(_e) {}
+
   const entries = Object.entries(typeMap).filter(([,v])=>v.budget>0||v.spend>0)
     .sort((a,b)=>b[1].budget-a[1].budget);
 
