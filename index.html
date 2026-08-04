@@ -404,11 +404,11 @@
       font-size:12px;vertical-align:middle;color:#1a1714 !important;
       overflow:hidden;
     }
-    .kpi-tasks-table td:first-child{padding-left:10px}
+    .kpi-tasks-table td{vertical-align:top;padding-top:7px}.kpi-tasks-table td:first-child{padding-left:10px}
     .kpi-tasks-table tr:last-child td{border-bottom:0}
     .kpi-tasks-table tr:hover td{background:#f0ede6}
     .task-title-cell{font-weight:600;color:#1a1714;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .task-note-cell{font-size:11.5px;color:#5a5148;margin-top:2px;line-height:1.4;white-space:pre-wrap;word-break:break-word}
+    .task-note-cell{font-size:11px;color:#5a5148;margin-top:3px;line-height:1.4;white-space:pre-wrap;word-break:break-word;max-height:4.2em;overflow:hidden;position:relative}.task-note-cell.expanded{max-height:none}
     .month-chip{
       display:inline-block;padding:2px 8px;border-radius:2px;font-size:11px;font-weight:700;
       background:#d8e4cc;border:1px solid #b8ccaa;color:#3d5228 !important;
@@ -5790,7 +5790,7 @@ function renderKPIAccordion(kpis, tasks) {
               onfocus="this.dataset.orig=this.textContent"
             >${esc(t.title||'')}</span>
           </div>
-          ${t.notes ? `<div class="task-note-cell">
+          ${t.notes ? `<div class="task-note-cell" id="note_${t.id}">
             <span class="cell-editable"
               contenteditable="true"
               data-task-id="${t.id}"
@@ -6128,6 +6128,25 @@ function toggleKpiRow(rowEl) {
 }
 
 function isDue(t) { return t.status!=="done"&&t.due_date&&new Date(t.due_date)<todayD(); }
+
+async // 메모 더보기 버튼 바인딩 (renderKPIAccordion 후 호출)
+function _bindNoteCells() {
+  document.querySelectorAll('.task-note-cell').forEach(function(el) {
+    if (el.dataset.noteBound) return;
+    el.dataset.noteBound = '1';
+    var span = el.querySelector('span');
+    if (!span || span.textContent.length <= 60) return;
+    var btn = document.createElement('div');
+    btn.textContent = '▼ 더보기';
+    btn.style.cssText = 'font-size:9px;color:#3a5fa5;cursor:pointer;margin-top:1px;user-select:none';
+    btn.onclick = function(e) {
+      e.stopPropagation();
+      var expanded = el.classList.toggle('expanded');
+      btn.textContent = expanded ? '▲ 접기' : '▼ 더보기';
+    };
+    el.parentNode.insertBefore(btn, el.nextSibling);
+  });
+}
 
 async function refreshDashboard() {
   setStatus("데이터 불러오는 중…");
