@@ -408,7 +408,7 @@
     .kpi-tasks-table tr:last-child td{border-bottom:0}
     .kpi-tasks-table tr:hover td{background:#f0ede6}
     .task-title-cell{font-weight:600;color:#1a1714;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:1px}
-    .task-note-cell{font-size:10.5px;color:#6b6057;margin-top:5px;line-height:1.45;white-space:pre-wrap;word-break:break-word;max-height:2.9em;overflow:hidden;position:relative;background:#f5f2ed;border-left:2px solid #c8bfb0;border-radius:0 3px 3px 0;padding:3px 7px;cursor:pointer;transition:max-height .2s}.task-note-cell.expanded{max-height:1000px}
+    .task-note-cell{font-size:10.5px;color:#6b6057;margin-top:5px;line-height:1.45;white-space:pre-wrap;word-break:break-word;overflow:visible;position:relative;background:#f5f2ed;border-left:2px solid #c8bfb0;border-radius:0 3px 3px 0;padding:3px 7px}
     .month-chip{
       display:inline-block;padding:2px 8px;border-radius:2px;font-size:11px;font-weight:700;
       background:#d8e4cc;border:1px solid #b8ccaa;color:#3d5228 !important;
@@ -6131,45 +6131,8 @@ function toggleKpiRow(rowEl) {
 function isDue(t) { return t.status!=="done"&&t.due_date&&new Date(t.due_date)<todayD(); }
 
 // 메모 더보기 버튼 바인딩 (renderKPIAccordion 후 호출)
-function _bindNoteCells() {
-  document.querySelectorAll('.task-note-cell').forEach(function(el) {
-    if (el.dataset.noteBound) return;
-    el.dataset.noteBound = '1';
+function _bindNoteCells() { /* max-height 없으므로 더보기 불필요 */ }
 
-    // 줄임표 indicator 추가 (접힌 상태)
-    var ind = document.createElement('div');
-    ind.className = '_note_ind';
-    ind.style.cssText = 'font-size:9px;color:#3a5fa5;margin-top:2px;user-select:none';
-    ind.textContent = '▼ 더보기 (클릭)';
-    el.insertAdjacentElement('afterend', ind);
-
-    function updateState() {
-      var expanded = el.classList.contains('expanded');
-      ind.textContent = expanded ? '▲ 접기' : '▼ 더보기 (클릭)';
-      ind.style.display = '';
-    }
-
-    // note-cell 클릭 시 토글
-    el.addEventListener('click', function(e) {
-      // contenteditable span 클릭은 편집 모드로
-      if (e.target.classList.contains('cell-editable')) return;
-      e.stopPropagation();
-      el.classList.toggle('expanded');
-      updateState();
-    });
-
-    // 더보기 indicator 클릭
-    ind.addEventListener('click', function(e) {
-      e.stopPropagation();
-      el.classList.toggle('expanded');
-      updateState();
-    });
-
-    // 처음엔 내용이 실제로 잘리는지 확인
-    var isClipped = el.scrollHeight > el.clientHeight + 2;
-    ind.style.display = isClipped ? '' : 'none';
-  });
-}
 
 
 async function refreshDashboard() {
