@@ -9961,27 +9961,31 @@ function renderActivityTrendChart(tasks) {
     .filter(([k])=>k!=='미분류')
     .sort((a,b)=>b[1].reduce((s,v)=>s+v,0)-a[1].reduce((s,v)=>s+v,0));
 
-  const datasets = typeEntries.map(([tp, counts], i) => ({
+  // 막대: 집행 비용 (월별 합계, y2)
+  const datasets = [{
     type: 'bar',
-    label: tp,
-    data: counts,
-    backgroundColor: PALETTE[i%PALETTE.length],
-    borderRadius: 3,
-    stack: 'count',
-  }));
-
-  // 마케팅 비용 (실집행, 선, y축 오른쪽)
-  datasets.push({
-    type: 'line',
-    label: '마케팅 비용',
+    label: '집행 비용',
     data: totalSpend,
-    borderColor: '#9e4a3a',
-    borderWidth: 2,
-    pointRadius: 3,
-    pointBackgroundColor: '#9e4a3a',
-    fill: false, tension: .3,
-    borderDash: [4,3],
+    backgroundColor: 'rgba(158,74,58,.75)',
+    borderRadius: 3,
     yAxisID: 'y2',
+  }];
+
+  // 점: 유형별 건수 (y축 왼쪽)
+  typeEntries.forEach(function([tp, counts], i) {
+    datasets.push({
+      type: 'line',
+      label: tp,
+      data: counts,
+      borderColor: PALETTE[i%PALETTE.length],
+      backgroundColor: PALETTE[i%PALETTE.length],
+      borderWidth: 0,
+      pointRadius: 5,
+      pointHoverRadius: 7,
+      showLine: false,
+      fill: false,
+      yAxisID: 'y',
+    });
   });
   // 배정 예산 (선, y축 오른쪽)
   if(totalBudget.some(function(v){return v>0;})){
