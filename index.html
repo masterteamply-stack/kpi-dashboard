@@ -9961,31 +9961,29 @@ function renderActivityTrendChart(tasks) {
     .filter(([k])=>k!=='미분류')
     .sort((a,b)=>b[1].reduce((s,v)=>s+v,0)-a[1].reduce((s,v)=>s+v,0));
 
-  // 막대: 집행 비용 (월별 합계, y2)
-  const datasets = [{
+  // 막대: 유형별 건수 (y 왼쪽, 스택)
+  const datasets = typeEntries.map(([tp, counts], i) => ({
     type: 'bar',
-    label: '집행 비용',
-    data: totalSpend,
-    backgroundColor: 'rgba(158,74,58,.75)',
+    label: tp,
+    data: counts,
+    backgroundColor: PALETTE[i%PALETTE.length],
     borderRadius: 3,
-    yAxisID: 'y2',
-  }];
+    stack: 'count',
+    yAxisID: 'y',
+  }));
 
-  // 점: 유형별 건수 (y축 왼쪽)
-  typeEntries.forEach(function([tp, counts], i) {
-    datasets.push({
-      type: 'line',
-      label: tp,
-      data: counts,
-      borderColor: PALETTE[i%PALETTE.length],
-      backgroundColor: PALETTE[i%PALETTE.length],
-      borderWidth: 0,
-      pointRadius: 5,
-      pointHoverRadius: 7,
-      showLine: false,
-      fill: false,
-      yAxisID: 'y',
-    });
+  // 실선: 실제 집행비 (굵은 실선, y2)
+  datasets.push({
+    type: 'line',
+    label: '집행비',
+    data: totalSpend,
+    borderColor: '#9e4a3a',
+    borderWidth: 2.5,
+    pointRadius: 3,
+    pointBackgroundColor: '#9e4a3a',
+    fill: false,
+    tension: .3,
+    yAxisID: 'y2',
   });
   // 배정 예산 (선, y축 오른쪽)
   if(totalBudget.some(function(v){return v>0;})){
@@ -9994,8 +9992,8 @@ function renderActivityTrendChart(tasks) {
       label: '배정 예산',
       data: totalBudget,
       borderColor: '#5c6b4a',
-      borderWidth: 1.5,
-      pointRadius: 2,
+      borderWidth: 2,
+      pointRadius: 3,
       pointBackgroundColor: '#5c6b4a',
       fill: false, tension: .3,
       borderDash: [2,3],
