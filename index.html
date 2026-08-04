@@ -9921,6 +9921,8 @@ function renderActivityTrendChart(tasks) {
   // 예산 월별 추이 (head 주입)
   var _budgetMonthlyT=null;
   try{_budgetMonthlyT=JSON.parse(sessionStorage.getItem('budget_plan_monthly')||'null');}catch(_e){}
+  console.log('[BudgetChart] _budgetMonthlyT:', JSON.stringify(_budgetMonthlyT));
+  console.log('[BudgetChart] _filterType:', _filterType, 'isMonth:', isMonth, 'len:', len);
   const totalBudget=new Array(len).fill(0);
   if(_budgetMonthlyT){
     Object.keys(_budgetMonthlyT).forEach(function(tp){
