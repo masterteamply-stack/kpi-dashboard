@@ -1365,7 +1365,7 @@
 (function(){
   try {
     // Survey /api/stats 자동 fetch (페이지 로드 시 + 1시간 주기)
-    var SURVEY_API = 'https://raw.githubusercontent.com/masterteamply-stack/kpi-dashboard/main/survey-stats.json';
+    var SURVEY_API = 'https://ctr-cn-survey.gorddaru.workers.dev/api/stats';
     var SURVEY_LS_KEY = 'survey_lead_data';
     var SURVEY_CACHE_MIN = 60; // 최소 갱신 간격(분)
 
@@ -1390,15 +1390,17 @@
           .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
           .then(function(d){
             var _data = {
-              total:     d.total     || d.count    || 0,
-              countries: d.countries || d.country_count || 0,
-              groups:    d.groups    || d.group_count   || 5,
+              total:     d.total     || d.count       || d.response_count || d.responses || 0,
+              countries: d.countries || d.country_count || d.country_count || d.countries_count || 0,
+              groups:    d.groups    || d.group_count  || d.segment_count  || 5,
               monthly:   d.monthly   || (_cur && _cur.monthly) || {},
-              byRegion:  d.byRegion  || (_cur && _cur.byRegion) || {},
-              detail:    d.detail    || [],
+              byRegion:  d.byRegion  || d.by_region   || (_cur && _cur.byRegion) || {},
+              detail:    d.detail    || d.segments     || [],
               _fetchedAt: new Date().toISOString(),
               _updated:   d.updated  || new Date().toISOString().slice(0,10)
             };
+            console.log('[Survey] API 응답 원본:', JSON.stringify(d).slice(0,200));
+            console.log('[Survey] 매핑 결과 - total:', _data.total, '/ countries:', _data.countries);
             localStorage.setItem(SURVEY_LS_KEY, JSON.stringify(_data));
             console.log('[Survey] /api/stats 갱신:', _data.total, '건 /', _data.countries, '개국');
             // 카드 재렌더링
