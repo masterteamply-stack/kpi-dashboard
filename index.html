@@ -1382,10 +1382,7 @@
         var _cur = null;
         try { _cur = JSON.parse(localStorage.getItem(SURVEY_LS_KEY)||'null'); } catch(_e){}
         // 최소 갱신 간격 체크 (force=true면 무조건 fetch), 10분 캐시
-        if(!force && _cur && _cur._fetchedAt) {
-          var _age = (Date.now() - new Date(_cur._fetchedAt).getTime()) / 60000;
-          if(_age < 10) return; // 10분 이내면 캐시 사용
-        }
+        // 캐시 없음 - 항상 API에서 최신 수치 fetch
         fetch(SURVEY_API + '?t=' + Date.now(), { cache: 'no-store' })
           .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
           .then(function(d){
@@ -1439,11 +1436,11 @@
     if(document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', function(){
         _fetchSurveyStats(false);
-        setInterval(function(){ _fetchSurveyStats(false); }, 60 * 60 * 1000);
+        setInterval(function(){ _fetchSurveyStats(true); }, 5 * 60 * 1000); // 5분마다 갱신
       });
     } else {
       _fetchSurveyStats(false);
-      setInterval(function(){ _fetchSurveyStats(false); }, 60 * 60 * 1000);
+      setInterval(function(){ _fetchSurveyStats(true); }, 5 * 60 * 1000); // 5분마다 갱신
     }
   } catch(e) { console.warn('survey inject failed:', e); }
 })();
