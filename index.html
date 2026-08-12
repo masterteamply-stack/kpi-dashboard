@@ -1386,7 +1386,7 @@
           var _age = (Date.now() - new Date(_cur._fetchedAt).getTime()) / 60000;
           if(_age < 10) return; // 10분 이내면 캐시 사용
         }
-        fetch(SURVEY_API, { cache: 'no-cache' })
+        fetch(SURVEY_API + '?t=' + Date.now(), { cache: 'no-store' })
           .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
           .then(function(d){
             var _data = {
