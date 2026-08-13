@@ -6078,9 +6078,12 @@ function renderKPIAccordion(kpis, tasks) {
   renderActivityTypeChartWithBudget(kpis, tasks);
   renderActivityTrendChart(tasks);
   // 태스크 실적 → 디지털 KPI 자동 동기화 후 차트 렌더
-  syncTasksToDigitalKpi(tasks, kpis).then(function() {
+  // state.tasks: kpis.title 포함된 전체 태스크 사용
+  var _syncTasks = (state.tasks && state.tasks.length) ? state.tasks : tasks;
+  syncTasksToDigitalKpi(_syncTasks, kpis).then(function() {
     renderDigitalKpiCharts(kpis, tasks);
-  }).catch(function() {
+  }).catch(function(e) {
+    console.warn('[Sync] 실패:', e);
     renderDigitalKpiCharts(kpis, tasks);
   });
   renderProjectBucket();
