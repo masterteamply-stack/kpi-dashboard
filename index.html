@@ -6077,7 +6077,12 @@ function renderKPIAccordion(kpis, tasks) {
   renderRegionOrderChart(tasks, state._lastKpis||[]).catch(function(){});
   renderActivityTypeChartWithBudget(kpis, tasks);
   renderActivityTrendChart(tasks);
-  renderDigitalKpiCharts(kpis, tasks);
+  // 태스크 실적 → 디지털 KPI 자동 동기화 후 차트 렌더
+  syncTasksToDigitalKpi(tasks, kpis).then(function() {
+    renderDigitalKpiCharts(kpis, tasks);
+  }).catch(function() {
+    renderDigitalKpiCharts(kpis, tasks);
+  });
   renderProjectBucket();
   // 사용자 배지 갱신 + 멘션 알림 체크
   if (typeof _updateUserBadge === 'function') _updateUserBadge();
@@ -8061,6 +8066,7 @@ async function saveDkpiSheet() {
       data[month][type] = val==='' ? null : Number(val);
     });
     await saveDkpiMonthlyData(kpiKey, data);
+    // 수동 저장 후에도 차트 반영
     renderDigitalKpiCharts(state._lastKpis||[], state.tasks||[]);
     const cs = computeSummary(state.tasks||[], state._lastKpis||[]);
     renderSummary(cs);
@@ -8068,6 +8074,62 @@ async function saveDkpiSheet() {
 
   const btn = document.querySelector('#dkpiSheet .btn-primary');
   if(btn) { btn.textContent='✅ 저장됨'; setTimeout(()=>{ btn.textContent='저장 → 차트 반영'; }, 1500); }
+}
+
+
+// ── 태스크 실적 → 디지털 KPI 월별 자동 동기화 ──
+// "데이터 기반 콘텐츠 마케팅" KPI 태스크 → B2D-10 (Engagement)
+// "소셜 광고 효율성 제고" KPI 태스크 → B2D-11 (Click)
+var _DKPI_KPI_MAP = {
+  'B2D-10': ['데이터 기반 콘텐츠 마케팅'],
+  'B2D-11': ['소셜 광고 효율성 제고'],
+};
+
+async function syncTasksToDigitalKpi(tasks, kpis) {
+  if (!tasks || !tasks.length || !kpis || !kpis.length) return;
+
+  for (var dkpiKey of Object.keys(_DKPI_KPI_MAP)) {
+    var targetTitles = _DKPI_KPI_MAP[dkpiKey];
+
+    // 연결 대상 KPI id 목록 (title로 검색)
+    var targetKpiIds = kpis
+      .filter(function(k) {
+        return targetTitles.some(function(t) { return k.title && k.title.includes(t); });
+      })
+      .map(function(k) { return k.id; });
+
+    if (!targetKpiIds.length) {
+      console.log('[Sync] KPI 못 찾음:', targetTitles);
+      continue;
+    }
+
+    // 해당 KPI에 속한 태스크 필터
+    var relatedTasks = tasks.filter(function(t) {
+      return targetKpiIds.indexOf(t.kpi_id) >= 0;
+    });
+
+    if (!relatedTasks.length) continue;
+
+    // 월별 progress 합산 (started_at 기준)
+    var monthly = getDkpiMonthly(dkpiKey);
+    var byMonth = {};
+    relatedTasks.forEach(function(t) {
+      if (!t.progress || !t.started_at) return;
+      var mo = new Date(t.started_at).toISOString().slice(0, 7); // '2026-06'
+      byMonth[mo] = (byMonth[mo] || 0) + Number(t.progress || 0);
+    });
+
+    if (!Object.keys(byMonth).length) continue;
+
+    // 기존 데이터와 병합 (수동 입력값 유지, 태스크 합산값으로 actual만 업데이트)
+    Object.keys(byMonth).forEach(function(mo) {
+      if (!monthly[mo]) monthly[mo] = {};
+      monthly[mo].actual = byMonth[mo];
+    });
+
+    await saveDkpiMonthlyData(dkpiKey, monthly);
+    console.log('[Sync]', dkpiKey, '←', Object.keys(byMonth).length + '개월 업데이트:', byMonth);
+  }
 }
 
 function renderDigitalKpiCharts(kpis, tasks) {
