@@ -7694,6 +7694,11 @@ function switchDkpiSheet(kpiKey) {
     'channel_discriber':'dkpiSheetCDBtn','region_sub':'dkpiSheetRegBtn','revenue':'dkpiSheetRevBtn'};
   document.getElementById(map[kpiKey])?.classList.add('active');
   // region_sub가 아닐 때만 기본(월) 헤더 복원 (region_sub는 자체 헤더 사용)
+  // channel_discriber: 기존 상단 thead 완전 제거 (자체 헤더 사용)
+  if(kpiKey === 'channel_discriber') {
+    const tbl2 = document.querySelector('#dkpiSheetTable');
+    if(tbl2) { const th2 = tbl2.querySelector('thead'); if(th2) th2.innerHTML = ''; }
+  }
   if(kpiKey !== 'revenue' && kpiKey !== 'region_sub' && kpiKey !== 'channel_discriber') {
     const tbl = document.querySelector('#dkpiSheetTable');
     if(tbl) {
@@ -7762,9 +7767,9 @@ function renderDkpiSheetBody(kpiKey) {
     var REGIONS = ['GLOBAL','MENA','EUROPE','NA','LATAM','ASIA','TH','RUS','MX','CIS','IN','BR'];
     var rsd = (function(){ try{ return JSON.parse(localStorage.getItem('region_sub_detail')||'{}'); }catch(e){return {};} })();
     var hdr2 = '<tr style="background:#e8e4dc">'
-      + '<th style="padding:5px 10px;font-size:10px;text-align:left;min-width:70px">지역</th>'
-      + '<th style="padding:5px 8px;font-size:10px;text-align:right;min-width:70px">합계</th>'
-      + moLabels.map(function(m){ return '<th style="padding:5px 4px;font-size:10px;text-align:right;min-width:54px">'+m+'</th>'; }).join('')
+      + '<th style="padding:5px 10px;font-size:10px;text-align:left;min-width:60px">지역</th>'
+      + '<th style="padding:5px 8px;font-size:10px;text-align:right;min-width:80px;background:#e0dcd4">합계</th>'
+      + moLabels.map(function(m){ return '<th style="padding:5px 4px;font-size:10px;text-align:center;min-width:58px">'+m+'</th>'; }).join('')
       + '</tr>';
     var grandT = 0;
     var moTotals = months.map(function(){ return 0; });
@@ -7781,7 +7786,7 @@ function renderDkpiSheetBody(kpiKey) {
           + '<input type="number" min="0" class="regionSubMonthly"'
           + ' data-region="'+region+'" data-month="'+key+'"'
           + ' value="'+(v||'')+'"'
-          + ' style="width:50px;text-align:right;border:1px solid #dedad2;border-radius:3px;padding:2px 3px;font-size:10px">'
+          + ' style="width:54px;text-align:right;text-align:right;border:1px solid #dedad2;border-radius:3px;padding:2px 3px;font-size:10px">'
           + '</td>';
       }).join('');
       return '<tr style="border-bottom:1px solid #f0ede6">'
