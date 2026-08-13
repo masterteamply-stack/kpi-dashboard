@@ -2195,7 +2195,7 @@ async function fetchKpisWithTasks() {
     : (function() {
         return state.sb
           .from('tasks')
-          .select('id,title,kpi_id,owner_id,co_owners,quarter,region,status,priority,progress,allocated_budget,spend,notes,started_at,due_date,task_type,owners(name),kpis(kpi_key)')
+          .select('id,title,kpi_id,owner_id,co_owners,quarter,region,status,priority,progress,allocated_budget,spend,notes,started_at,due_date,task_type,owners(name),kpis(kpi_key,title,unit)')
           .order('started_at')
           .then(function(r) { return r.data || []; });
       })();
@@ -8078,59 +8078,66 @@ async function saveDkpiSheet() {
 
 
 // ── 태스크 실적 → 디지털 KPI 월별 자동 동기화 ──
-// "데이터 기반 콘텐츠 마케팅" KPI 태스크 → B2D-10 (Engagement)
-// "소셜 광고 효율성 제고" KPI 태스크 → B2D-11 (Click)
-var _DKPI_KPI_MAP = {
-  'B2D-10': ['데이터 기반 콘텐츠 마케팅'],
-  'B2D-11': ['소셜 광고 효율성 제고'],
+// t.kpis.title 기반으로 매핑
+var _DKPI_TITLE_MAP = {
+  'B2D-10': '데이터 기반 콘텐츠 마케팅',  // Engagement
+  'B2D-11': '소셜 광고 효율성 제고',        // Click
 };
 
 async function syncTasksToDigitalKpi(tasks, kpis) {
-  if (!tasks || !tasks.length || !kpis || !kpis.length) return;
+  if (!tasks || !tasks.length) return;
 
-  for (var dkpiKey of Object.keys(_DKPI_KPI_MAP)) {
-    var targetTitles = _DKPI_KPI_MAP[dkpiKey];
+  for (var dkpiKey of Object.keys(_DKPI_TITLE_MAP)) {
+    var targetTitle = _DKPI_TITLE_MAP[dkpiKey];
 
-    // 연결 대상 KPI id 목록 (title로 검색)
-    var targetKpiIds = kpis
-      .filter(function(k) {
-        return targetTitles.some(function(t) { return k.title && k.title.includes(t); });
-      })
-      .map(function(k) { return k.id; });
+    // t.kpis.title로 매칭
+    var relatedTasks = tasks.filter(function(t) {
+      return t.kpis && t.kpis.title && t.kpis.title.includes(targetTitle);
+    });
 
-    if (!targetKpiIds.length) {
-      console.log('[Sync] KPI 못 찾음:', targetTitles);
+    if (!relatedTasks.length) {
+      console.log('[Sync] 태스크 없음:', dkpiKey, targetTitle);
       continue;
     }
 
-    // 해당 KPI에 속한 태스크 필터
-    var relatedTasks = tasks.filter(function(t) {
-      return targetKpiIds.indexOf(t.kpi_id) >= 0;
-    });
-
-    if (!relatedTasks.length) continue;
-
     // 월별 progress 합산 (started_at 기준)
-    var monthly = getDkpiMonthly(dkpiKey);
     var byMonth = {};
     relatedTasks.forEach(function(t) {
       if (!t.progress || !t.started_at) return;
-      var mo = new Date(t.started_at).toISOString().slice(0, 7); // '2026-06'
+      var mo = t.started_at.slice(0, 7); // '2026-06'
       byMonth[mo] = (byMonth[mo] || 0) + Number(t.progress || 0);
     });
 
-    if (!Object.keys(byMonth).length) continue;
+    if (!Object.keys(byMonth).length) {
+      console.log('[Sync] 실적 데이터 없음:', dkpiKey, relatedTasks.length + '개 태스크');
+      continue;
+    }
 
-    // 기존 데이터와 병합 (수동 입력값 유지, 태스크 합산값으로 actual만 업데이트)
+    // 기존 데이터 로드 후 actual만 업데이트 (target은 유지)
+    var monthly = {};
+    try {
+      var { data } = await state.sb.from('kpi_monthly_data')
+        .select('year_month,actual,target').eq('kpi_key', dkpiKey);
+      (data||[]).forEach(function(r) {
+        monthly[r.year_month] = { actual: r.actual||0, target: r.target||0 };
+      });
+    } catch(e) {
+      monthly = getDkpiMonthly(dkpiKey);
+    }
+
+    // 태스크 실적으로 actual 업데이트
     Object.keys(byMonth).forEach(function(mo) {
-      if (!monthly[mo]) monthly[mo] = {};
+      if (!monthly[mo]) monthly[mo] = { actual: 0, target: 0 };
       monthly[mo].actual = byMonth[mo];
     });
 
     await saveDkpiMonthlyData(dkpiKey, monthly);
-    console.log('[Sync]', dkpiKey, '←', Object.keys(byMonth).length + '개월 업데이트:', byMonth);
+    // 캐시 갱신
+    _dkpiMonthlyCache[dkpiKey] = monthly;
+    console.log('[Sync]', dkpiKey, '(' + targetTitle + ') 업데이트:', byMonth);
   }
 }
+
 
 function renderDigitalKpiCharts(kpis, tasks) {
   const kpi10 = kpis.find(k=>k.kpi_key==='B2D-10');
