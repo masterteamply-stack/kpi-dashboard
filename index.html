@@ -1269,8 +1269,8 @@
     if (localStorage.getItem('rev_data_ver') === '2026-07-v1') return;
     var revByRegion = {"RUS": {"2026-01": 2977635.0, "2026-02": 7768748.0, "2026-03": 8951154.0, "2026-04": 10609649.0, "2026-05": 14623256.0, "2026-06": 13258366.0, "2026-07": 9757041.0}, "CIS": {"2026-01": 2340145.0, "2026-02": 1808639.0, "2026-03": 2247308.0, "2026-04": 1196253.0, "2026-05": 1347541.0, "2026-06": 4634522.0, "2026-07": 1052995.0}, "EUROPE": {"2026-01": 1045390.0, "2026-02": 933085.0, "2026-03": 1033821.0, "2026-04": 1530861.0, "2026-05": 1361285.0, "2026-06": 986765.0, "2026-07": 756452.0}, "MENA": {"2026-01": 2129191.0, "2026-02": 701379.0, "2026-03": 690917.0, "2026-04": 1036204.0, "2026-05": 671602.0, "2026-06": 2643331.0, "2026-07": 1507121.0}, "LATAM": {"2026-01": 1800763.0, "2026-02": 1281384.0, "2026-03": 1549641.0, "2026-04": 1897274.0, "2026-05": 1288698.0, "2026-06": 2838137.0, "2026-07": 1300130.0}, "NA": {"2026-01": 4844453.0, "2026-02": 3958150.0, "2026-03": 6347845.0, "2026-04": 3914776.0, "2026-05": 2653875.0, "2026-06": 3685091.0, "2026-07": 809568.0}, "ASIA": {"2026-01": 817961.0, "2026-02": 360081.0, "2026-03": 495717.0, "2026-04": 809596.0, "2026-05": 487332.0, "2026-06": 533616.0, "2026-07": 759716.0}, "KOREA": {"2026-01": 341053.0, "2026-02": 284287.0, "2026-03": 310739.0, "2026-04": 376577.0, "2026-05": 224026.0, "2026-06": 531397.0, "2026-07": 207620.0}, "OCEANIA": {"2026-03": 33657.0, "2026-04": 9251.0, "2026-05": 12082.0, "2026-06": 46333.0, "2026-07": 25627.0}};
     var revMonthly = {"2026-01": 16296591.0, "2026-02": 17095753.0, "2026-03": 21660799.0, "2026-04": 21380441.0, "2026-05": 22669697.0, "2026-06": 29157558.0, "2026-07": 16176270.0};
-    localStorage.setItem('revenue_by_region',    JSON.stringify(revByRegion));
-    localStorage.setItem('revenue_monthly_total', JSON.stringify(revMonthly));
+    setSharedConfig('revenue_by_region', revByRegion);
+    setSharedConfig('revenue_monthly_total', revMonthly);
     localStorage.setItem('rev_data_ver', '2026-07-v1');
   } catch(e) { console.warn('revenue inject failed:', e); }
 })();
@@ -6137,6 +6137,8 @@ function _bindNoteCells() { /* max-height 없으므로 더보기 불필요 */ }
 async function refreshDashboard() {
   setStatus("데이터 불러오는 중…");
   try {
+    // shared_config 전체 로드 (구독자/매출/KPI 등 공유 데이터)
+    if (state.sb) await loadAllSharedConfig();
     await fetchMetaWithWebhook();
     await hydrateFilters();
 
@@ -7664,6 +7666,62 @@ function switchDkpiView(mode) {
   }
 }
 
+
+// ── Supabase shared_config 헬퍼 ──
+// localStorage 래퍼 - shared_config 캐시 우선
+var _SHARED_KEYS = ['revenue_by_region','revenue_monthly_total','region_sub_detail','region_sub_net','region_sub_grand_total'];
+var _origLSGet = localStorage.getItem.bind(localStorage);
+localStorage.getItem = function(key) {
+  if (_SHARED_KEYS.indexOf(key) >= 0 && _sharedConfigCache[key] !== undefined) {
+    var v = _sharedConfigCache[key];
+    return typeof v === 'string' ? v : JSON.stringify(v);
+  }
+  return _origLSGet(key);
+};
+var _sharedConfigCache = {};
+
+async function getSharedConfig(key) {
+  if (_sharedConfigCache[key] !== undefined) return _sharedConfigCache[key];
+  try {
+    const { data, error } = await state.sb
+      .from('shared_config').select('value').eq('key', key).maybeSingle();
+    if (error) throw error;
+    const val = data ? data.value : null;
+    _sharedConfigCache[key] = val;
+    return val;
+  } catch(e) {
+    console.warn('[shared_config] get 실패:', key, e);
+    return null;
+  }
+}
+
+async function setSharedConfig(key, value) {
+  _sharedConfigCache[key] = value;
+  try {
+    const { error } = await state.sb.from('shared_config').upsert(
+      { key, value, updated_at: new Date().toISOString() },
+      { onConflict: 'key' }
+    );
+    if (error) throw error;
+    console.log('[shared_config] 저장:', key);
+  } catch(e) {
+    console.error('[shared_config] 저장 실패:', key, e);
+  }
+}
+
+async function loadAllSharedConfig() {
+  try {
+    const { data, error } = await state.sb.from('shared_config').select('key,value');
+    if (error) throw error;
+    (data||[]).forEach(function(r){ _sharedConfigCache[r.key] = r.value; });
+    console.log('[shared_config] 전체 로드:', (data||[]).length + '건');
+    return _sharedConfigCache;
+  } catch(e) {
+    console.warn('[shared_config] 전체 로드 실패:', e);
+    return {};
+  }
+}
+
 // ── 디지털 KPI 월별 Supabase 헬퍼 ──
 // 캐시: 탭 내 메모리 (Supabase 저장 후 갱신)
 var _dkpiMonthlyCache = {};
@@ -7836,7 +7894,7 @@ function renderDkpiSheetBody(kpiKey) {
   if(kpiKey === 'channel_discriber') {
     // 지역별 구독자 통합 테이블 (구독자 + 지역별 합산)
     var REGIONS = ['GLOBAL','MENA','EUROPE','NA','LATAM','ASIA','TH','RUS','MX','CIS','IN','BR'];
-    var rsd = (function(){ try{ return JSON.parse(localStorage.getItem('region_sub_detail')||'{}'); }catch(e){return {};} })();
+    var rsd = (function(){ var c=_sharedConfigCache['region_sub_detail']; if(c) return c; try{ return JSON.parse(localStorage.getItem('region_sub_detail')||'{}'); }catch(e){return {};} })();
     var hdr2 = '<tr style="background:#e8e4dc">'
       + '<th style="padding:5px 10px;font-size:10px;text-align:left;min-width:60px">지역</th>'
       + '<th style="padding:5px 8px;font-size:10px;text-align:right;min-width:80px;background:#e0dcd4">합계</th>'
@@ -7966,6 +8024,9 @@ async function saveDkpiSheet() {
     // grand total 자동 합산
     const grandTotal = Object.values(saved).reduce((s, rd) => s + (rd.total||0), 0);
     try {
+      setSharedConfig('region_sub_detail', saved);
+      setSharedConfig('region_sub_grand_total', String(grandTotal));
+      // localStorage도 동기화
       localStorage.setItem('region_sub_detail', JSON.stringify(saved));
       localStorage.setItem('region_sub_grand_total', String(grandTotal));
     } catch(e){}
@@ -7985,7 +8046,8 @@ async function saveDkpiSheet() {
       if(!saved[r]) saved[r]={};
       saved[r][mo] = Number(inp.value);
     });
-    try { localStorage.setItem('revenue_by_region', JSON.stringify(saved)); } catch(e){}
+    setSharedConfig('revenue_by_region', saved);
+    localStorage.setItem('revenue_by_region', JSON.stringify(saved));
     state._revenueData = saved;
     const cs = computeSummary(state.tasks||[], state._lastKpis||[]);
     renderKPICards(cs); renderSummary(cs);
@@ -11278,9 +11340,9 @@ function initDkpiDefaultData() {
     var _subVer = localStorage.getItem('region_sub_ver');
       if(_subVer !== '2026-06-v1'){
       var _rs={"GLOBAL":{"total":286172,"monthly":{"2026-01":1893,"2026-02":-202,"2026-03":243,"2026-04":-1352,"2026-05":3976,"2026-06":3242}},"MENA":{"total":556160,"monthly":{"2026-01":2021,"2026-02":921,"2026-03":-1256,"2026-04":-973,"2026-05":1779,"2026-06":9938}},"EUROPE":{"total":65504,"monthly":{"2026-01":1029,"2026-02":1312,"2026-03":363,"2026-04":151,"2026-05":1913,"2026-06":1572}},"NA":{"total":772,"monthly":{"2026-01":0,"2026-02":0,"2026-03":0,"2026-04":175,"2026-05":6,"2026-06":2}},"LATAM":{"total":243475,"monthly":{"2026-01":1012,"2026-02":383,"2026-03":479,"2026-04":109,"2026-05":5986,"2026-06":4121}},"ASIA":{"total":27270,"monthly":{"2026-01":0,"2026-02":0,"2026-03":64,"2026-04":20,"2026-05":775,"2026-06":157}},"TH":{"total":96781,"monthly":{"2026-01":-38,"2026-02":-47,"2026-03":-732,"2026-04":-115,"2026-05":-100,"2026-06":-153}},"RUS":{"total":81706,"monthly":{"2026-01":5037,"2026-02":1520,"2026-03":1563,"2026-04":1534,"2026-05":1515,"2026-06":4138}},"MX":{"total":6268,"monthly":{"2026-01":0,"2026-02":0,"2026-03":0,"2026-04":0,"2026-05":0,"2026-06":0}},"CIS":{"total":44968,"monthly":{"2026-01":3566,"2026-02":2349,"2026-03":985,"2026-04":782,"2026-05":4789,"2026-06":3713}},"ID":{"total":7190,"monthly":{"2026-01":0,"2026-02":4500,"2026-03":12,"2026-04":183,"2026-05":1145,"2026-06":1350}},"BR":{"total":7713,"monthly":{"2026-01":395,"2026-02":1244,"2026-03":974,"2026-04":678,"2026-05":2207,"2026-06":2215}}};
-      localStorage.setItem("region_sub_detail",JSON.stringify(_rs));
-      localStorage.setItem("region_sub_net",JSON.stringify({"2026-01":14915,"2026-02":11980,"2026-03":2695,"2026-04":1192,"2026-05":23991,"2026-06":30295}));
-      localStorage.setItem("region_sub_grand_total","1423979");
+      setSharedConfig("region_sub_detail", _rs);
+      setSharedConfig("region_sub_net",{"2026-01":14915,"2026-02":11980,"2026-03":2695,"2026-04":1192,"2026-05":23991,"2026-06":30295});
+      setSharedConfig("region_sub_grand_total", "1423979");
         localStorage.setItem("region_sub_ver","2026-06-v1");
     }
       // ── Marketing Asset Library Downloads ──
