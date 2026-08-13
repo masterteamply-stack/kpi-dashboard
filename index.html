@@ -8189,11 +8189,11 @@ function renderDigitalKpiCharts(kpis, tasks) {
       // localStorage 월별 데이터 우선, 없으면 분기 데이터 분배
       const monthly = getDkpiMonthly(kpi.kpi_key);
       const months = ['01','02','03','04','05','06','07','08','09','10','11','12'];
-      const hasMonthly = months.some(mm => monthly['2026-'+mm]?.target || monthly['2026-'+mm]?.result);
+      const hasMonthly = months.some(mm => monthly['2026-'+mm]?.target || monthly['2026-'+mm]?.actual || monthly['2026-'+mm]?.result);
 
       if(hasMonthly) {
         targets = months.map(mm => { const v = monthly['2026-'+mm]?.target; return v != null ? Number(v) : 0; });
-        actuals = months.map(mm => { const v = monthly['2026-'+mm]?.result; return v != null ? Number(v) : null; });
+        actuals = months.map(mm => { const v = monthly['2026-'+mm]?.actual ?? monthly['2026-'+mm]?.result; return v != null ? Number(v) : null; });
       } else {
         const qt = [Number(kpi.q1_target)||0, Number(kpi.q2_target)||0,
                     Number(kpi.q3_target)||0, Number(kpi.q4_target)||0];
