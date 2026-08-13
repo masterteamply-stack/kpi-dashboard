@@ -6081,7 +6081,15 @@ function renderKPIAccordion(kpis, tasks) {
   // state.tasks: kpis.title 포함된 전체 태스크 사용
   var _syncTasks = (state.tasks && state.tasks.length) ? state.tasks : tasks;
   syncTasksToDigitalKpi(_syncTasks, kpis).then(function() {
-    renderDigitalKpiCharts(kpis, tasks);
+    // sync 완료 후 Supabase에서 최신 데이터 로드 후 차트 렌더
+    Promise.all([
+      loadDkpiFromSupabase('B2D-10'),
+      loadDkpiFromSupabase('B2D-11')
+    ]).then(function() {
+      renderDigitalKpiCharts(kpis, tasks);
+    }).catch(function() {
+      renderDigitalKpiCharts(kpis, tasks);
+    });
   }).catch(function(e) {
     console.warn('[Sync] 실패:', e);
     renderDigitalKpiCharts(kpis, tasks);
