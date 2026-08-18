@@ -7866,9 +7866,13 @@ function switchDkpiSheet(kpiKey) {
   }
 }
 
-function renderDkpiSheetBody(kpiKey) {
+async function renderDkpiSheetBody(kpiKey) {
   const tbody = document.getElementById('dkpiSheetBody');
   if(!tbody) return;
+  // Supabase에서 최신 데이터 로드
+  if(state.sb && (kpiKey==='B2D-10'||kpiKey==='B2D-11'||kpiKey==='asset_download')) {
+    await loadDkpiFromSupabase(kpiKey);
+  }
   // 기존 배너 제거
   const _oldBanner = document.getElementById('dkpiBanner');
   if(_oldBanner) _oldBanner.remove();
