@@ -8070,12 +8070,22 @@ async function saveDkpiSheet() {
 
   } else {
     const data = getDkpiMonthly(kpiKey);
+    var _manualMonths = [];
     document.querySelectorAll('#dkpiSheetBody input').forEach(inp => {
       const month=inp.dataset.month, type=inp.dataset.type, val=inp.value.trim();
       if(!month||!type) return;
       if(!data[month]) data[month]={};
       data[month][type] = val==='' ? null : Number(val);
+      // 값이 입력된 월은 수동 입력으로 표시
+      if(val !== '' && _manualMonths.indexOf(month) < 0) _manualMonths.push(month);
     });
+    // 수동 입력 월 목록 저장 (sync가 덮어쓰지 않도록)
+    if(_manualMonths.length && (kpiKey==='B2D-10'||kpiKey==='B2D-11')) {
+      var _prev = getDkpiMonthly(kpiKey);
+      var _prevManual = _prev._manual_months || [];
+      _manualMonths.forEach(function(mo){ if(_prevManual.indexOf(mo)<0) _prevManual.push(mo); });
+      data._manual_months = _prevManual;
+    }
     await saveDkpiMonthlyData(kpiKey, data);
     // 수동 저장 후에도 차트 반영
     renderDigitalKpiCharts(state._lastKpis||[], state.tasks||[]);
@@ -8089,10 +8099,11 @@ async function saveDkpiSheet() {
 
 
 // ── 태스크 실적 → 디지털 KPI 월별 자동 동기화 ──
-// t.kpis.title 기반으로 매핑
+// 규칙: 태스크 실적은 해당 월 actual에만 반영. 수동 입력값은 절대 삭제하지 않음.
+// 수동 입력 여부는 _manual_months 플래그로 구분.
 var _DKPI_TITLE_MAP = {
-  'B2D-10': '데이터 기반 콘텐츠 마케팅',  // Engagement
-  'B2D-11': '소셜 광고 효율성 제고',        // Click
+  'B2D-10': '데이터 기반 콘텐츠 마케팅',
+  'B2D-11': '소셜 광고 효율성 제고',
 };
 
 async function syncTasksToDigitalKpi(tasks, kpis) {
@@ -8106,46 +8117,66 @@ async function syncTasksToDigitalKpi(tasks, kpis) {
       return t.kpis && t.kpis.title && t.kpis.title.includes(targetTitle);
     });
 
-    if (!relatedTasks.length) {
-      console.log('[Sync] 태스크 없음:', dkpiKey, targetTitle);
-      continue;
-    }
+    if (!relatedTasks.length) continue;
 
-    // 월별 progress 합산 (started_at 기준)
+    // 태스크 월별 progress 합산
     var byMonth = {};
     relatedTasks.forEach(function(t) {
       if (!t.progress || !t.started_at) return;
-      var mo = t.started_at.slice(0, 7); // '2026-06'
+      var mo = t.started_at.slice(0, 7);
       byMonth[mo] = (byMonth[mo] || 0) + Number(t.progress || 0);
     });
 
-    if (!Object.keys(byMonth).length) {
-      console.log('[Sync] 실적 데이터 없음:', dkpiKey, relatedTasks.length + '개 태스크');
-      continue;
-    }
+    if (!Object.keys(byMonth).length) continue;
 
-    // 기존 데이터 로드 후 actual만 업데이트 (target은 유지)
-    var monthly = {};
+    // Supabase에서 기존 데이터 로드
+    var existing = {};
     try {
       var { data } = await state.sb.from('kpi_monthly_data')
         .select('year_month,actual,target').eq('kpi_key', dkpiKey);
       (data||[]).forEach(function(r) {
-        monthly[r.year_month] = { actual: r.actual||0, target: r.target||0 };
+        existing[r.year_month] = { actual: r.actual||0, target: r.target||0 };
       });
     } catch(e) {
-      monthly = getDkpiMonthly(dkpiKey);
+      existing = getDkpiMonthly(dkpiKey);
     }
 
-    // 태스크 실적으로 actual 업데이트
+    // 태스크 실적이 있는 월만 upsert - 수동 입력값 보호
+    // _manual_months: 사용자가 직접 입력한 월 목록
+    var manualMonths = existing._manual_months || [];
+
+    var rowsToUpsert = [];
     Object.keys(byMonth).forEach(function(mo) {
-      if (!monthly[mo]) monthly[mo] = { actual: 0, target: 0 };
-      monthly[mo].actual = byMonth[mo];
+      // 수동 입력된 월은 건드리지 않음
+      if (manualMonths.indexOf(mo) >= 0) return;
+      rowsToUpsert.push({
+        kpi_key:    dkpiKey,
+        year_month: mo,
+        actual:     byMonth[mo],
+        target:     existing[mo] ? (existing[mo].target||0) : 0,
+        updated_at: new Date().toISOString()
+      });
     });
 
-    await saveDkpiMonthlyData(dkpiKey, monthly);
-    // 캐시 갱신
-    _dkpiMonthlyCache[dkpiKey] = monthly;
-    console.log('[Sync]', dkpiKey, '(' + targetTitle + ') 업데이트:', byMonth);
+    if (!rowsToUpsert.length) {
+      console.log('[Sync]', dkpiKey, '- 수동 입력 월만 있어 건너뜀');
+      continue;
+    }
+
+    try {
+      await state.sb.from('kpi_monthly_data')
+        .upsert(rowsToUpsert, { onConflict: 'kpi_key,year_month' });
+
+      // 캐시 갱신
+      rowsToUpsert.forEach(function(r) {
+        if (!existing[r.year_month]) existing[r.year_month] = {};
+        existing[r.year_month].actual = r.actual;
+      });
+      _dkpiMonthlyCache[dkpiKey] = existing;
+      console.log('[Sync]', dkpiKey, '업데이트:', rowsToUpsert.length + '개월');
+    } catch(e) {
+      console.error('[Sync] 저장 실패:', dkpiKey, e);
+    }
   }
 }
 
