@@ -8201,9 +8201,14 @@ async function renderDigitalKpiCharts(kpis, tasks) {
     return String(v);
   };
 
-  function drawKpiChart(canvasId, kpi) {
+  async function drawKpiChart(canvasId, kpi) {
     const ctx = document.getElementById(canvasId);
     if(!ctx || !kpi) return;
+
+    // 캐시에 데이터 없으면 Supabase에서 직접 로드
+    if(state.sb && kpi.kpi_key && !_dkpiMonthlyCache[kpi.kpi_key]) {
+      await loadDkpiFromSupabase(kpi.kpi_key);
+    }
 
     const isQ   = _dkpiView === 'quarter';
     const isCum = _dkpiView === 'cumulative';
@@ -8359,8 +8364,8 @@ async function renderDigitalKpiCharts(kpis, tasks) {
     });
   }
 
-  drawKpiChart('engagementChart', kpi10);
-  drawKpiChart('clickChart',      kpi11);
+  await drawKpiChart('engagementChart', kpi10);
+  await drawKpiChart('clickChart',      kpi11);
 }
 
 // ── Inline Add Task ──
