@@ -8351,7 +8351,6 @@ async function drawKpiChart(canvasId, kpi) {
   }
 
 async function renderDigitalKpiCharts(kpis, tasks) {
-  // Supabase에서 최신 KPI 월별 데이터 로드 후 렌더
   if (state.sb) {
     try {
       await Promise.all([
@@ -8362,27 +8361,10 @@ async function renderDigitalKpiCharts(kpis, tasks) {
   }
   const kpi10 = kpis.find(k=>k.kpi_key==='B2D-10');
   const kpi11 = kpis.find(k=>k.kpi_key==='B2D-11');
-
-  const parseResult = v => {
-    if(!v || v==='nan') return null;
-    const m = String(v).replace(/,/g,'').match(/[\d.]+/);
-    return m ? Number(m[0]) : null;
-  };
-
-  // 숫자 포맷: 1.2M / 340K / 1,234
-  const fmtLabel = v => {
-    if(v == null) return '';
-    if(v >= 1000000) return (v/1000000).toFixed(2).replace(/\.?0+$/, '') + 'M';
-    if(v >= 10000)   return (v/1000).toFixed(1).replace(/\.?0+$/, '') + 'K';
-    if(v >= 1000)    return v.toLocaleString('ko-KR');
-    return String(v);
-  };
-
-  
-
   await drawKpiChart('engagementChart', kpi10);
   await drawKpiChart('clickChart',      kpi11);
 }
+
 
 // ── Inline Add Task ──
 function openInlineAdd(kpiId) {
