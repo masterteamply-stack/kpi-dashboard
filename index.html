@@ -8173,7 +8173,16 @@ async function syncTasksToDigitalKpi(tasks, kpis) {
 }
 
 
-function renderDigitalKpiCharts(kpis, tasks) {
+async function renderDigitalKpiCharts(kpis, tasks) {
+  // Supabase에서 최신 KPI 월별 데이터 로드 후 렌더
+  if (state.sb) {
+    try {
+      await Promise.all([
+        loadDkpiFromSupabase('B2D-10'),
+        loadDkpiFromSupabase('B2D-11'),
+      ]);
+    } catch(e) {}
+  }
   const kpi10 = kpis.find(k=>k.kpi_key==='B2D-10');
   const kpi11 = kpis.find(k=>k.kpi_key==='B2D-11');
 
