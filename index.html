@@ -7820,16 +7820,7 @@ function toggleDkpiSheet() {
   if(!sheet) return;
   const isOpen = sheet.style.display !== 'none';
   sheet.style.display = isOpen ? 'none' : 'block';
-  if(!isOpen) {
-    // Supabase에서 최신 데이터 로드 후 렌더
-    if (state.sb) {
-      loadDkpiFromSupabase(_dkpiSheetKpi).then(function() {
-        renderDkpiSheetBody(_dkpiSheetKpi);
-      });
-    } else {
-      renderDkpiSheetBody(_dkpiSheetKpi);
-    }
-  }
+  if(!isOpen) renderDkpiSheetBody(_dkpiSheetKpi);
 }
 
 function switchDkpiSheet(kpiKey) {
@@ -7857,13 +7848,7 @@ function switchDkpiSheet(kpiKey) {
         + '</tr>';
     }
   }
-  if (state.sb) {
-    loadDkpiFromSupabase(kpiKey).then(function() {
-      renderDkpiSheetBody(kpiKey);
-    });
-  } else {
-    renderDkpiSheetBody(kpiKey);
-  }
+  renderDkpiSheetBody(kpiKey);
 }
 
 async function renderDkpiSheetBody(kpiKey) {
