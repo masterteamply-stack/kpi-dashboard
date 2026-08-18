@@ -8349,6 +8349,8 @@ async function drawKpiChart(canvasId, kpi) {
       }
     });
   }
+window.drawKpiChart = drawKpiChart;
+
 
 async function renderDigitalKpiCharts(kpis, tasks) {
   if (state.sb) {
@@ -8364,6 +8366,8 @@ async function renderDigitalKpiCharts(kpis, tasks) {
   await drawKpiChart('engagementChart', kpi10);
   await drawKpiChart('clickChart',      kpi11);
 }
+window.renderDigitalKpiCharts = renderDigitalKpiCharts;
+
 
 
 // ── Inline Add Task ──
