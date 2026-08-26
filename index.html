@@ -12120,12 +12120,21 @@ function renderRegionOrderBarChart() {
     id:'roLbl',
     afterDatasetsDraw: function(chart) {
       var c2=chart.ctx; c2.save();
-      c2.font='bold 8px sans-serif'; c2.textAlign='center'; c2.textBaseline='bottom'; c2.fillStyle='#3d3830';
+      c2.textAlign='center'; c2.textBaseline='bottom';
       var n = regions.length;
       if(!n) return;
       chart.getDatasetMeta(0).data.forEach(function(bar,i) {
         var sum=regions.reduce(function(s,r,di){ return s+(chart.data.datasets[di].data[i]||0); },0);
-        if(sum>0) c2.fillText(fmtU(sum), bar.x, bar.y-2);
+        if(!sum) return;
+        var txt=fmtU(sum);
+        c2.font='bold 8.5px sans-serif';
+        var tw=c2.measureText(txt).width;
+        // 배경 박스
+        c2.fillStyle='rgba(255,255,255,0.82)';
+        c2.fillRect(bar.x-tw/2-2, bar.y-14, tw+4, 12);
+        // 텍스트
+        c2.fillStyle='#3d3830';
+        c2.fillText(txt, bar.x, bar.y-3);
       });
       c2.restore();
     }
@@ -12137,7 +12146,7 @@ function renderRegionOrderBarChart() {
     plugins:[lp],
     options:{
       responsive:true,
-      layout:{padding:{top:16}},
+      layout:{padding:{top:22, left:2, right:2}},
       plugins:{
         legend:{display:true,position:'bottom',labels:{boxWidth:9,font:{size:8},padding:5,color:'#6b6259'}},
         tooltip:{callbacks:{label:function(c){
