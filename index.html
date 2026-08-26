@@ -3122,7 +3122,7 @@ function renderSummary(s) {
   h += '<a href="https://masterteamply-stack.github.io/choicekit-dashboard/" target="_blank" style="font-size:9px;background:#f0ede6;border:1px solid #dedad2;border-radius:3px;padding:1px 6px;color:#6b6259;text-decoration:none">상세 분석 →</a>';
   h += '</div>';
   // Choice Kit 달성률: marketing.csv 합산 목표 $9,199,141
-  var _CK_TARGET_USD = 9199141;
+  var _CK_TARGET_USD = 3875141;
   var _ckRate = null, _ckCol = '#8a8278';
   (function(){
     var total = state.choiceKitOrder && state.choiceKitOrder.total ? state.choiceKitOrder.total : 0;
@@ -12116,7 +12116,7 @@ function renderRegionOrderBarChart() {
     tension:0.3, order:0
   };
   var fmtU=function(v){return v>=1000000?'$'+(v/1000000).toFixed(1)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+Math.round(v);};
-  var _CK_ANN_TARGET = 9199141;
+  var _CK_ANN_TARGET = 3875141;
   // 월별 누적합 미리 계산
   var _cumArr = ms.reduce(function(acc,mo){ acc.push((acc.length?acc[acc.length-1]:0)+(monthly[mo]||0)); return acc; },[]);
   var lp = {
@@ -12178,8 +12178,8 @@ function renderRegionOrderBarChart() {
 
 // Choice Kit 지역별 오더 목표 (marketing.csv 합산, $USD)
 var CK_TARGET_BY_REGION = {
-  ASIA: 6000000, NA: 1185141, CIS: 1000000,
-  MENA: 420000, GLOBAL: 320000, LATAM: 200000, OCEANIA: 74000
+  NA: 1185141, CIS: 1000000, LATAM: 1000000,
+  MENA: 420000, KOREA: 270000, ASIA: 0, OCEANIA: 0
 };
 
 
