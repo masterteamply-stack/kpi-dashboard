@@ -12116,6 +12116,9 @@ function renderRegionOrderBarChart() {
     tension:0.3, order:0
   };
   var fmtU=function(v){return v>=1000000?'$'+(v/1000000).toFixed(1)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+Math.round(v);};
+  var _CK_ANN_TARGET = 9199141;
+  // 월별 누적합 미리 계산
+  var _cumArr = ms.reduce(function(acc,mo){ acc.push((acc.length?acc[acc.length-1]:0)+(monthly[mo]||0)); return acc; },[]);
   var lp = {
     id:'roLbl',
     afterDatasetsDraw: function(chart) {
@@ -12126,15 +12129,24 @@ function renderRegionOrderBarChart() {
       chart.getDatasetMeta(0).data.forEach(function(bar,i) {
         var sum=regions.reduce(function(s,r,di){ return s+(chart.data.datasets[di].data[i]||0); },0);
         if(!sum) return;
+        var cumPct = _CK_ANN_TARGET>0 ? Math.round(_cumArr[i]/_CK_ANN_TARGET*100) : 0;
         var txt=fmtU(sum);
+        var pct=cumPct+'%▲';
         c2.font='bold 8.5px sans-serif';
         var tw=c2.measureText(txt).width;
-        // 배경 박스
-        c2.fillStyle='rgba(255,255,255,0.82)';
-        c2.fillRect(bar.x-tw/2-2, bar.y-14, tw+4, 12);
-        // 텍스트
+        var pw=c2.measureText(pct).width;
+        var boxW=Math.max(tw,pw)+6;
+        var barX=bar.x, barY=bar.y;
+        // 배경 박스 (2줄)
+        c2.fillStyle='rgba(255,255,255,0.88)';
+        c2.fillRect(barX-boxW/2, barY-28, boxW, 26);
+        // 금액 (위)
         c2.fillStyle='#3d3830';
-        c2.fillText(txt, bar.x, bar.y-3);
+        c2.fillText(txt, barX, barY-15);
+        // 달성률 (아래, 색상 구분)
+        c2.font='bold 8px sans-serif';
+        c2.fillStyle = cumPct>=100?'#5c6b4a':cumPct>=70?'#b87a30':'#a04040';
+        c2.fillText(pct, barX, barY-4);
       });
       c2.restore();
     }
@@ -12146,7 +12158,7 @@ function renderRegionOrderBarChart() {
     plugins:[lp],
     options:{
       responsive:true,
-      layout:{padding:{top:22, left:2, right:2}},
+      layout:{padding:{top:32, left:2, right:2}},
       plugins:{
         legend:{display:true,position:'bottom',labels:{boxWidth:9,font:{size:8},padding:5,color:'#6b6259'}},
         tooltip:{callbacks:{label:function(c){
