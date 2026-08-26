@@ -7882,7 +7882,7 @@ async function renderDkpiSheetBody(kpiKey) {
   const _achvRate = (_sumActual>0 && _sumTarget>0) ? Math.round(_sumActual/_sumTarget*100) : null;
   const _achvColor= _achvRate===null?'#8a8278':_achvRate>=100?'#2a7c2a':_achvRate>=70?'#c17f3a':'#c0392b';
   const _moLabel  = _lastMo ? parseInt(_lastMo.split('-')[1])+'월' : '–';
-  const _fmtN     = v => v>=1000000?(v/1000000).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'K':String(Math.round(v));
+  const _fmtN     = v => v==null?'–':Math.round(v).toLocaleString('ko-KR');
 
   const _bannerEl = document.createElement('div');
   _bannerEl.style.cssText = 'display:flex;gap:12px;align-items:stretch;margin-bottom:12px;padding:10px 14px;background:#f0ede6;border-radius:8px;flex-wrap:wrap';
