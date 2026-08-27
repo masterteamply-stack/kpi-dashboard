@@ -12147,16 +12147,18 @@ function renderRegionOrderBarChart() {
   if(_mBar) {
     var _CK_ANN_T = 3875141;
     var _cumT = 0;
+    var _nf = function(n){ return new Intl.NumberFormat('en-US').format(Math.round(n)); };
     _mBar.innerHTML = ms.map(function(mo) {
       var v = monthly[mo]||0;
       _cumT += v;
       var pct = _CK_ANN_T>0 ? Math.round(_cumT/_CK_ANN_T*100) : 0;
       var mm = parseInt(mo.split('-')[1])+'월';
       var pctColor = pct>=100?'#5c6b4a':pct>=70?'#b87a30':'#a04040';
-      return '<div style="flex:1;min-width:56px;background:#f5f2ed;border-radius:6px;padding:5px 4px;text-align:center;border:1px solid #ece9e2">'
-        +'<div style="font-size:9px;color:#8a8278;font-weight:600;margin-bottom:2px">'+mm+'</div>'
-        +'<div style="font-size:13px;font-weight:800;color:#1a1714;line-height:1.1">$'+new Intl.NumberFormat('en-US').format(Math.round(v))+'</div>'
-        +'<div style="font-size:10px;font-weight:700;color:'+pctColor+';margin-top:2px">'+pct+'%▲</div>'
+      return '<div style="flex:1;min-width:72px;background:#f5f2ed;border-radius:6px;padding:6px 5px;text-align:center;border:1px solid #ece9e2">'
+        +'<div style="font-size:9px;color:#8a8278;font-weight:600;margin-bottom:3px">'+mm+'</div>'
+        +'<div style="font-size:12px;font-weight:800;color:#1a1714;line-height:1.2">$'+_nf(v)+'</div>'
+        +'<div style="font-size:9px;color:#a09888;margin-top:2px;margin-bottom:2px">누적 $'+_nf(_cumT)+'</div>'
+        +'<div style="font-size:10px;font-weight:700;color:'+pctColor+'">'+pct+'%▲</div>'
         +'</div>';
     }).join('');
   }
