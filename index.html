@@ -2605,7 +2605,7 @@ function renderKPICards(s) {
         var _pctStr = _prvTot > 0 ? (_diff >= 0 ? ' +' : ' ') + (_diff/_prvTot*100).toFixed(1) + '%' : '';
         var _mo = _now.getMonth()+1;
         // sub를 window에 임시 저장해 value와 공유
-        window._mlCardSub = (_prvTot > 0 ? '지난달 '+fmtNum(_prvTot)+' · ' : '') + _mo+'월 '+fmtNum(_curTot)+' ('+_diffStr+_pctStr+')';
+        window._mlCardSub = _mo+'월 '+fmtNum(_curTot)+(_prvTot > 0 ? ', 지난달 '+fmtNum(_prvTot)+' ('+_diffStr+_pctStr+')' : '');
         return fmtNum(_ml.total);  // 하단과 동일한 total
       })(),
       sub: (function(){
