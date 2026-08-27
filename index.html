@@ -3218,34 +3218,6 @@ function renderSummary(s) {
   h += richCard('Click', 'B2D-11', '#7a6010', clkVal);
   h += '</div>';
 
-  // 4-1. Marketing Asset Library Downloads
-  var _assetD = (function(){
-    try {
-      var d = JSON.parse(localStorage.getItem('dkpi_monthly_asset_download')||'{}');
-      var keys = Object.keys(d).sort();
-      if(!keys.length) return null;
-      // 가장 최근 누적 값
-      var lastKey = keys[keys.length-1];
-      return d[lastKey].accumulated || 0;
-    } catch(e){ return null; }
-  })();
-  var _assetNet = (function(){
-    try {
-      var d = JSON.parse(localStorage.getItem('dkpi_monthly_asset_download')||'{}');
-      var keys = Object.keys(d).sort();
-      if(!keys.length) return {mo:0, moNum:0};
-      var lastKey = keys[keys.length-1];
-      return { mo: d[lastKey].actual||0, moNum: parseInt(lastKey.split('-')[1]) };
-    } catch(e){ return {mo:0, moNum:0}; }
-  })();
-  h += '<div style="background:#f5f2ed;border-radius:6px;padding:8px 10px">'
-     + '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:3px">Asset Downloads &#8217;26 YTD</div>'
-     + '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:3px">'
-     + '<span style="font-size:17px;font-weight:800;color:#5a3a7c;line-height:1">' + (_assetD!==null ? (_assetD>=1000000?(_assetD/1000000).toFixed(2)+'M':_assetD>=1000?(_assetD/1000).toFixed(0)+'K':String(_assetD)) : '\u2013') + '</span>'
-     + '</div>'
-     + (_assetNet.mo>0 ? '<div style="font-size:10px;color:#8a8278">' + _assetNet.moNum + '\uc6d4 <b style="color:#5a3a7c">+' + _assetNet.mo.toLocaleString() + '</b></div>' : '')
-     + '</div>';
-
   // 5. 완료율 · 지연 · ROI
   h += '<div style="font-size:11px;color:#6b6259;line-height:1.8;padding-top:2px">';
   h += '완료율 <strong style="color:var(--green)">' + fmtPct(s.compRate) + '</strong>';
