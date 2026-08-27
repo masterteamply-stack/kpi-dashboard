@@ -1578,6 +1578,7 @@ document.addEventListener('DOMContentLoaded', function() {
               <div id="regionOrderSub" style="font-size:9px;color:#8a8278"></div>
             </div>
           </div>
+          <div id="regionOrderMonthlyBar" style="display:flex;gap:4px;margin-bottom:8px;overflow-x:auto;padding-bottom:2px"></div>
           <canvas id="regionOrderChart" height="54" style="width:100%;display:block"></canvas>
         </div>
       </div>
@@ -12129,30 +12130,37 @@ function renderRegionOrderBarChart() {
       chart.getDatasetMeta(0).data.forEach(function(bar,i) {
         var sum=regions.reduce(function(s,r,di){ return s+(chart.data.datasets[di].data[i]||0); },0);
         if(!sum) return;
-        var cumPct = _CK_ANN_TARGET>0 ? Math.round(_cumArr[i]/_CK_ANN_TARGET*100) : 0;
-        var txt='$'+new Intl.NumberFormat('en-US').format(Math.round(sum));
-        var pct=cumPct+'%▲';
-        c2.font='bold 10px sans-serif';
+        var txt=fmtU(sum);
+        c2.font='bold 8px sans-serif';
         var tw=c2.measureText(txt).width;
-        c2.font='bold 8px sans-serif';
-        var pw=c2.measureText(pct).width;
-        var boxW=Math.max(tw,pw)+8;
         var barX=bar.x, barY=bar.y;
-        // 배경 박스 (2줄)
-        c2.fillStyle='rgba(255,255,255,0.9)';
-        c2.fillRect(barX-boxW/2, barY-30, boxW, 28);
-        // 금액 (위, 크게)
-        c2.font='bold 10px sans-serif';
-        c2.fillStyle='#1a1714';
-        c2.fillText(txt, barX, barY-16);
-        // 달성률 (아래, 색상 구분)
-        c2.font='bold 8px sans-serif';
-        c2.fillStyle = cumPct>=100?'#5c6b4a':cumPct>=70?'#b87a30':'#a04040';
-        c2.fillText(pct, barX, barY-4);
+        c2.fillStyle='rgba(255,255,255,0.82)';
+        c2.fillRect(barX-tw/2-2, barY-13, tw+4, 11);
+        c2.fillStyle='#5a5248';
+        c2.fillText(txt, barX, barY-3);
       });
       c2.restore();
     }
   };
+  // 최상단 월별 수치 배너
+  var _mBar = document.getElementById('regionOrderMonthlyBar');
+  if(_mBar) {
+    var _CK_ANN_T = 3875141;
+    var _cumT = 0;
+    _mBar.innerHTML = ms.map(function(mo) {
+      var v = monthly[mo]||0;
+      _cumT += v;
+      var pct = _CK_ANN_T>0 ? Math.round(_cumT/_CK_ANN_T*100) : 0;
+      var mm = parseInt(mo.split('-')[1])+'월';
+      var pctColor = pct>=100?'#5c6b4a':pct>=70?'#b87a30':'#a04040';
+      return '<div style="flex:1;min-width:56px;background:#f5f2ed;border-radius:6px;padding:5px 4px;text-align:center;border:1px solid #ece9e2">'
+        +'<div style="font-size:9px;color:#8a8278;font-weight:600;margin-bottom:2px">'+mm+'</div>'
+        +'<div style="font-size:13px;font-weight:800;color:#1a1714;line-height:1.1">$'+new Intl.NumberFormat('en-US').format(Math.round(v))+'</div>'
+        +'<div style="font-size:10px;font-weight:700;color:'+pctColor+';margin-top:2px">'+pct+'%▲</div>'
+        +'</div>';
+    }).join('');
+  }
+
   if(window._regionOrderChart){try{window._regionOrderChart.destroy();}catch(e){}}
   window._regionOrderChart=new Chart(ctx,{
     type:'bar',
@@ -12160,7 +12168,7 @@ function renderRegionOrderBarChart() {
     plugins:[lp],
     options:{
       responsive:true,
-      layout:{padding:{top:38, left:2, right:2}},
+      layout:{padding:{top:16, left:2, right:2}},
       plugins:{
         legend:{display:true,position:'bottom',labels:{boxWidth:9,font:{size:8},padding:5,color:'#6b6259'}},
         tooltip:{callbacks:{label:function(c){
