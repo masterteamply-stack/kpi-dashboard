@@ -3033,19 +3033,21 @@ function renderSummary(s) {
     var dc    = diff===null?'#8a8278':diff>=0?'#2a7c2a':'#c0392b';
     var dStr  = diff===null ? '' : (diff>=0?'\u25b2':'\u25bc')+fN(Math.abs(diff))+'('+(diffP>=0?'+':'')+diffP+'%)';
 
-    var disp = isSub
-      ? (subTotalAct>0 ? fN(subTotalAct) : '\u2013')
-      : (allAct>0 ? fN(allAct) : (fallbackVal!=null ? fN(fallbackVal) : '\u2013'));
-
-    // 상단 뱃지: 구독자 = 전체 % 증가 / 일반 = 목표 달성률
     var subGrowthColor = subGrowthPct===null?'#8a8278':subGrowthPct>=0?'#2a7c2a':'#c0392b';
     var subGrowthStr = subGrowthPct!==null
       ? (subGrowthPct>=0?'+':'')+subGrowthPct.toFixed(2)+'%'
       : null;
+
+    // 구독자: value = "1.42M+2.19%" 한 줄 / 일반: value = 숫자
+    var disp = isSub
+      ? (subTotalAct>0
+          ? fN(subTotalAct) + (subGrowthStr ? '<span style="font-size:12px;font-weight:700;color:'+subGrowthColor+'">'+subGrowthStr+'</span>' : '')
+          : '\u2013')
+      : (allAct>0 ? fN(allAct) : (fallbackVal!=null ? fN(fallbackVal) : '\u2013'));
+
+    // 상단 뱃지: 구독자는 value에 포함했으므로 생략 / 일반 = 목표 달성률
     var topBadge = isSub
-      ? (subGrowthStr
-          ? '<span style="font-size:11px;font-weight:700;color:'+subGrowthColor+'">'+subGrowthStr+'</span>'
-          : '')
+      ? ''
       : (allRate!==null
           ? '<span style="font-size:11px;font-weight:700;color:'+arc+'">'+allRate+'%</span>'
           : '');
@@ -3062,9 +3064,7 @@ function renderSummary(s) {
 
     var bottomLine = isSub
       ? (subNetStr
-          ? '<div style="font-size:10px;color:#6b6259;display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
-            + '<span style="font-weight:600;color:'+subNetColor+'">'+subNetStr+'</span>'
-            + '</div>'
+          ? '<div style="font-size:10px;font-weight:600;color:'+subNetColor+'">'+subNetStr+'</div>'
           : '')
       : (moNum
           ? '<div style="font-size:10px;color:#6b6259;display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
