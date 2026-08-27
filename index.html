@@ -3088,16 +3088,18 @@ function renderSummary(s) {
   const _revTotalDisp = s.revenue > 0
     ? '$' + new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:2}).format(s.revenue)
     : null;
-  const _thisMonthRevUSD = (() => {
+  const [_thisMonthRevUSD, _thisMonthLabel] = (() => {
     try {
       const rev = JSON.parse(localStorage.getItem('revenue_monthly_total')||'{}');
       const sorted = Object.keys(rev).sort();
-      if(!sorted.length) return 0;
-      return Number(rev[sorted[sorted.length-1]]||0);
-    } catch(e){return 0;}
+      if(!sorted.length) return [0, ''];
+      const lastKey = sorted[sorted.length-1];
+      const mo = parseInt((lastKey||'').split('-')[1]||'0');
+      return [Number(rev[lastKey]||0), mo ? mo+'월' : ''];
+    } catch(e){return [0, ''];}
   })();
   const _thisMonthDisp = _thisMonthRevUSD > 0
-    ? '이번달 $' + new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:2}).format(_thisMonthRevUSD)
+    ? _thisMonthLabel + ' $' + new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:2}).format(_thisMonthRevUSD)
     : null;
   let h = '<div style="display:grid;gap:8px">';
 
@@ -3166,7 +3168,7 @@ function renderSummary(s) {
   h += '<a href="https://sheissweet79.github.io/CTR-WebLead/" target="_blank" style="font-size:7px;background:#d8ead8;border:1px solid #b0c8b0;border-radius:2px;padding:1px 4px;color:#5c6b4a;text-decoration:none">분석↗</a>';
   h += '</div>';
   h += '<div style="font-size:13px;font-weight:800;color:#5c6b4a">' + fmtNum(ml.totalCh) + '</div>';
-  h += '<div style="font-size:9px;color:#8a8278">이번달 ' + fmtNum(_thisCh) + '</div></div>';
+  h += '<div style="font-size:9px;color:#8a8278">' + (_thisMonthLabel||'이번달') + ' ' + fmtNum(_thisCh) + '</div></div>';
   // O2O 리드
   h += '<div style="background:#fff8e8;border-radius:4px;padding:3px 5px">';
   h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1px">';
@@ -3174,7 +3176,7 @@ function renderSummary(s) {
   h += '<button onclick="showO2ODetail()" style="font-size:7px;background:#fff0c0;border:1px solid #e6c84a;border-radius:2px;padding:1px 4px;color:#7a6010;cursor:pointer">분석↗</button>';
   h += '</div>';
   h += '<div style="font-size:13px;font-weight:800;color:#7a6010">' + fmtNum(ml.totalO2o) + '</div>';
-  h += '<div style="font-size:9px;color:#8a8278">이번달 ' + fmtNum(_thisO2o) + '</div></div>';
+  h += '<div style="font-size:9px;color:#8a8278">' + (_thisMonthLabel||'이번달') + ' ' + fmtNum(_thisO2o) + '</div></div>';
   // Survey 리드
   h += '<div style="background:#eef0f8;border-radius:4px;padding:3px 5px">';
   h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1px">';
