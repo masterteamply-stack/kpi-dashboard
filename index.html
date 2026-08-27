@@ -12130,19 +12130,21 @@ function renderRegionOrderBarChart() {
         var sum=regions.reduce(function(s,r,di){ return s+(chart.data.datasets[di].data[i]||0); },0);
         if(!sum) return;
         var cumPct = _CK_ANN_TARGET>0 ? Math.round(_cumArr[i]/_CK_ANN_TARGET*100) : 0;
-        var txt=fmtU(sum);
+        var txt='$'+new Intl.NumberFormat('en-US').format(Math.round(sum));
         var pct=cumPct+'%▲';
-        c2.font='bold 8.5px sans-serif';
+        c2.font='bold 10px sans-serif';
         var tw=c2.measureText(txt).width;
+        c2.font='bold 8px sans-serif';
         var pw=c2.measureText(pct).width;
-        var boxW=Math.max(tw,pw)+6;
+        var boxW=Math.max(tw,pw)+8;
         var barX=bar.x, barY=bar.y;
         // 배경 박스 (2줄)
-        c2.fillStyle='rgba(255,255,255,0.88)';
-        c2.fillRect(barX-boxW/2, barY-28, boxW, 26);
-        // 금액 (위)
-        c2.fillStyle='#3d3830';
-        c2.fillText(txt, barX, barY-15);
+        c2.fillStyle='rgba(255,255,255,0.9)';
+        c2.fillRect(barX-boxW/2, barY-30, boxW, 28);
+        // 금액 (위, 크게)
+        c2.font='bold 10px sans-serif';
+        c2.fillStyle='#1a1714';
+        c2.fillText(txt, barX, barY-16);
         // 달성률 (아래, 색상 구분)
         c2.font='bold 8px sans-serif';
         c2.fillStyle = cumPct>=100?'#5c6b4a':cumPct>=70?'#b87a30':'#a04040';
@@ -12158,7 +12160,7 @@ function renderRegionOrderBarChart() {
     plugins:[lp],
     options:{
       responsive:true,
-      layout:{padding:{top:32, left:2, right:2}},
+      layout:{padding:{top:38, left:2, right:2}},
       plugins:{
         legend:{display:true,position:'bottom',labels:{boxWidth:9,font:{size:8},padding:5,color:'#6b6259'}},
         tooltip:{callbacks:{label:function(c){
