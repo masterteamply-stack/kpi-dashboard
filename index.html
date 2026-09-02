@@ -7981,7 +7981,7 @@ async function renderDkpiSheetBody(kpiKey) {
   months.forEach(mm => {
     const key = '2026-' + mm;
     const val = data[key]?.target ?? '';
-    tRow += `<td style="padding:4px 4px;text-align:right"><input type="number" min="0" data-kpi="${kpiKey}" data-month="${key}" data-type="target" value="${val}" style="width:70px;text-align:right;border:1px solid #e0dbd2;border-radius:3px;padding:3px 5px;font-size:11px;font-family:var(--font-body);background:#fdfcf9"/></td>`;
+    tRow += `<td style="padding:4px 4px;text-align:right"><input type="number" min="0" data-kpi="${kpiKey}" data-month="${key}" data-type="target" value="${val}" style="width:60px;text-align:right;border:1px solid #e0dbd2;border-radius:3px;padding:2px 4px;font-size:11px;font-family:var(--font-body);background:#fdfcf9"/></td>`;
   });
   tRow += '</tr>';
   let rRow = '<tr>';
@@ -7989,24 +7989,24 @@ async function renderDkpiSheetBody(kpiKey) {
   months.forEach(mm => {
     const key = '2026-' + mm;
     const val = data[key]?.actual ?? data[key]?.result ?? '';
-    rRow += `<td style="padding:4px 4px;text-align:right"><input type="number" min="0" data-kpi="${kpiKey}" data-month="${key}" data-type="result" value="${val}" style="width:70px;text-align:right;border:1px solid #e0dbd2;border-radius:3px;padding:3px 5px;font-size:11px;font-family:var(--font-body);background:#fdfcf9"/></td>`;
+    rRow += `<td style="padding:4px 4px;text-align:right"><input type="number" min="0" data-kpi="${kpiKey}" data-month="${key}" data-type="result" value="${val}" style="width:60px;text-align:right;border:1px solid #e0dbd2;border-radius:3px;padding:2px 4px;font-size:11px;font-family:var(--font-body);background:#fdfcf9"/></td>`;
   });
   rRow += '</tr>';
 
   // 달성률 행
   let achRow = '<tr style="background:#f8f6f2;border-bottom:1px solid #e8e4dc">';
-  achRow += '<td style="padding:5px 10px;font-size:10px;font-weight:700;color:#8a8278;white-space:nowrap">달성률</td>';
+  achRow += '<td style="padding:3px 10px;font-size:10px;font-weight:700;color:#8a8278;white-space:nowrap">달성률</td>';
   months.forEach(mm => {
     const key = '2026-' + mm;
     const tgt = Number(data[key]?.target||0);
     const act = Number(data[key]?.actual ?? data[key]?.result ?? 0);
-    let pctHtml = '<td style="padding:4px 4px;text-align:center;font-size:11px">';
+    let pctHtml = '<td style="padding:2px 4px;text-align:center">';
     if(tgt > 0 && act > 0) {
       const pct = Math.round(act/tgt*100);
       const col = pct>=100?'#2a7c2a':pct>=70?'#c17f3a':'#c0392b';
-      pctHtml += `<span style="font-weight:700;color:${col}">${pct}%</span>`;
+      pctHtml += `<span style="font-size:11px;font-weight:800;color:${col}">${pct}%</span>`;
     } else {
-      pctHtml += '<span style="color:#c8c4bc">–</span>';
+      pctHtml += '<span style="font-size:11px;color:#d0ccc4">–</span>';
     }
     pctHtml += '</td>';
     achRow += pctHtml;
@@ -8016,11 +8016,11 @@ async function renderDkpiSheetBody(kpiKey) {
   // 평가 입력 행
   const _notes = getDkpiMonthly(kpiKey + '_notes') || {};
   let noteRow = '<tr style="border-bottom:2px solid #dedad2">';
-  noteRow += '<td style="padding:5px 10px;font-size:10px;font-weight:700;color:#8a8278;white-space:nowrap">평가</td>';
+  noteRow += '<td style="padding:3px 10px;font-size:10px;font-weight:700;color:#8a8278;white-space:nowrap">평가</td>';
   months.forEach(mm => {
     const key = '2026-' + mm;
     const note = (_notes[key]||'').replace(/"/g,'&quot;');
-    noteRow += `<td style="padding:3px 4px"><textarea data-kpi="${kpiKey}" data-month="${key}" data-type="note" placeholder="평가 입력" style="width:70px;height:36px;resize:none;border:1px solid #e0dbd2;border-radius:3px;padding:2px 4px;font-size:9px;font-family:var(--font-body);background:#fffdf9;color:#3d3830;line-height:1.3">${note}</textarea></td>`;
+    noteRow += `<td style="padding:2px 3px"><input type="text" data-kpi="${kpiKey}" data-month="${key}" data-type="note" placeholder="평가" value="${note}" style="width:60px;border:1px solid #e0dbd2;border-radius:3px;padding:2px 4px;font-size:9px;font-family:var(--font-body);background:#fffdf9;color:#3d3830"/></td>`;
   });
   noteRow += '</tr>';
 
@@ -8090,7 +8090,7 @@ async function saveDkpiSheet() {
     });
     // 평가(note) 저장
     const _noteData = getDkpiMonthly(kpiKey + '_notes') || {};
-    document.querySelectorAll('#dkpiSheetBody textarea[data-type="note"]').forEach(ta => {
+    document.querySelectorAll('#dkpiSheetBody input[data-type="note"]').forEach(ta => {
       const month=ta.dataset.month, val=ta.value.trim();
       if(!month) return;
       _noteData[month] = val;
