@@ -7813,6 +7813,35 @@ function toggleDkpiSheet() {
   if(!isOpen) renderDkpiSheetBody(_dkpiSheetKpi);
 }
 
+// ── 평가 확대 모달 ──
+var _noteModalTarget = null; // 현재 편집 중인 textarea 참조
+function openNoteModal(ta, moLabel) {
+  _noteModalTarget = ta;
+  document.getElementById('noteModalLabel').textContent = moLabel + ' 성과 평가';
+  document.getElementById('noteModalText').value = ta.value;
+  const modal = document.getElementById('noteModal');
+  modal.style.display = 'flex';
+  setTimeout(function(){ document.getElementById('noteModalText').focus(); }, 100);
+}
+function closeNoteModal() {
+  document.getElementById('noteModal').style.display = 'none';
+  _noteModalTarget = null;
+}
+function saveNoteModal() {
+  const val = document.getElementById('noteModalText').value;
+  if(_noteModalTarget) {
+    _noteModalTarget.value = val;
+    // 실시간 스타일 반영
+    _noteModalTarget.style.borderColor = val.trim() ? '#c4a86a' : '#e0dbd2';
+    _noteModalTarget.style.background  = val.trim() ? '#fff8ec' : '#fffdf9';
+  }
+  closeNoteModal();
+}
+// ESC 닫기
+document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeNoteModal(); });
+// 모달 배경 클릭 닫기
+document.getElementById('noteModal')?.addEventListener('click', function(e){ if(e.target===this) closeNoteModal(); });
+
 function copyDkpiSheetLink() {
   const kpiMap = {
     'B2D-10': 'engagement',
@@ -8072,11 +8101,18 @@ async function renderDkpiSheetBody(kpiKey) {
     const _hasMoNote = note.trim().length > 0;
     const _inputBg  = _hasMoNote ? '#fff8ec' : '#fffdf9';
     const _inputBor = _hasMoNote ? '#c4a86a' : '#e0dbd2';
+    const _moLabelFull = parseInt(mm)+'월';
+    const _taId = `note_${kpiKey}_${mm}`;
     noteBody += `<td style="padding:3px 3px;vertical-align:top">
-      <textarea data-kpi="${kpiKey}" data-month="${key}" data-type="note"
-        placeholder="평가 입력"
-        oninput="this.style.borderColor=this.value.trim()?'#c4a86a':'#e0dbd2';this.style.background=this.value.trim()?'#fff8ec':'#fffdf9'"
-        style="width:62px;height:54px;resize:none;border:1px solid ${_inputBor};border-radius:4px;padding:3px 5px;font-size:10px;font-family:var(--font-body);background:${_inputBg};color:#2a2018;line-height:1.4">${note}</textarea>
+      <div style="position:relative;display:inline-block">
+        <textarea id="${_taId}" data-kpi="${kpiKey}" data-month="${key}" data-type="note"
+          placeholder="입력"
+          oninput="this.style.borderColor=this.value.trim()?'#c4a86a':'#e0dbd2';this.style.background=this.value.trim()?'#fff8ec':'#fffdf9'"
+          style="width:62px;height:54px;resize:none;border:1px solid ${_inputBor};border-radius:4px;padding:3px 5px 14px;font-size:10px;font-family:var(--font-body);background:${_inputBg};color:#2a2018;line-height:1.4">${note}</textarea>
+        <button onclick="openNoteModal(document.getElementById('${_taId}'),'${_moLabelFull}')"
+          title="${_moLabelFull} 확대 편집"
+          style="position:absolute;bottom:2px;right:2px;background:rgba(200,190,170,0.7);border:none;border-radius:3px;font-size:9px;cursor:pointer;padding:1px 4px;color:#5a4a38;line-height:1.4">↗</button>
+      </div>
     </td>`;
   });
   noteBody += '</tr></tbody>';
@@ -12315,6 +12351,29 @@ var CK_TARGET_BY_REGION = {
 
 </script>
 
+
+<!-- 평가 확대 편집 모달 -->
+<div id="noteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;width:min(560px,92vw);max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.22);overflow:hidden">
+    <div style="background:#f5f2ed;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e4e0d8">
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#8a8278;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px">평가 및 개선 방향</div>
+        <div id="noteModalLabel" style="font-size:15px;font-weight:800;color:#1a1714"></div>
+      </div>
+      <button onclick="closeNoteModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#8a8278;line-height:1;padding:0 4px">✕</button>
+    </div>
+    <div style="padding:16px 18px;flex:1;overflow-y:auto">
+      <textarea id="noteModalText"
+        placeholder="이 월의 성과 평가 및 개선 방향을 입력하세요..."
+        style="width:100%;height:200px;resize:vertical;border:1px solid #d4cec5;border-radius:8px;padding:12px 14px;font-size:13px;font-family:var(--font-body);color:#2a2018;line-height:1.7;background:#fffdf9;box-sizing:border-box"></textarea>
+      <div style="margin-top:8px;font-size:10px;color:#b0a898">저장 후 데이터 입력 시트의 저장 버튼을 눌러 차트에 반영하세요.</div>
+    </div>
+    <div style="padding:12px 18px;border-top:1px solid #e4e0d8;display:flex;justify-content:flex-end;gap:8px">
+      <button onclick="closeNoteModal()" style="padding:7px 18px;border:1px solid #d4cec5;border-radius:7px;background:#f5f2ed;font-size:12px;cursor:pointer;color:#5a5248">취소</button>
+      <button onclick="saveNoteModal()" style="padding:7px 18px;border:none;border-radius:7px;background:#4a6b3a;font-size:12px;font-weight:700;cursor:pointer;color:#fff">✓ 저장</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
 <!-- force-rebuild:20260617020425 -->
