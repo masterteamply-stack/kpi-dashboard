@@ -8042,31 +8042,46 @@ async function renderDkpiSheetBody(kpiKey) {
 
   // 평가 및 개선 방향 입력 행 (접기/펼치기)
   const _notes = getDkpiMonthly(kpiKey + '_notes') || {};
-  const _noteToggleId = 'noteToggle_' + kpiKey;
   const _noteSectionId = 'noteSection_' + kpiKey;
 
+  // 내용 있는 월 수 확인 → 토글 버튼 강조
+  const _noteCount = months.filter(mm => (_notes['2026-'+mm]||'').trim()).length;
+  const _hasNotes = _noteCount > 0;
+
   // 토글 헤더 행
-  let noteToggleRow = `<tr id="${_noteToggleId}" style="background:#f0ede6;cursor:pointer;border-top:1px solid #dedad2" onclick="
+  const _toggleBg  = _hasNotes ? '#e8e2d4' : '#f5f2ed';
+  const _toggleCol = _hasNotes ? '#4a3820' : '#9a8878';
+  const _badge     = _hasNotes ? `<span style="background:#c17f3a;color:#fff;font-size:9px;font-weight:800;border-radius:10px;padding:1px 7px;margin-left:6px">${_noteCount}개월</span>` : '<span style="font-size:9px;color:#b0a898;margin-left:6px">클릭하여 입력</span>';
+
+  let noteToggleRow = `<tr style="background:${_toggleBg};cursor:pointer;border-top:2px solid #d4cec5" onclick="
     var s=document.getElementById('${_noteSectionId}');
     var arr=this.querySelector('.noteArr');
     if(s){s.style.display=s.style.display==='none'?'table-row-group':'none'; arr.textContent=s.style.display==='none'?'▶':'▼';}
   ">
-    <td colspan="13" style="padding:5px 10px;font-size:10px;font-weight:700;color:#6b5e4e">
-      <span class="noteArr">▶</span> 평가 및 개선 방향
+    <td colspan="13" style="padding:7px 12px;font-size:11px;font-weight:700;color:${_toggleCol};user-select:none">
+      <span class="noteArr" style="font-size:10px;margin-right:4px">${_hasNotes?'▼':'▶'}</span>✏️ 평가 및 개선 방향${_badge}
     </td>
   </tr>`;
 
-  // 평가 입력 행 (기본 숨김)
-  let noteRow = `<tbody id="${_noteSectionId}" style="display:none"><tr style="border-bottom:2px solid #dedad2;background:#fdfaf5">`;
-  noteRow += '<td style="padding:4px 10px;font-size:10px;font-weight:700;color:#8a8278;white-space:nowrap">입력</td>';
+  // 평가 입력 행 (내용 있으면 기본 펼침)
+  let noteBody = `<tbody id="${_noteSectionId}" style="display:${_hasNotes?'table-row-group':'none'}">`;
+  noteBody += '<tr style="background:#fffdf7;border-bottom:1px solid #ede9e0"><td style="padding:5px 10px;font-size:10px;font-weight:700;color:#8a8278;white-space:nowrap;vertical-align:top">입력</td>';
   months.forEach(mm => {
     const key = '2026-' + mm;
-    const note = (_notes[key]||'').replace(/"/g,'&quot;');
-    noteRow += `<td style="padding:3px 3px"><input type="text" data-kpi="${kpiKey}" data-month="${key}" data-type="note" placeholder="입력" value="${note}" style="width:60px;border:1px solid #e0dbd2;border-radius:3px;padding:2px 4px;font-size:9px;font-family:var(--font-body);background:#fffdf9;color:#3d3830"/></td>`;
+    const note = (_notes[key]||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const _hasMoNote = note.trim().length > 0;
+    const _inputBg  = _hasMoNote ? '#fff8ec' : '#fffdf9';
+    const _inputBor = _hasMoNote ? '#c4a86a' : '#e0dbd2';
+    noteBody += `<td style="padding:3px 3px;vertical-align:top">
+      <textarea data-kpi="${kpiKey}" data-month="${key}" data-type="note"
+        placeholder="평가 입력"
+        oninput="this.style.borderColor=this.value.trim()?'#c4a86a':'#e0dbd2';this.style.background=this.value.trim()?'#fff8ec':'#fffdf9'"
+        style="width:62px;height:54px;resize:none;border:1px solid ${_inputBor};border-radius:4px;padding:3px 5px;font-size:10px;font-family:var(--font-body);background:${_inputBg};color:#2a2018;line-height:1.4">${note}</textarea>
+    </td>`;
   });
-  noteRow += '</tr></tbody>';
+  noteBody += '</tr></tbody>';
 
-  tbody.innerHTML = tRow + rRow + achRow + noteToggleRow + noteRow;
+  tbody.innerHTML = tRow + rRow + achRow + noteToggleRow + noteBody;
 }
 
 async function saveDkpiSheet() {
@@ -8132,7 +8147,7 @@ async function saveDkpiSheet() {
     });
     // 평가(note) 저장
     const _noteData = getDkpiMonthly(kpiKey + '_notes') || {};
-    document.querySelectorAll('#dkpiSheetBody input[data-type="note"]').forEach(ta => {
+    document.querySelectorAll('#dkpiSheetBody textarea[data-type="note"]').forEach(ta => {
       const month=ta.dataset.month, val=ta.value.trim();
       if(!month) return;
       _noteData[month] = val;
