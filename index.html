@@ -8070,7 +8070,14 @@ async function renderDkpiSheetBody(kpiKey) {
   achRow += '</tr>';
 
   // 평가 및 개선 방향 입력 행 (접기/펼치기)
-  const _notes = getDkpiMonthly(kpiKey + '_notes') || {};
+  // note: shared_config 우선 로드 (전체 공유)
+  const _noteKey = 'dkpi_notes_' + kpiKey;
+  const _notesShared = _sharedConfigCache[_noteKey] || null;
+  if(_notesShared) {
+    _dkpiMonthlyCache[kpiKey + '_notes'] = _notesShared;
+    try { localStorage.setItem('dkpi_monthly_' + kpiKey + '_notes', JSON.stringify(_notesShared)); } catch(e) {}
+  }
+  const _notes = _notesShared || getDkpiMonthly(kpiKey + '_notes') || {};
   const _noteSectionId = 'noteSection_' + kpiKey;
 
   // 내용 있는 월 수 확인 → 토글 버튼 강조
@@ -8181,14 +8188,22 @@ async function saveDkpiSheet() {
       // 값이 입력된 월은 수동 입력으로 표시
       if(val !== '' && _manualMonths.indexOf(month) < 0) _manualMonths.push(month);
     });
-    // 평가(note) 저장
+    // 평가(note) 저장 → shared_config (전체 사용자 공유)
     const _noteData = getDkpiMonthly(kpiKey + '_notes') || {};
     document.querySelectorAll('#dkpiSheetBody textarea[data-type="note"]').forEach(ta => {
       const month=ta.dataset.month, val=ta.value.trim();
       if(!month) return;
       _noteData[month] = val;
     });
-    saveDkpiMonthlyData(kpiKey + '_notes', _noteData);
+    const _noteKey = 'dkpi_notes_' + kpiKey;
+    // 로컬 캐시
+    _dkpiMonthlyCache[kpiKey + '_notes'] = _noteData;
+    try { localStorage.setItem('dkpi_monthly_' + kpiKey + '_notes', JSON.stringify(_noteData)); } catch(e) {}
+    // Supabase shared_config에 저장 (전체 공유)
+    try {
+      await setSharedConfig(_noteKey, _noteData);
+      console.log('[note] shared_config 저장 완료:', _noteKey);
+    } catch(e) { console.error('[note] shared_config 저장 실패:', e); }
     // 수동 입력 월 목록 저장 (sync가 덮어쓰지 않도록)
     if(_manualMonths.length && (kpiKey==='B2D-10'||kpiKey==='B2D-11')) {
       var _prev = getDkpiMonthly(kpiKey);
