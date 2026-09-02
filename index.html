@@ -8040,18 +8040,33 @@ async function renderDkpiSheetBody(kpiKey) {
   });
   achRow += '</tr>';
 
-  // 평가 입력 행
+  // 평가 및 개선 방향 입력 행 (접기/펼치기)
   const _notes = getDkpiMonthly(kpiKey + '_notes') || {};
-  let noteRow = '<tr style="border-bottom:2px solid #dedad2">';
-  noteRow += '<td style="padding:3px 10px;font-size:10px;font-weight:700;color:#8a8278;white-space:nowrap">평가</td>';
+  const _noteToggleId = 'noteToggle_' + kpiKey;
+  const _noteSectionId = 'noteSection_' + kpiKey;
+
+  // 토글 헤더 행
+  let noteToggleRow = `<tr id="${_noteToggleId}" style="background:#f0ede6;cursor:pointer;border-top:1px solid #dedad2" onclick="
+    var s=document.getElementById('${_noteSectionId}');
+    var arr=this.querySelector('.noteArr');
+    if(s){s.style.display=s.style.display==='none'?'table-row-group':'none'; arr.textContent=s.style.display==='none'?'▶':'▼';}
+  ">
+    <td colspan="13" style="padding:5px 10px;font-size:10px;font-weight:700;color:#6b5e4e">
+      <span class="noteArr">▶</span> 평가 및 개선 방향
+    </td>
+  </tr>`;
+
+  // 평가 입력 행 (기본 숨김)
+  let noteRow = `<tbody id="${_noteSectionId}" style="display:none"><tr style="border-bottom:2px solid #dedad2;background:#fdfaf5">`;
+  noteRow += '<td style="padding:4px 10px;font-size:10px;font-weight:700;color:#8a8278;white-space:nowrap">입력</td>';
   months.forEach(mm => {
     const key = '2026-' + mm;
     const note = (_notes[key]||'').replace(/"/g,'&quot;');
-    noteRow += `<td style="padding:2px 3px"><input type="text" data-kpi="${kpiKey}" data-month="${key}" data-type="note" placeholder="평가" value="${note}" style="width:60px;border:1px solid #e0dbd2;border-radius:3px;padding:2px 4px;font-size:9px;font-family:var(--font-body);background:#fffdf9;color:#3d3830"/></td>`;
+    noteRow += `<td style="padding:3px 3px"><input type="text" data-kpi="${kpiKey}" data-month="${key}" data-type="note" placeholder="입력" value="${note}" style="width:60px;border:1px solid #e0dbd2;border-radius:3px;padding:2px 4px;font-size:9px;font-family:var(--font-body);background:#fffdf9;color:#3d3830"/></td>`;
   });
-  noteRow += '</tr>';
+  noteRow += '</tr></tbody>';
 
-  tbody.innerHTML = tRow + rRow + achRow + noteRow;
+  tbody.innerHTML = tRow + rRow + achRow + noteToggleRow + noteRow;
 }
 
 async function saveDkpiSheet() {
