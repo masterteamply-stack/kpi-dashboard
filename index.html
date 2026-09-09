@@ -6607,6 +6607,9 @@ async function saveTaskSelectEdit(el) {
       renderSummary(computeSummary(state.tasks||[],state._lastKpis||[]));
       renderKPICards(state._lastKpis||[],state._lastKpiTasks||[]);
     }
+    // 전략 영역 + Top5 즉시 갱신
+    _reRenderStrategyPanel();
+    if(typeof renderTop7Kpis==='function') renderTop7Kpis(state._lastKpis||[], state.tasks||[]);
   } catch(e) {
     task[field]=_oldVal;
     ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
@@ -6717,11 +6720,17 @@ function _syncAfterTaskChange(task, changedFields) {
     var cs=computeSummary(state.tasks||[],state._lastKpis||[]);
     if(typeof renderKPICards==='function') renderKPICards(cs);
     renderSummary(cs);
+    // 전략 영역 패널 즉시 갱신
+    _reRenderStrategyPanel();
+    // Top5 KPI 즉시 갱신
+    if(typeof renderTop7Kpis==='function') renderTop7Kpis(state._lastKpis||[], state.tasks||[]);
   } else {
     setTimeout(function(){
       var cs2=computeSummary(state.tasks||[],state._lastKpis||[]);
       if(typeof renderKPICards==='function') renderKPICards(cs2);
       renderSummary(cs2);
+      _reRenderStrategyPanel();
+      if(typeof renderTop7Kpis==='function') renderTop7Kpis(state._lastKpis||[], state.tasks||[]);
     },400);
   }
 }
@@ -8533,13 +8542,27 @@ async function saveInlineTask(kpiId) {
 
   errEl.textContent = '저장 중…';
   try {
-    const { data, error } = await state.sb.from('tasks').insert([payload]).select().single();
+    const { data, error } = await state.sb.from('tasks').insert([payload]).select(
+      'id,title,owner_id,co_owners,kpi_id,quarter,region,status,priority,progress,allocated_budget,spend,notes,started_at,due_date,task_type,owners(name),kpis(kpi_key,title,unit)'
+    ).single();
     if(error) throw error;
     closeInlineAdd(kpiId);
     errEl.textContent = '';
-    await refreshDashboard();
-    // 저장된 task 드로어 열기
-    if(data?.id) openDetailDrawer(data.id);
+    // state에 즉시 추가 (Realtime과 무관하게 로컬 즉시 반영)
+    if(data) {
+      data._progressRaw = data.progress;
+      ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
+        if(Array.isArray(state[k]) && !state[k].find(function(x){return x.id===data.id;})) state[k].push(data);
+      });
+      _reRenderAfterRt(data, ['status','progress','owner_id','kpi_id']);
+      // 태스크 목록 리렌더 (현재 KPI 패널)
+      var _kpiPanel = document.getElementById('kpiDetailPanel');
+      if(_kpiPanel && _kpiPanel.style.display!=='none') {
+        var _openKpi = (state._lastKpis||[]).find(function(k){return k.id===kpiId;});
+        if(_openKpi && typeof openKpiDetail==='function') openKpiDetail(kpiId);
+      }
+      openDetailDrawer(data.id);
+    }
   } catch(e) {
     errEl.textContent = '저장 실패: '+(e.message||String(e));
   }
@@ -11821,17 +11844,111 @@ function renderRegionSubChart() {
 
 function setupRealtime() {
   try {
-    state.sb.channel('public:tasks')
-      .on('postgres_changes', { event:'*', schema:'public', table:'tasks' }, () => {
+    state.sb.channel('public:tasks-kpis-rt')
+      .on('postgres_changes', { event:'INSERT', schema:'public', table:'tasks' }, async function(payload) {
+        console.log('[RT] task INSERT:', payload.new?.id);
+        // 새 태스크: owners/kpis 조인해서 추가
+        try {
+          var res = await state.sb.from('tasks').select(
+            'id,title,owner_id,co_owners,kpi_id,quarter,region,status,priority,progress,allocated_budget,spend,notes,started_at,due_date,task_type,owners(name),kpis(kpi_key,title,unit)'
+          ).eq('id', payload.new.id).maybeSingle();
+          if(res.data) {
+            var t = res.data;
+            t._progressRaw = t.progress;
+            ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
+              if(Array.isArray(state[k]) && !state[k].find(function(x){return x.id===t.id;})) state[k].push(t);
+            });
+            _reRenderAfterRt(t, ['status','progress','owner_id','kpi_id']);
+            // 태스크 목록 리렌더
+            if(typeof renderKpiTasksFiltered === 'function') renderKpiTasksFiltered();
+            else refreshDashboard();
+          }
+        } catch(e) { refreshDashboard(); }
+      })
+      .on('postgres_changes', { event:'UPDATE', schema:'public', table:'tasks' }, async function(payload) {
+        console.log('[RT] task UPDATE:', payload.new?.id);
+        var t2 = (state.tasks||[]).find(function(t){return t.id===payload.new.id;});
+        if(t2) {
+          var changed = Object.keys(payload.new).filter(function(k){ return payload.new[k] !== payload.old[k]; });
+          Object.assign(t2, payload.new);
+          t2._progressRaw = payload.new.progress;
+          ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
+            var t3=(state[k]||[]).find(function(x){return x.id===t2.id;});
+            if(t3) Object.assign(t3, payload.new);
+          });
+          _reRenderAfterRt(t2, changed);
+        } else {
+          // 없으면 전체 갱신
+          refreshDashboard();
+        }
+      })
+      .on('postgres_changes', { event:'DELETE', schema:'public', table:'tasks' }, function(payload) {
+        console.log('[RT] task DELETE:', payload.old?.id);
+        var delId = payload.old?.id;
+        if(delId) {
+          ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
+            if(Array.isArray(state[k])) state[k] = state[k].filter(function(t){return t.id!==delId;});
+          });
+          var row = document.querySelector('tr[data-task-id="'+delId+'"]');
+          if(row) row.remove();
+          var cs = computeSummary(state.tasks||[], state._lastKpis||[]);
+          renderKPICards(cs); renderSummary(cs);
+          _reRenderStrategyPanel();
+        } else { refreshDashboard(); }
+      })
+      .on('postgres_changes', { event:'*', schema:'public', table:'kpis' }, function() {
         refreshDashboard();
       })
-      .on('postgres_changes', { event:'*', schema:'public', table:'kpis' }, () => {
-        refreshDashboard();
-      })
-      .subscribe();
+      .subscribe(function(status){
+        console.log('[RT] Supabase Realtime:', status);
+      });
   } catch(e) {
     console.warn('Realtime setup failed:', e);
   }
+}
+
+// Realtime 수신 후 부분 갱신
+function _reRenderAfterRt(task, changedFields) {
+  changedFields = changedFields || [];
+  // KPI 게이지 갱신
+  if(changedFields.some(function(f){return f==='progress'||f==='status';})) {
+    var kpi = (state._lastKpis||[]).find(function(k){return k.id===task.kpi_id;});
+    var ts  = (state._lastKpiTasks||[]).filter(function(t){return t.kpi_id===task.kpi_id;});
+    var gEl = document.querySelector('.kpi-progress-wrap[data-kpi="'+task.kpi_id+'"]');
+    if(gEl && kpi) gEl.innerHTML = renderKpiGauge(kpi, ts);
+  }
+  // 인라인 행 DOM 갱신
+  var row = document.querySelector('tr[data-task-id="'+task.id+'"]');
+  if(row) {
+    changedFields.forEach(function(f) {
+      var cell = row.querySelector('[data-field="'+f+'"]');
+      if(!cell) return;
+      if(f==='status') { if(cell.tagName==='SELECT') cell.value = task.status||''; }
+      else if(f==='progress') {
+        var pv = Number(task._progressRaw||task.progress||0);
+        cell.textContent = pv>=1000000?(pv/1000000).toFixed(1)+'M':pv>=1000?(pv/1000).toFixed(0)+'K':String(Math.round(pv));
+      }
+      else if(f==='title'&&cell.getAttribute('contenteditable')==='true') cell.textContent = task.title||'';
+    });
+  }
+  // 운영 요약 + KPI 카드
+  var cs = computeSummary(state.tasks||[], state._lastKpis||[]);
+  if(typeof renderKPICards==='function') renderKPICards(cs);
+  renderSummary(cs);
+  // 담당자 테이블
+  if(changedFields.some(function(f){return f==='owner_id'||f==='status'||f==='progress';})) {
+    if(typeof renderOwnerTable==='function') renderOwnerTable(state.tasks||[], state._lastKpis||[]);
+  }
+  // 전략 영역 패널 갱신
+  _reRenderStrategyPanel();
+  // Top5 KPI 갱신
+  if(typeof renderTop7Kpis==='function') renderTop7Kpis(state._lastKpis||[], state.tasks||[]);
+}
+
+// 전략 영역 패널 즉시 갱신
+function _reRenderStrategyPanel() {
+  if(typeof _selectedTheme === 'undefined' || !_selectedTheme) return;
+  if(typeof selectTheme === 'function') selectTheme(_selectedTheme, state._lastKpis||[], state.tasks||[]);
 }
 
 
