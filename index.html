@@ -5724,7 +5724,12 @@ function renderKPIAccordion(kpis, tasks) {
     });
     const taskCount = taskList.length;
     // KPI 담당 = 하위 태스크 담당자 합집합 (taskOwners 우선, 없으면 kpi.owners fallback)
-    const _kpiOwners = (kpi.owners||'').split(',').map(o=>o.trim()).filter(Boolean);
+    const _kpiOwners = (kpi.owners||'').split(',').map(function(o){
+      o=o.trim();
+      if(!o) return '';
+      if(/^[0-9a-f-]{36}$/i.test(o)){var _ow=(state.owners||[]).find(function(x){return x.id===o;});return _ow?_ow.name:'';}
+      return o;
+    }).filter(Boolean);
     const _taskOwners = [...new Set(
       taskList.flatMap(t => {
         const names = [];
@@ -6768,17 +6773,17 @@ async function _recalcKpiOwners(kpiId) {
   var ts=(state._lastKpiTasks||state.tasks||[]).filter(function(t){return t.kpi_id===kpiId;});
   var names=new Set();
   ts.forEach(function(t){
-    // 주 담당자
+    // 주 담당자 - 반드시 이름으로 변환
     var nm=t.owners&&t.owners.name?t.owners.name:_getOwnerName(t.owner_id);
-    if(nm) names.add(nm);
-    // 공동 담당자 (co_owners: "홍길동,김철수" 형태)
+    if(nm && !/^[0-9a-f-]{36}$/i.test(nm)) names.add(nm);
+    // 공동 담당자 (co_owners: UUID 또는 이름)
     if(t.co_owners){
       String(t.co_owners).split(',').forEach(function(c){
         var cn=c.trim();
         if(!cn) return;
-        // id인 경우 이름으로 변환
-        var resolved=_getOwnerName(cn)||cn;
-        if(resolved) names.add(resolved);
+        // UUID면 이름으로 변환
+        var resolved = /^[0-9a-f-]{36}$/i.test(cn) ? _getOwnerName(cn) : cn;
+        if(resolved && !/^[0-9a-f-]{36}$/i.test(resolved)) names.add(resolved);
       });
     }
   });
@@ -7485,7 +7490,17 @@ function renderTop7KPI(kpis, tasks) {
     const color   = _top7Mode === 'best'
       ? (rate >= 80 ? '#5c6b4a' : rate >= 50 ? '#b8962e' : '#9e4a3a')
       : (rate < 30  ? '#9e4a3a' : rate < 60  ? '#b8962e' : '#5c6b4a');
-    const owners  = (kpi.owners||'').split(',').map(o=>o.trim()).filter(Boolean).join(', ');
+    // owners: UUID면 이름으로 변환
+    const owners = (kpi.owners||'').split(',').map(function(o){
+      o = o.trim();
+      if(!o) return '';
+      // UUID 패턴이면 owners 테이블에서 이름 조회
+      if(/^[0-9a-f-]{36}$/i.test(o)) {
+        var ow = (state.owners||[]).find(function(x){ return x.id===o; });
+        return ow ? ow.name : o;
+      }
+      return o;
+    }).filter(Boolean).join(', ');
     const problem = _top7Mode==='worst' && rate < 40;
     const rateLabel = hasData ? `${rate}%` : '–';
     const targetLabel = target ? _fmtT(target) : '–';
