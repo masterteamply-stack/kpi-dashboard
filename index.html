@@ -6207,6 +6207,13 @@ async function refreshDashboard() {
     fetchWebLeadData();      // 비동기
     fetchChoiceKitOrders(); // 비동기
     setTimeout(renderRegionOrderBarChart, 2500);
+    // 모든 KPI 담당자 재계산 (태스크 기반 → 추가/제거 모두 반영)
+    setTimeout(async function() {
+      var _kpis = state._lastKpis || [];
+      for(var _ki=0; _ki<_kpis.length; _ki++) {
+        await _recalcKpiOwners(_kpis[_ki].id);
+      }
+    }, 1000);
     setStatus(`마지막 업데이트: ${new Date().toLocaleTimeString('ko-KR')}`);
   } catch(e) {
     console.error('refreshDashboard error:', e);
@@ -6587,7 +6594,10 @@ async function saveTaskSelectEdit(el) {
           if(t2) t2.owners={name:ow2.name,team:ow2.team||''};
         });
       }
-      if(task.kpi_id) await _syncOwnerToKpi(task.kpi_id,newVal);
+      if(task.kpi_id) {
+        // 추가 방식 대신 전체 재계산 (빠진 사람도 반영)
+        await _recalcKpiOwners(task.kpi_id);
+      }
     }
     // await 완료 후 accordion 갱신 (이벤트 핸들러 밖, DOM 교체 안전)
     renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||[]);
@@ -6758,10 +6768,21 @@ async function _recalcKpiOwners(kpiId) {
   var ts=(state._lastKpiTasks||state.tasks||[]).filter(function(t){return t.kpi_id===kpiId;});
   var names=new Set();
   ts.forEach(function(t){
+    // 주 담당자
     var nm=t.owners&&t.owners.name?t.owners.name:_getOwnerName(t.owner_id);
     if(nm) names.add(nm);
+    // 공동 담당자 (co_owners: "홍길동,김철수" 형태)
+    if(t.co_owners){
+      String(t.co_owners).split(',').forEach(function(c){
+        var cn=c.trim();
+        if(!cn) return;
+        // id인 경우 이름으로 변환
+        var resolved=_getOwnerName(cn)||cn;
+        if(resolved) names.add(resolved);
+      });
+    }
   });
-  if(!names.size) return;
+  // 태스크가 없어도 빈 문자열로 업데이트 (담당자 제거 반영)
   var nw=Array.from(names).join(', ');
   if(kpi.owners!==nw) await _saveKpiOwners(kpiId,nw,kpi);
 }
@@ -9033,6 +9054,9 @@ async function saveDrawerEdit(taskId) {
     // 9. summary/차트 갱신
     _syncAfterTaskChange(task, Object.keys(updates));
     if(state._activeKpiModal && typeof refreshKpiDetailModal==='function') refreshKpiDetailModal();
+
+    // 10. 담당자 전체 재계산 (추가/제거 모두 반영)
+    if(task.kpi_id) await _recalcKpiOwners(task.kpi_id);
 
     if(btn) { btn.textContent='✅ 저장됨'; setTimeout(function(){btn.textContent='저장';}, 1500); }
 
@@ -12029,6 +12053,9 @@ async function _saveKpiOwners(kpiId, val, kpi) {
       if(wrap._rerender) wrap._rerender();
     }
     renderOwnerTable(state.tasks||[], state._lastKpis||[]);
+    // 전략 영역 + Top5 즉시 갱신
+    _reRenderStrategyPanel();
+    if(typeof renderTop7Kpis==='function') renderTop7Kpis(state._lastKpis||[], state.tasks||[]);
   } catch(e) {
     console.error('owner save error:', e);
   }
