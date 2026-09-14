@@ -6635,7 +6635,7 @@ async function saveTaskSelectEdit(el) {
     }
     // 전략 영역 + Top5 즉시 갱신
     _reRenderStrategyPanel();
-    if(typeof renderTop7Kpis==='function') renderTop7Kpis(state._lastKpis||[], state.tasks||[]);
+    renderTop7KPI(state._lastKpis||[], state._lastKpiTasks||[]);
   } catch(e) {
     task[field]=_oldVal;
     ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
@@ -6749,14 +6749,14 @@ function _syncAfterTaskChange(task, changedFields) {
     // 전략 영역 패널 즉시 갱신
     _reRenderStrategyPanel();
     // Top5 KPI 즉시 갱신
-    if(typeof renderTop7Kpis==='function') renderTop7Kpis(state._lastKpis||[], state.tasks||[]);
+    renderTop7KPI(state._lastKpis||[], state._lastKpiTasks||[]);
   } else {
     setTimeout(function(){
       var cs2=computeSummary(state.tasks||[],state._lastKpis||[]);
       if(typeof renderKPICards==='function') renderKPICards(cs2);
       renderSummary(cs2);
       _reRenderStrategyPanel();
-      if(typeof renderTop7Kpis==='function') renderTop7Kpis(state._lastKpis||[], state.tasks||[]);
+      renderTop7KPI(state._lastKpis||[], state._lastKpiTasks||[]);
     },400);
   }
 }
@@ -12008,7 +12008,7 @@ function _reRenderAfterRt(task, changedFields) {
   // 전략 영역 패널 갱신
   _reRenderStrategyPanel();
   // Top5 KPI 갱신
-  if(typeof renderTop7Kpis==='function') renderTop7Kpis(state._lastKpis||[], state.tasks||[]);
+  renderTop7KPI(state._lastKpis||[], state._lastKpiTasks||[]);
 }
 
 // 전략 영역 패널 즉시 갱신
@@ -12097,7 +12097,7 @@ async function _saveKpiOwners(kpiId, val, kpi) {
     renderOwnerTable(state.tasks||[], state._lastKpis||[]);
     // 전략 영역 + Top5 즉시 갱신
     _reRenderStrategyPanel();
-    if(typeof renderTop7Kpis==='function') renderTop7Kpis(state._lastKpis||[], state.tasks||[]);
+    renderTop7KPI(state._lastKpis||[], state._lastKpiTasks||[]);
   } catch(e) {
     console.error('owner save error:', e);
   }
