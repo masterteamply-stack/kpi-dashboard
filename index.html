@@ -6202,6 +6202,8 @@ async function refreshDashboard() {
     renderActivityTrendChart(tasks2);
     renderDigitalKpiCharts(kpis, tasks2);
     renderRegionSubChart();
+    // Top5 KPI: monthly 캐시 로드 완료 후 렌더 (정확한 달성률)
+    renderTop7KPI(kpis, tasks2);
 
     fetchWebLeadData();      // 비동기
     fetchChoiceKitOrders(); // 비동기
@@ -7449,14 +7451,15 @@ function switchTop7(mode) {
   document.getElementById('top7BtnWorst')?.classList.toggle('active', mode==='worst');
   const title = document.getElementById('top7Title');
   if(title) title.textContent = mode==='best' ? 'TOP 5 KPI ✦ 잘 진행 중' : 'TOP 5 KPI ✦ 주의 필요';
-  // kpi_monthly_data 캐시 확보 후 렌더
+  // 로딩 표시
+  var wrap = document.getElementById('top7List');
+  if(wrap) wrap.innerHTML = '<div style="padding:20px;text-align:center;color:#8a8278;font-size:12px">로딩 중...</div>';
+  // 모든 KPI monthly 캐시 로드 후 렌더
   var _kpiKeysToLoad = (state._lastKpis||[]).map(function(k){return k.kpi_key;}).filter(Boolean);
-  var _loadPromises = _kpiKeysToLoad.map(function(k){
-    return _dkpiMonthlyCache[k] ? Promise.resolve() : loadDkpiFromSupabase(k);
-  });
-  Promise.all(_loadPromises).then(function(){
-    renderTop7KPI(state._lastKpis||[], state._lastKpiTasks||[]);
-  });
+  Promise.all(_kpiKeysToLoad.map(function(k){ return loadDkpiFromSupabase(k); }))
+    .then(function(){
+      renderTop7KPI(state._lastKpis||[], state._lastKpiTasks||[]);
+    });
 }
 
 function renderTop7KPI(kpis, tasks) {
