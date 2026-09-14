@@ -1453,18 +1453,10 @@
 document.addEventListener('DOMContentLoaded', function() {
   setTimeout(function() {
     if (typeof initCurrentUser === 'function') initCurrentUser();
-    // 디지털 KPI 데이터 입력 시트 초기 렌더 (Engagement 기본)
-    setTimeout(function() {
-      renderDkpiSheetBody('B2D-10');
-      // URL 해시로 특정 탭 자동 이동
-      const _hash = location.hash;
-      if(_hash === '#dkpiSheet-click') { switchDkpiSheet('B2D-11'); }
-      else if(_hash === '#dkpiSheet-subscriber') { switchDkpiSheet('channel_discriber'); }
-      else if(_hash === '#dkpiSheet-revenue') { switchDkpiSheet('revenue'); }
-      else if(_hash === '#dkpiSheet-engagement' || _hash.startsWith('#dkpiSheet')) {
-        document.getElementById('dkpiSheet')?.scrollIntoView({behavior:'smooth', block:'start'});
-      }
-    }, 800);
+    // 디지털 KPI 입력 시트: refreshDashboard 완료 후 렌더 (깜빡임 방지)
+    // _dkpiSheetReady 플래그로 refreshDashboard 완료 후 1회만 렌더
+    window._dkpiInitHash = location.hash;
+    window._dkpiInitPending = true;
   }, 300);
 });
 </script>
@@ -6212,6 +6204,25 @@ async function refreshDashboard() {
     fetchWebLeadData();      // 비동기
     fetchChoiceKitOrders(); // 비동기
     setTimeout(renderRegionOrderBarChart, 2500);
+
+    // 디지털 KPI 입력 시트 초기 렌더 (Supabase 로드 완료 후 1회)
+    if(window._dkpiInitPending) {
+      window._dkpiInitPending = false;
+      // localStorage 구버전 캐시 클리어 (Supabase 값 우선 적용)
+      ['B2D-10','B2D-11','asset_download'].forEach(function(k){
+        try { localStorage.removeItem('dkpi_monthly_'+k); } catch(e){}
+      });
+      setTimeout(function() {
+        renderDkpiSheetBody('B2D-10');
+        var _hash = window._dkpiInitHash || '';
+        if(_hash === '#dkpiSheet-click') { switchDkpiSheet('B2D-11'); }
+        else if(_hash === '#dkpiSheet-subscriber') { switchDkpiSheet('channel_discriber'); }
+        else if(_hash === '#dkpiSheet-revenue') { switchDkpiSheet('revenue'); }
+        else if(_hash.startsWith('#dkpiSheet')) {
+          document.getElementById('dkpiSheet')?.scrollIntoView({behavior:'smooth', block:'start'});
+        }
+      }, 100);
+    }
     // 모든 KPI 담당자 재계산 (태스크 기반 → 추가/제거 모두 반영)
     setTimeout(async function() {
       var _kpis = state._lastKpis || [];
