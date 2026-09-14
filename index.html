@@ -6071,9 +6071,11 @@ function renderKPIAccordion(kpis, tasks) {
     // sync 완료 후 Supabase에서 최신 데이터 로드 후 차트 렌더
     Promise.all([
       loadDkpiFromSupabase('B2D-10'),
-      loadDkpiFromSupabase('B2D-11')
+      loadDkpiFromSupabase('B2D-11'),
+      loadDkpiFromSupabase('B2D-02'),
     ]).then(function() {
       renderDigitalKpiCharts(kpis, tasks);
+      renderTop7KPI(state._lastKpis||[], state._lastKpiTasks||[]);
     }).catch(function() {
       renderDigitalKpiCharts(kpis, tasks);
     });
@@ -6146,6 +6148,7 @@ async function refreshDashboard() {
       await Promise.all([
         loadDkpiFromSupabase('B2D-10'),
         loadDkpiFromSupabase('B2D-11'),
+        loadDkpiFromSupabase('B2D-02'),
         loadDkpiFromSupabase('asset_download'),
       ]);
       console.log('[Init] Supabase KPI 월별 로드 완료');
@@ -6209,9 +6212,10 @@ async function refreshDashboard() {
     if(window._dkpiInitPending) {
       window._dkpiInitPending = false;
       // localStorage 구버전 캐시 클리어 (Supabase 값 우선 적용)
-      ['B2D-10','B2D-11','asset_download'].forEach(function(k){
+      ['B2D-10','B2D-11','B2D-02','asset_download'].forEach(function(k){
         try { localStorage.removeItem('dkpi_monthly_'+k); } catch(e){}
       });
+      loadDkpiFromSupabase('B2D-02');
       setTimeout(function() {
         renderDkpiSheetBody('B2D-10');
         var _hash = window._dkpiInitHash || '';
