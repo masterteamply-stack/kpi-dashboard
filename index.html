@@ -7819,8 +7819,18 @@ async function loadDkpiFromSupabase(kpiKey) {
       .eq('kpi_key', kpiKey);
     if (error) throw error;
     const result = {};
+    var _manualMonthsList = [];
     (data||[]).forEach(function(r) {
+      if(r.year_month === '_manual_months') {
+        // _manual_months 특수 행: actual에 JSON 배열이나 비트맵 대신 월 목록 복원 불가
+        // 단순히 배열로 처리
+        return;
+      }
       result[r.year_month] = { actual: r.actual||0, target: r.target||0 };
+    });
+    // _manual_months: 실적이 있는 월을 자동으로 보호 목록에 추가
+    result._manual_months = Object.keys(result).filter(function(m){
+      return /^\d{4}-\d{2}$/.test(m) && result[m].actual > 0;
     });
     _dkpiMonthlyCache[kpiKey] = result;
     // localStorage도 동기화
@@ -8310,7 +8320,8 @@ async function syncTasksToDigitalKpi(tasks, kpis) {
     var existing = _dkpiMonthlyCache[dkpiKey] || {};
 
     // 수동 입력 보호: _manual_months에 있는 월은 sync 대상 제외
-    var _manualProtected = (existing._manual_months || []);
+    var _mp = existing._manual_months;
+    var _manualProtected = Array.isArray(_mp) ? _mp : (typeof _mp==='string' ? _mp.split(',').filter(Boolean) : []);
 
     // 변경이 필요한 행만 upsert (기존 actual과 다를 때만, 수동 입력 월 제외)
     var rowsToUpsert = [];
