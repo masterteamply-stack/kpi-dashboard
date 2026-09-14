@@ -7165,17 +7165,24 @@ function calcKpiModalProgress(kpi2, tasks2) {
     if(total2===0) return {avgProg:0, label:'태스크 없음', doneCnt:0};
 
     // 1순위: kpi_monthly_data actual 합산 (Supabase 기준 - 가장 정확)
+    // monthly 데이터가 있으면 태스크 progress는 완전히 무시
     var _kpiKey2 = kpi2.kpi_key;
     var _monthlyD = _kpiKey2 ? (_dkpiMonthlyCache[_kpiKey2]||{}) : {};
-    var _monthlyActual = Object.keys(_monthlyD).filter(function(m){
+    var _monthlyMonths = Object.keys(_monthlyD).filter(function(m){
       return /^\d{4}-\d{2}$/.test(m);
-    }).reduce(function(s,m){ return s + Number(_monthlyD[m].actual||0); }, 0);
+    });
+    var _monthlyActual = _monthlyMonths.reduce(function(s,m){
+      return s + Number(_monthlyD[m].actual||0);
+    }, 0);
 
-    if(annTgt&&annTgt>0&&_monthlyActual>0) {
-      return {avgProg:Math.min(100,Math.round(_monthlyActual/annTgt*100)), label:'누적 실적', doneCnt:dn, totAct:_monthlyActual, annTgt:annTgt};
+    if(_monthlyMonths.length > 0) {
+      // monthly 데이터가 있으면 무조건 이걸 사용 (태스크 progress 무시)
+      if(annTgt&&annTgt>0) {
+        return {avgProg:Math.min(100,Math.round(_monthlyActual/annTgt*100)), label:'누적 실적', doneCnt:dn, totAct:_monthlyActual, annTgt:annTgt};
+      }
     }
 
-    // 2순위: 태스크 _progressRaw 합산
+    // 2순위: 태스크 _progressRaw 합산 (monthly 데이터 없을 때만)
     var byQ2={q1:0,q2:0,q3:0,q4:0};
     tasks2.forEach(function(t){
       var _q2=(t.quarter||'').toLowerCase().replace(/[^q1-4]/g,'').slice(0,2)||'q1';
