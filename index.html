@@ -7159,7 +7159,18 @@ function calcKpiModalProgress(kpi2, tasks2) {
     // ── 수치 기반 ──
     if(total2===0) return {avgProg:0, label:'태스크 없음', doneCnt:0};
 
-    // 각 태스크의 _progressRaw 합산
+    // 1순위: kpi_monthly_data actual 합산 (Supabase 기준 - 가장 정확)
+    var _kpiKey2 = kpi2.kpi_key;
+    var _monthlyD = _kpiKey2 ? (_dkpiMonthlyCache[_kpiKey2]||{}) : {};
+    var _monthlyActual = Object.keys(_monthlyD).filter(function(m){
+      return /^\d{4}-\d{2}$/.test(m);
+    }).reduce(function(s,m){ return s + Number(_monthlyD[m].actual||0); }, 0);
+
+    if(annTgt&&annTgt>0&&_monthlyActual>0) {
+      return {avgProg:Math.min(100,Math.round(_monthlyActual/annTgt*100)), label:'누적 실적', doneCnt:dn, totAct:_monthlyActual, annTgt:annTgt};
+    }
+
+    // 2순위: 태스크 _progressRaw 합산
     var byQ2={q1:0,q2:0,q3:0,q4:0};
     tasks2.forEach(function(t){
       var _q2=(t.quarter||'').toLowerCase().replace(/[^q1-4]/g,'').slice(0,2)||'q1';
@@ -7168,17 +7179,16 @@ function calcKpiModalProgress(kpi2, tasks2) {
     });
     var totAct=byQ2.q1+byQ2.q2+byQ2.q3+byQ2.q4;
 
-    // 1순위: raw 실적 합산 vs 연간목표
     if(annTgt&&annTgt>0&&totAct>0) {
-      return {avgProg:Math.min(100,Math.round(totAct/annTgt*100)), label:'누적 실적', doneCnt:dn, totAct:totAct, annTgt:annTgt};
+      return {avgProg:Math.min(100,Math.round(totAct/annTgt*100)), label:'누적 실적(태스크)', doneCnt:dn, totAct:totAct, annTgt:annTgt};
     }
 
-    // 2순위: 모든 태스크가 완료 → 100%
+    // 3순위: 모든 태스크가 완료 → 100%
     if(dn===total2 && total2>0) {
       return {avgProg:100, label:'완료 '+dn+'/'+total2+'건', doneCnt:dn, totAct:annTgt, annTgt:annTgt};
     }
 
-    // 3순위: status 가중 평균 (done=100, in_progress=50, blocked=25)
+    // 4순위: status 가중 평균 (done=100, in_progress=50, blocked=25)
     var fb=Math.min(100, Math.round((dn*100+ip*50+bl*25)/total2));
     return {avgProg:fb, label:'완료 '+dn+'/'+total2+'건', doneCnt:dn};
   }
