@@ -11630,20 +11630,22 @@ function initDkpiDefaultData() {
   try {
     // ── B2D-10 Engagement: target 갱신, result 보존 ──
     var _engT={"2026-01":4277306,"2026-02":9980381,"2026-03":9980381,"2026-04":9980381,"2026-05":11406149,"2026-06":11406149,"2026-07":11406149,"2026-08":11406149,"2026-09":12119034,"2026-10":12119034,"2026-11":19960761,"2026-12":18534993};
-    var _engR={"2026-01":4381186,"2026-02":5685770,"2026-03":6128704,"2026-04":2719065,"2026-05":5059873,"2026-06":1148297,"2026-07":7108975,"2026-08":13479296};
+    var _engR={"2026-01":4381186,"2026-02":5685770,"2026-03":6128704,"2026-04":2719219,"2026-05":5059873,"2026-06":1148297,"2026-07":7108975,"2026-08":13479296};
     var _engD=(function(){try{return JSON.parse(localStorage.getItem("dkpi_monthly_B2D-10")||"{}");}catch(e){return {};}})();
     Object.keys(_engT).forEach(function(mo){if(!_engD[mo])_engD[mo]={};_engD[mo].target=_engT[mo];if(_engR[mo]!==undefined)_engD[mo].result=_engR[mo];else if(!("result" in _engD[mo]))_engD[mo].result=null;});
     localStorage.setItem("dkpi_monthly_B2D-10",JSON.stringify(_engD));
-    // 수동 입력 월 보호 등록
+    // 수동 입력 월 보호 등록 (B2D-10, B2D-11)
     (function(){try{
-      var _d=JSON.parse(localStorage.getItem("dkpi_monthly_B2D-10")||"{}");
-      if(!_d._manual_months) _d._manual_months=[];
-      ["2026-06","2026-07","2026-08"].forEach(function(m){if(_d._manual_months.indexOf(m)<0)_d._manual_months.push(m);});
-      localStorage.setItem("dkpi_monthly_B2D-10",JSON.stringify(_d));
+      ["B2D-10","B2D-11"].forEach(function(kk){
+        var _d=JSON.parse(localStorage.getItem("dkpi_monthly_"+kk)||"{}");
+        if(!_d._manual_months) _d._manual_months=[];
+        ["2026-05","2026-06","2026-07","2026-08"].forEach(function(m){if(_d._manual_months.indexOf(m)<0)_d._manual_months.push(m);});
+        localStorage.setItem("dkpi_monthly_"+kk,JSON.stringify(_d));
+      });
     }catch(e){}})();
     // ── B2D-11 Click: target 갱신, result 보존 ──
     var _clkT={"2026-01":83604,"2026-02":125405,"2026-03":209009,"2026-04":334414,"2026-05":334414,"2026-06":376216,"2026-07":376216,"2026-08":418018,"2026-09":418018,"2026-10":418018,"2026-11":543423,"2026-12":543423};
-    var _clkR={"2026-01":97900,"2026-02":105568,"2026-03":141947,"2026-04":177904,"2026-05":698696};
+    var _clkR={"2026-01":97900,"2026-02":105568,"2026-03":141947,"2026-04":177904,"2026-05":699000,"2026-06":1035650,"2026-07":1379919,"2026-08":417644};
     var _clkD=(function(){try{return JSON.parse(localStorage.getItem("dkpi_monthly_B2D-11")||"{}");}catch(e){return {};}})();
     Object.keys(_clkT).forEach(function(mo){if(!_clkD[mo])_clkD[mo]={};_clkD[mo].target=_clkT[mo];if(_clkR[mo]!==undefined)_clkD[mo].result=_clkR[mo];else if(!("result" in _clkD[mo]))_clkD[mo].result=null;});
     localStorage.setItem("dkpi_monthly_B2D-11",JSON.stringify(_clkD));
