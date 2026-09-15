@@ -3156,7 +3156,10 @@ function renderSummary(s) {
 
   var _thisCh  = ml.channelMonthly[thisKey] ? (ml.channelMonthly[thisKey].total||0) : 0;
   var _thisO2o = ml.o2oMonthly[thisKey] || 0;
-  var _thisCh     = (ml.channelMonthly[thisKey] ? (ml.channelMonthly[thisKey].total||0) : 0);
+  // 채널: 데이터 있는 최신 월 기준
+  var _chKeys = Object.keys(ml.channelMonthly||{}).filter(function(m){return (ml.channelMonthly[m]?.total||0)>0;}).sort();
+  var _chLatestKey = _chKeys.length ? _chKeys[_chKeys.length-1] : thisKey;
+  var _thisCh     = ml.channelMonthly[_chLatestKey] ? (ml.channelMonthly[_chLatestKey].total||0) : 0;
   // O2O: 데이터 있는 최신 월 기준
   var _o2oKeys = Object.keys(ml.o2oMonthly||{}).filter(function(m){return ml.o2oMonthly[m]>0;}).sort();
   var _o2oLatestKey = _o2oKeys.length ? _o2oKeys[_o2oKeys.length-1] : thisKey;
@@ -3177,7 +3180,8 @@ function renderSummary(s) {
   h += '<a href="https://sheissweet79.github.io/CTR-WebLead/" target="_blank" style="font-size:7px;background:#d8ead8;border:1px solid #b0c8b0;border-radius:2px;padding:1px 4px;color:#5c6b4a;text-decoration:none">분석↗</a>';
   h += '</div>';
   h += '<div style="font-size:13px;font-weight:800;color:#5c6b4a">' + fmtNum(ml.totalCh) + '</div>';
-  h += '<div style="font-size:9px;color:#8a8278">' + (_thisMonthLabel||'이번달') + ' ' + fmtNum(_thisCh) + '</div></div>';
+  var _chMoLabel = _chLatestKey ? (parseInt(_chLatestKey.split('-')[1])+'월') : (_thisMonthLabel||'이번달');
+  h += '<div style="font-size:9px;color:#8a8278">' + _chMoLabel + ' ' + fmtNum(_thisCh) + '</div></div>';
   // O2O 리드
   h += '<div style="background:#fff8e8;border-radius:4px;padding:3px 5px">';
   h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1px">';
