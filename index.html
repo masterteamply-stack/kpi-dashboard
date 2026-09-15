@@ -3157,7 +3157,10 @@ function renderSummary(s) {
   var _thisCh  = ml.channelMonthly[thisKey] ? (ml.channelMonthly[thisKey].total||0) : 0;
   var _thisO2o = ml.o2oMonthly[thisKey] || 0;
   var _thisCh     = (ml.channelMonthly[thisKey] ? (ml.channelMonthly[thisKey].total||0) : 0);
-  var _thisO2o    = ml.o2oMonthly[thisKey] || 0;
+  // O2O: 데이터 있는 최신 월 기준
+  var _o2oKeys = Object.keys(ml.o2oMonthly||{}).filter(function(m){return ml.o2oMonthly[m]>0;}).sort();
+  var _o2oLatestKey = _o2oKeys.length ? _o2oKeys[_o2oKeys.length-1] : thisKey;
+  var _thisO2o    = ml.o2oMonthly[_o2oLatestKey] || 0;
   var _thisSurvey = (ml.surveyMonthly||{})[thisKey] || 0;
   var _totLead    = ml.totalCh + ml.totalO2o + (ml.totalSurvey||0);
   h += '<div style="background:#f5f2ed;border-radius:6px;padding:7px 10px">';
@@ -3182,7 +3185,8 @@ function renderSummary(s) {
   h += '<button onclick="showO2ODetail()" style="font-size:7px;background:#fff0c0;border:1px solid #e6c84a;border-radius:2px;padding:1px 4px;color:#7a6010;cursor:pointer">분석↗</button>';
   h += '</div>';
   h += '<div style="font-size:13px;font-weight:800;color:#7a6010">' + fmtNum(ml.totalO2o) + '</div>';
-  h += '<div style="font-size:9px;color:#8a8278">' + (_thisMonthLabel||'이번달') + ' ' + fmtNum(_thisO2o) + '</div></div>';
+  var _o2oMoLabel = _o2oLatestKey ? (parseInt(_o2oLatestKey.split('-')[1])+'월') : (_thisMonthLabel||'이번달');
+  h += '<div style="font-size:9px;color:#8a8278">' + _o2oMoLabel + ' ' + fmtNum(_thisO2o) + '</div></div>';
   // Survey 리드
   h += '<div style="background:#eef0f8;border-radius:4px;padding:3px 5px">';
   h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1px">';
