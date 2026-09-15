@@ -7167,7 +7167,7 @@ function calcKpiModalProgress(kpi2, tasks2) {
     // 태스크 _progressRaw 합산이 기준
     var byQ2={q1:0,q2:0,q3:0,q4:0};
     tasks2.forEach(function(t){
-      var _q2=(t.quarter||'').toLowerCase().replace(/[^q1-4]/g,'').slice(0,2)||'q1';
+      var _qRaw=(t.quarter||'').toLowerCase(); var _q2=(_qRaw.match(/q[1-4]/)||['q1'])[0];
       var raw=Number(t._progressRaw!=null?t._progressRaw:(t.progress||0));
       byQ2[_q2]+=raw;
     });
