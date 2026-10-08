@@ -3227,6 +3227,36 @@ function renderSummary(s) {
   h += richCard('Click', 'B2D-11', '#7a6010', clkVal);
   h += '</div>';
 
+  // 4-1. SteerStar 미션 달성도 요약 카드
+  h += '<div style="background:linear-gradient(135deg,#f9f6f0,#f0ede5);border:1px solid #d8d3c8;border-radius:8px;padding:10px 12px">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+  h += '<div style="font-size:9px;font-weight:700;color:#6b5a3a;text-transform:uppercase;letter-spacing:.06em">⭐ SteerStar 미션 · 9월 성과</div>';
+  h += '<a href="https://masterteamply-stack.github.io/choicekit-dashboard/promo_dashboard_v10_6.html#p6" target="_blank" style="font-size:9px;background:#e8dfc8;border:1px solid #c8b88a;border-radius:3px;padding:1px 6px;color:#7a6010;text-decoration:none">분석 →</a>';
+  h += '</div>';
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+  // 오더 미션
+  h += '<div style="background:#fff;border-radius:6px;padding:7px 9px;border:1px solid #d4e8d4">';
+  h += '<div style="font-size:8px;font-weight:700;color:#5c6b4a;margin-bottom:3px">🛒 오더 미션</div>';
+  h += '<div style="display:flex;align-items:baseline;gap:4px">';
+  h += '<span style="font-size:19px;font-weight:800;color:#2a7c2a;line-height:1">101%</span>';
+  h += '<span style="font-size:10px;color:#2a7c2a;font-weight:700">달성 ✓</span>';
+  h += '</div>';
+  h += '<div style="height:4px;background:#e0f0e0;border-radius:999px;overflow:hidden;margin-top:4px">';
+  h += '<div style="height:100%;width:100%;background:#2a7c2a;border-radius:999px"></div></div>';
+  h += '</div>';
+  // 설문 미션
+  h += '<div style="background:#fff;border-radius:6px;padding:7px 9px;border:1px solid #e8d8b0">';
+  h += '<div style="font-size:8px;font-weight:700;color:#7a6010;margin-bottom:3px">📋 설문 미션</div>';
+  h += '<div style="display:flex;align-items:baseline;gap:4px">';
+  h += '<span style="font-size:19px;font-weight:800;color:#b8962e;line-height:1">60.4%</span>';
+  h += '<span style="font-size:10px;color:#8a8278">진행중</span>';
+  h += '</div>';
+  h += '<div style="font-size:9px;color:#7a6010;margin-top:1px">846 / 1,400명 · 목표달성 2곳</div>';
+  h += '<div style="height:4px;background:#f5eacc;border-radius:999px;overflow:hidden;margin-top:3px">';
+  h += '<div style="height:100%;width:60.4%;background:#b8962e;border-radius:999px"></div></div>';
+  h += '</div>';
+  h += '</div></div>';
+
   // 5. 완료율 · 지연 · ROI
   h += '<div style="font-size:11px;color:#6b6259;line-height:1.8;padding-top:2px">';
   h += '완료율 <strong style="color:var(--green)">' + fmtPct(s.compRate) + '</strong>';
@@ -7119,6 +7149,61 @@ function openKpiDetail(kpiId) {
     '<div class="kpi-stat-val">'+built.doneCnt+'<span style="font-size:14px;color:#8a8278"> / '+built.tasks2.length+'</span></div></div>'+
     '</div></div>'+
     '<div class="kpi-detail-section"><h4>분기별 목표 달성</h4><div class="kpi-quarter-grid _kd_quarters">'+built.quarterCards+'</div></div>'+
+    (function(){
+      // SteerStar KPI: title에 'SteerStar', '앰배서더', 'steer', 'ambassador' 포함 시 미션 섹션 표시
+      var _t = (built.kpi2.title||'').toLowerCase();
+      var _k = (built.kpi2.kpi_key||'').toLowerCase();
+      var _isSteer = _t.indexOf('steerstar')>=0 || _t.indexOf('스티어스타')>=0 || _t.indexOf('앰배서더')>=0 || _k.indexOf('ss-')>=0 || _t.indexOf('ambassador')>=0 || _t.indexOf('steer')>=0 || _k.indexOf('steer')>=0;
+      if(!_isSteer) return '';
+      // 오더 미션 데이터
+      var _orderRate = 101;
+      var _orderColor = '#2a7c2a';
+      // 설문 미션 데이터
+      var _surveyCount = 846;
+      var _surveyTarget = 1400;
+      var _surveyRate = 60.4;
+      var _surveyGoalMet = 2;
+      var _surveyColor = '#b8962e';
+      return '<div class="kpi-detail-section" style="background:linear-gradient(135deg,#f5f2ed 0%,#ede8df 100%);border-radius:10px;padding:16px 20px;border:1px solid #d8d3c8">'
+        + '<h4 style="margin:0 0 14px;font-size:13px;font-weight:700;color:#3d3830;display:flex;align-items:center;gap:8px">'
+        + '<span style="font-size:16px">⭐</span> SteerStar 미션 달성도 <span style="font-size:10px;font-weight:500;color:#8a8278;margin-left:4px">· 9월 기준</span>'
+        + '</h4>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+        // 오더 미션 카드
+        + '<div style="background:#fff;border-radius:8px;padding:14px 16px;border:1px solid #d4e8d4">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+        + '<div style="font-size:10px;font-weight:700;color:#5c6b4a;text-transform:uppercase;letter-spacing:.06em">🛒 오더 미션</div>'
+        + '<a href="https://masterteamply-stack.github.io/choicekit-dashboard/promo_dashboard_v10_6.html#p6" target="_blank" style="font-size:9px;background:#e8f0e8;border:1px solid #b8d4b8;border-radius:3px;padding:1px 6px;color:#5c6b4a;text-decoration:none">상세 분석 →</a>'
+        + '</div>'
+        + '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:4px">'
+        + '<div style="font-size:28px;font-weight:800;color:'+_orderColor+';line-height:1">'+_orderRate+'%</div>'
+        + '<div style="font-size:12px;font-weight:600;color:'+_orderColor+'">달성 ✓</div>'
+        + '</div>'
+        + '<div style="font-size:11px;color:#5c6b4a;margin-bottom:8px">파트너별 오더 미션 달성률</div>'
+        + '<div style="height:6px;background:#e0f0e0;border-radius:999px;overflow:hidden">'
+        + '<div style="height:100%;width:100%;background:'+_orderColor+';border-radius:999px"></div>'
+        + '</div>'
+        + '<div style="font-size:10px;color:#8a8278;margin-top:4px">목표 100% · 초과 달성</div>'
+        + '</div>'
+        // 설문 미션 카드
+        + '<div style="background:#fff;border-radius:8px;padding:14px 16px;border:1px solid #e8d8b0">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+        + '<div style="font-size:10px;font-weight:700;color:#7a6010;text-transform:uppercase;letter-spacing:.06em">📋 설문 미션</div>'
+        + '<a href="https://masterteamply-stack.github.io/choicekit-dashboard/promo_dashboard_v10_6.html#p6" target="_blank" style="font-size:9px;background:#fff0c8;border:1px solid #e6c84a;border-radius:3px;padding:1px 6px;color:#7a6010;text-decoration:none">상세 분석 →</a>'
+        + '</div>'
+        + '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:4px">'
+        + '<div style="font-size:28px;font-weight:800;color:'+_surveyColor+';line-height:1">'+_surveyRate+'%</div>'
+        + '<div style="font-size:12px;font-weight:600;color:#8a8278">진행 중</div>'
+        + '</div>'
+        + '<div style="font-size:11px;color:#7a6010;margin-bottom:8px">참여 <b>'+_surveyCount+'</b> / '+_surveyTarget+'명 · 목표 달성 <b>'+_surveyGoalMet+'</b>곳</div>'
+        + '<div style="height:6px;background:#f5eacc;border-radius:999px;overflow:hidden">'
+        + '<div style="height:100%;width:'+Math.min(100,_surveyRate)+'%;background:'+_surveyColor+';border-radius:999px"></div>'
+        + '</div>'
+        + '<div style="font-size:10px;color:#8a8278;margin-top:4px">목표 1,400명 · '+_surveyGoalMet+'/전체 파트너 달성</div>'
+        + '</div>'
+        + '</div>'
+        + '</div>';
+    })() +
     '<div class="kpi-detail-section"><h4 class="_kd_task_title">관련 Task ('+built.tasks2.length+'건)</h4>'+
     '<div style="display:grid;grid-template-columns:1fr 90px 70px 68px 60px;gap:12px;padding:4px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8278;border-bottom:1px solid #e8e4dc;margin-bottom:4px">'+
     '<div>Task명</div><div>상태</div><div style="text-align:right">실적</div><div></div><div style="text-align:right">예산</div>'+
