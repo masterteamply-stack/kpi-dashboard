@@ -3394,7 +3394,7 @@ function showO2ODetail() {
   var _LS=(function(){try{return JSON.parse(localStorage.getItem('o2o_lead_data')||'{}');}catch(e){return {};}})();
   var ml=computeMarketingLeads();
   var tot=ml.o2oTotal||0;
-  var TARGET=7259;
+  var TARGET=5537;
   var achPct=Math.round(tot/TARGET*100);
   var now=new Date();
   var tk=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
@@ -6418,7 +6418,7 @@ function renderKpiGauge(kpi, taskList) {
   if(kpi.kpi_key==='B2D-04') {
     var _ml=computeMarketingLeads();
     var _o2oTotal=_ml.totalO2o||0;
-    var _annT=parseN(kpi.q4_target)||7259;
+    var _annT=parseN(kpi.q4_target)||5537;
     var _curQT=parseN(kpi[curQ+'_target'])||null;
     var _achv=_annT>0?Math.round(_o2oTotal/_annT*100):0;
     var _cc=_achv>=80?'':_achv>=50?'warn':'danger';
