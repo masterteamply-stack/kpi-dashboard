@@ -3077,10 +3077,11 @@ function renderSummary(s) {
           ? '<div style="font-size:10px;font-weight:600;color:'+subNetColor+'">'+subNetStr+'</div>'
           : '')
       : (moNum
-          ? '<div style="font-size:10px;color:#6b6259;display:flex;align-items:center;gap:4px;flex-wrap:wrap">'
-            + '<span style="font-weight:600">'+moLabel+'</span>'
-            + (moRate!==null ? '<span style="font-size:9px;color:'+moArc+'">/ \ubaa9\ud45c '+moRate+'%</span>' : '')
-            + (dStr ? '<span style="font-size:9px;color:'+dc+'">'+dStr+'</span>' : '')
+          ? '<div style="font-size:10px;color:#6b6259;line-height:1.6">'
+            + '<div><span style="font-weight:600">'+moLabel+'</span>'
+            + (moRate!==null ? '<span style="font-size:9px;color:'+moArc+';margin-left:4px">\ubaa9\ud45c '+moRate+'%</span>' : '')
+            + '</div>'
+            + (dStr ? '<div style="font-size:9px;color:'+dc+'">'+dStr+'</div>' : '')
             + '</div>'
           : '');
 
@@ -7342,7 +7343,7 @@ function calcKpiModalProgress(kpi2, tasks2) {
     var totAct=byQ2.q1+byQ2.q2+byQ2.q3+byQ2.q4;
 
     if(annTgt&&annTgt>0&&totAct>0) {
-      return {avgProg:Math.min(100,Math.round(totAct/annTgt*100)), label:'누적 실적(태스크)', doneCnt:dn, totAct:totAct, annTgt:annTgt};
+      return {avgProg:Math.round(totAct/annTgt*100), label:'누적 실적(태스크)', doneCnt:dn, totAct:totAct, annTgt:annTgt};
     }
 
     // 3순위: 모든 태스크가 완료 → 100%
