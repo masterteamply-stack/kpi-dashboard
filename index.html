@@ -3127,20 +3127,13 @@ function renderSummary(s) {
   h += '<div style="background:#f5f2ed;border-radius:6px;padding:7px 10px">';
   h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">';
   h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8278">Choice Kit 오더</div>';
-  h += '<a href="https://masterteamply-stack.github.io/choicekit-dashboard/" target="_blank" style="font-size:9px;background:#f0ede6;border:1px solid #dedad2;border-radius:3px;padding:1px 6px;color:#6b6259;text-decoration:none">상세 분석 →</a>';
+  h += '<a href="https://masterteamply-stack.github.io/choicekit-dashboard/promo_dashboard_v10_6.html" target="_blank" style="font-size:9px;background:#f0ede6;border:1px solid #dedad2;border-radius:3px;padding:1px 6px;color:#6b6259;text-decoration:none">상세 분석 →</a>';
   h += '</div>';
-  // Choice Kit 달성률: marketing.csv 합산 목표 $9,199,141
-  var _CK_TARGET_USD = 3875141;
-  var _ckRate = null, _ckCol = '#8a8278';
-  (function(){
-    var total = state.choiceKitOrder && state.choiceKitOrder.total ? state.choiceKitOrder.total : 0;
-    if(!total) return;
-    _ckRate = Math.round(total/_CK_TARGET_USD*100);
-    _ckCol = _ckRate>=100?'#2a7c2a':_ckRate>=70?'#c17f3a':'#c0392b';
-  })()
+  // Choice Kit 달성률: promo_dashboard_v10_6.html 기준 고정 (관측 1561일 / 계획 2262일 = 69%)
+  var _ckRate = 69, _ckCol = '#c17f3a';
   h += '<div style="display:flex;align-items:baseline;gap:8px">';
   h += '<div style="font-size:17px;font-weight:800;color:#1a1714;line-height:1">' + orderVal + '</div>';
-  if(_ckRate!==null) h += '<span style="font-size:11px;font-weight:700;color:'+_ckCol+'">' + _ckRate + '%</span>';
+  h += '<span style="font-size:11px;font-weight:700;color:'+_ckCol+'">' + _ckRate + '%</span>';
 
   h += '</div>';
   h += '<div style="font-size:10px;color:#8a8278;margin-top:1px">' + (state.choiceKitOrder.count ? fmtNum(state.choiceKitOrder.count)+'건' : '로딩중') + ' · USD</div>';
