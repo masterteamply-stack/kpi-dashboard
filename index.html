@@ -6488,6 +6488,48 @@ function renderKpiGauge(kpi, taskList) {
       +'<div style="font-size:7px;color:#a89f94;margin-top:2px">점선=월별목표 · 색상: 녹색≥80% / 노란색≥50% / 빨간색&lt;50%</div>';
   }
 
+  // ── 특별 처리: 소셜 광고 효율성 제고 (B2D-11/Click) → 시트 월별 데이터 기준 표시 ──
+  if(kpi.kpi_key === 'B2D-11') {
+    var _clkD = (function(){
+      try { return getDkpiMonthly('B2D-11'); } catch(e){ return {}; }
+    })();
+    var _clkMs = Object.keys(_clkD).sort();
+    var _clkAct = _clkMs.reduce(function(s,k){return s+Number((_clkD[k]||{}).actual||(_clkD[k]||{}).result||0);},0);
+    var _clkTgt = _clkMs.reduce(function(s,k){return s+Number((_clkD[k]||{}).target||0);},0);
+    // 가장 최근 실적 월
+    var _clkLastMo = null, _clkLastAct = 0, _clkLastTgt = 0, _clkMoNum = 0;
+    for(var _ci=_clkMs.length-1;_ci>=0;_ci--){
+      var _cr = _clkD[_clkMs[_ci]]||{};
+      if(Number(_cr.actual||_cr.result||0)>0){_clkLastMo=_clkMs[_ci];break;}
+    }
+    if(_clkLastMo){
+      var _clkLR = _clkD[_clkLastMo]||{};
+      _clkLastAct = Number(_clkLR.actual||_clkLR.result||0);
+      _clkLastTgt = Number(_clkLR.target||0);
+      _clkMoNum   = parseInt(_clkLastMo.split('-')[1]);
+    }
+    var _clkFmtN = function(v){if(!v||isNaN(v))return '0';v=Number(v);return v>=1000000?(v/1000000).toFixed(2)+'M':v>=1000?(v/1000).toFixed(0)+'K':String(Math.round(v));};
+    // 연간 달성률
+    var _clkYrRate = (_clkAct>0&&_clkTgt>0) ? Math.round(_clkAct/_clkTgt*100) : null;
+    // 이달 달성률
+    var _clkMoRate = (_clkLastAct>0&&_clkLastTgt>0) ? Math.round(_clkLastAct/_clkLastTgt*100) : null;
+    var _clkMoColor = _clkMoRate===null?'#8a8278':_clkMoRate>=100?'#2a7c2a':_clkMoRate>=70?'#c17f3a':'#c0392b';
+    var _clkYrColor = _clkYrRate===null?'#8a8278':_clkYrRate>=100?'#2a7c2a':_clkYrRate>=70?'#c17f3a':'#c0392b';
+    var _clkBw      = _clkYrRate!==null?Math.min(100,_clkYrRate):0;
+    var _clkCc      = _clkYrRate===null?'':_clkYrRate>=80?'':_clkYrRate>=50?'warn':'danger';
+    return '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px">'
+      +'<span class="kpi-gauge-pct" style="color:'+_clkYrColor+'">'+(_clkYrRate!==null?_clkYrRate+'%':'–')+'</span>'
+      +'<span style="font-size:9px;color:#8a8278;font-weight:600">연간 누적 달성률</span>'
+      +'</div>'
+      +'<div class="kpi-gauge-outer"><div class="kpi-gauge-bar '+_clkCc+'" style="width:'+_clkBw+'%"></div></div>'
+      +'<div style="font-size:10px;color:#6b6259;margin-top:3px">'
+        +'<span style="color:#7a6010;font-weight:700">'+_clkFmtN(_clkAct)+'</span>'
+        +'<span style="color:#8a8278"> / 연간목표 '+_clkFmtN(_clkTgt)+'</span>'
+      +'</div>'
+      +(_clkLastMo?'<div style="font-size:9px;color:#8a8278;margin-top:2px">'+_clkMoNum+'월 실적 '+_clkFmtN(_clkLastAct)
+        +(_clkMoRate!==null?'<span style="color:'+_clkMoColor+';margin-left:4px">/ 목표 '+_clkMoRate+'%</span>':'')+' </div>':'');
+  }
+
   // ── 특별 처리: Choice kit 확장 전개 KPI → ChoiceKit 오더 실적 표시 ──
   var _CK_KPI_ID = '814b3f8c-eba7-4626-8cf4-e776cf7ac28f';
   if(kpi.id === _CK_KPI_ID) {
