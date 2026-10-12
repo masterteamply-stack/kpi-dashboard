@@ -1384,10 +1384,17 @@ try {
         fetch(SURVEY_API + '?t=' + Date.now(), { cache: 'no-store' })
           .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
           .then(function(d){
+            // API 필드 매핑 — total은 d.total만 사용 (다중 필드 시도로 인한 값 변동 방지)
+            var _apiTotal = d.total || 0;
+            // 기존 캐시 값보다 작으면 API 값 무시 (데이터 감소 방지)
+            var _prevTotal = (_cur && _cur.total) ? _cur.total : 0;
+            var _resolvedTotal = _apiTotal >= _prevTotal ? _apiTotal : _prevTotal;
+            // total이 0이면 캐시 유지 (API 응답 이상 시 안전장치)
+            if(_resolvedTotal === 0) { console.warn('[Survey] API total=0, 캐시 유지'); return; }
             var _data = {
-              total:     d.total     || d.count       || d.response_count || d.responses || 0,
-              countries: d.countries || d.country_count || d.country_count || d.countries_count || 0,
-              groups:    d.groups    || d.group_count  || d.segment_count  || 5,
+              total:     _resolvedTotal,
+              countries: d.countries || d.country_count || d.countries_count || (_cur && _cur.countries) || 0,
+              groups:    d.groups    || d.group_count  || d.segment_count  || (_cur && _cur.groups) || 5,
               monthly:   d.monthly   || (_cur && _cur.monthly) || {},
               byRegion:  d.byRegion  || d.by_region   || (_cur && _cur.byRegion) || {},
               detail:    d.detail    || d.segments     || [],
@@ -1395,7 +1402,7 @@ try {
               _updated:   d.updated  || new Date().toISOString().slice(0,10)
             };
             console.log('[Survey] API 응답 원본:', JSON.stringify(d).slice(0,200));
-            console.log('[Survey] 매핑 결과 - total:', _data.total, '/ countries:', _data.countries);
+            console.log('[Survey] 매핑 결과 - total:', _data.total, '(API:', _apiTotal, '/ 이전캐시:', _prevTotal, ')');
             localStorage.setItem(SURVEY_LS_KEY, JSON.stringify(_data));
             console.log('[Survey] /api/stats 갱신:', _data.total, '건 /', _data.countries, '개국');
             // 카드 재렌더링
