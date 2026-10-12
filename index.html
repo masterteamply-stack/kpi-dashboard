@@ -3168,66 +3168,83 @@ function renderSummary(s) {
   h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278">Marketing Lead</div>';
   h += '<button onclick="showMktLeadDetail()" style="font-size:9px;background:#f0ede6;border:1px solid #dedad2;border-radius:3px;padding:2px 7px;color:#6b6259;cursor:pointer">통합 분석 →</button>';
   h += '</div>';
-  h += '<div style="font-size:17px;font-weight:800;color:#1a1714;line-height:1">' + fmtNum(_totLead) + ' 건</div>';
-  h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;margin-top:5px">';
-  // 이메일 리드
-  h += '<div style="background:#e8f0e8;border-radius:4px;padding:3px 5px">';
-  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1px">';
-  h += '<div style="font-size:8px;color:#5c6b4a;font-weight:700">📧 이메일</div>';
-  h += '<a href="https://sheissweet79.github.io/CTR-WebLead/" target="_blank" style="font-size:7px;background:#d8ead8;border:1px solid #b0c8b0;border-radius:2px;padding:1px 4px;color:#5c6b4a;text-decoration:none">분석↗</a>';
-  h += '</div>';
-  h += '<div style="font-size:13px;font-weight:800;color:#5c6b4a">' + fmtNum(ml.totalCh) + '</div>';
-  var _chMoLabel = _chLatestKey ? (parseInt(_chLatestKey.split('-')[1])+'월') : (_thisMonthLabel||'이번달');
-  h += '<div style="font-size:9px;color:#8a8278">' + _chMoLabel + ' ' + fmtNum(_thisCh) + '</div></div>';
-  // O2O 리드
-  // ── O2O + Survey 통합 카드 (B2D-04 KPI 실적 기준) ──
-  var _ckSurveyTotal = 62 + 47; // p9 프로모: SuperRepuestos 62 + PLUSCAR O2O 47 (중첩 제외)
+  // ── O2O + Survey 통합 카드 변수 계산 ──
+  var _ckSurveyTotal = 62 + 47;
   var _combinedSurvey = (ml.totalSurvey||0) + _ckSurveyTotal;
   var _o2oPlusSurvey = (ml.totalO2o||0) + _combinedSurvey;
   var _surveyMeta2=(function(){try{var d=JSON.parse(localStorage.getItem('survey_lead_data')||'{}');return {countries:d.countries||0,groups:d.groups||0};}catch(e){return {countries:0,groups:0};}})();
   var _o2oMoLabel2 = _o2oLatestKey ? (parseInt(_o2oLatestKey.split('-')[1])+'월') : (_thisMonthLabel||'이번달');
-  // B2D-04 KPI 연간 목표 (state에서 읽기)
   var _b04Kpi = (state._lastKpis||[]).find(function(k){return k.kpi_key==='B2D-04';});
   var _b04Tgt = _b04Kpi ? (parseFloat((_b04Kpi.q4_target||'').toString().replace(/,/g,''))||5537) : 5537;
   var _b04Rate = _b04Tgt>0 ? Math.round(_o2oPlusSurvey/_b04Tgt*100) : 0;
   var _b04RateColor = _b04Rate>=80?'#5c9c3a':_b04Rate>=50?'#b8962e':'#c0634a';
+  var _chMoLabel = _chLatestKey ? (parseInt(_chLatestKey.split('-')[1])+'월') : (_thisMonthLabel||'이번달');
 
-  h += '<div style="background:linear-gradient(135deg,#fff8e8 60%,#eef0f8 100%);border-radius:6px;padding:6px 8px;border:1px solid #e8e2d0">';
-  // 헤더
-  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">';
-  h += '<div style="font-size:8px;font-weight:700;color:#5a5048">🤝 O2O · 📋 Survey 통합</div>';
-  h += '<div style="display:flex;gap:3px;align-items:center">';
-  h += '<span style="font-size:9px;font-weight:800;color:'+_b04RateColor+'">'+_b04Rate+'%</span>';
-  h += '<button onclick="showO2ODetail()" style="font-size:7px;background:#fff0c0;border:1px solid #e6c84a;border-radius:2px;padding:1px 4px;color:#7a6010;cursor:pointer">분석↗</button>';
-  h += '</div></div>';
-  // 총합 수치
-  h += '<div style="font-size:16px;font-weight:900;color:#3a3020;line-height:1">' + fmtNum(_o2oPlusSurvey) + '</div>';
-  h += '<div style="font-size:9px;color:#8a8278;margin-bottom:4px">B2D-04 목표 ' + fmtNum(_b04Tgt) + '건 대비</div>';
-  // 달성률 바
-  h += '<div style="background:#e8e4dc;border-radius:3px;height:3px;margin-bottom:5px">';
-  h += '<div style="height:100%;width:'+Math.min(100,_b04Rate)+'%;background:'+_b04RateColor+';border-radius:3px"></div></div>';
-  // 소스별 분리 표기
-  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">';
-  // O2O
-  h += '<div style="background:rgba(255,248,232,0.8);border-radius:4px;padding:3px 5px">';
-  h += '<div style="font-size:8px;color:#7a6010;font-weight:700;margin-bottom:1px">🤝 O2O 리드</div>';
-  h += '<div style="font-size:12px;font-weight:800;color:#7a6010">'+fmtNum(ml.totalO2o)+'</div>';
-  h += '<div style="font-size:8px;color:#a89f94">'+_o2oMoLabel2+' '+fmtNum(_thisO2o)+'</div>';
+  // Marketing Lead 총합 표기
+  h += '<div style="font-size:17px;font-weight:800;color:#1a1714;line-height:1">' + fmtNum(_totLead) + ' 건</div>';
+
+  // ── 3소스 구분 바 ──
+  var _totForBar = _totLead || 1;
+  var _pctCh  = Math.round(ml.totalCh/_totForBar*100);
+  var _pctO2o = Math.round(ml.totalO2o/_totForBar*100);
+  var _pctSv  = 100 - _pctCh - _pctO2o;
+  h += '<div style="display:flex;height:4px;border-radius:3px;overflow:hidden;gap:1px;margin:5px 0 6px">';
+  h += '<div style="flex:'+_pctCh+';background:#5c9c6a;min-width:'+(ml.totalCh?2:0)+'px"></div>';
+  h += '<div style="flex:'+_pctO2o+';background:#c8962e;min-width:'+(ml.totalO2o?2:0)+'px"></div>';
+  h += '<div style="flex:'+_pctSv+';background:#5a7abf;min-width:'+(_combinedSurvey?2:0)+'px"></div>';
   h += '</div>';
+
+  // ── 3소스 카드 그리드 ──
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">';
+
+  // 이메일 리드
+  h += '<div style="background:#eef5ee;border-radius:5px;padding:5px 6px">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">';
+  h += '<div style="font-size:8px;color:#5c6b4a;font-weight:700">📧 이메일</div>';
+  h += '<a href="https://sheissweet79.github.io/CTR-WebLead/" target="_blank" style="font-size:7px;background:#d8ead8;border:1px solid #b0c8b0;border-radius:2px;padding:1px 3px;color:#5c6b4a;text-decoration:none">분석↗</a>';
+  h += '</div>';
+  h += '<div style="font-size:14px;font-weight:800;color:#3a6b3a;line-height:1">' + fmtNum(ml.totalCh) + '</div>';
+  h += '<div style="font-size:8px;color:#8a8278;margin-top:2px">' + _chMoLabel + ' ' + fmtNum(_thisCh) + '</div>';
+  h += '</div>';
+
+  // O2O 리드
+  h += '<div style="background:#fff8e8;border-radius:5px;padding:5px 6px">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">';
+  h += '<div style="font-size:8px;color:#7a6010;font-weight:700">🤝 O2O</div>';
+  h += '<button onclick="showO2ODetail()" style="font-size:7px;background:#fff0c0;border:1px solid #e6c84a;border-radius:2px;padding:1px 3px;color:#7a6010;cursor:pointer;line-height:1.2">분석↗</button>';
+  h += '</div>';
+  h += '<div style="font-size:14px;font-weight:800;color:#7a6010;line-height:1">' + fmtNum(ml.totalO2o) + '</div>';
+  h += '<div style="font-size:8px;color:#8a8278;margin-top:2px">' + _o2oMoLabel2 + ' ' + fmtNum(_thisO2o) + '</div>';
+  h += '</div>';
+
   // Survey
-  h += '<div style="background:rgba(238,240,248,0.8);border-radius:4px;padding:3px 5px">';
-  h += '<div style="font-size:8px;color:#3a4a8a;font-weight:700;margin-bottom:1px">📋 Survey</div>';
-  h += '<div style="font-size:12px;font-weight:800;color:#3a4a8a">'+fmtNum(_combinedSurvey)+'</div>';
-  h += '<div style="font-size:8px;color:#a89f94">';
+  h += '<div style="background:#eef0f8;border-radius:5px;padding:5px 6px">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">';
+  h += '<div style="font-size:8px;color:#3a4a8a;font-weight:700">📋 Survey</div>';
+  h += '<a href="https://masterteamply-stack.github.io/choicekit-dashboard/promo_dashboard_v10_6.html#p9" target="_blank" style="font-size:7px;background:#dde0f5;border:1px solid #b0b8e0;border-radius:2px;padding:1px 3px;color:#3a4a8a;text-decoration:none;line-height:1.2">분석↗</a>';
+  h += '</div>';
+  h += '<div style="font-size:14px;font-weight:800;color:#3a4a8a;line-height:1">' + fmtNum(_combinedSurvey) + '</div>';
+  h += '<div style="font-size:8px;color:#8a8278;margin-top:2px">';
   if(_surveyMeta2.countries>0) h += _surveyMeta2.countries+'개국';
-  if(_surveyMeta2.groups>0) h += ' · '+_surveyMeta2.groups+'군';
+  else h += 'CN+CK';
   h += '</div>';
   h += '</div>';
+
+  h += '</div>'; // end 3col grid
+
+  // ── B2D-04 통합 달성률 바 ──
+  h += '<div style="margin-top:6px;padding-top:5px;border-top:1px solid #e8e4dc">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">';
+  h += '<div style="font-size:8px;color:#8a8278">B2D-04 O2O+Survey · 목표 '+fmtNum(_b04Tgt)+'건</div>';
+  h += '<span style="font-size:10px;font-weight:800;color:'+_b04RateColor+'">'+_b04Rate+'%</span>';
   h += '</div>';
-  h += '<div style="font-size:7px;color:#a89f94;margin-top:3px">CN Survey '+fmtNum(ml.totalSurvey||0)+' · CK프로모 '+fmtNum(_ckSurveyTotal)+'</div>';
+  h += '<div style="background:#e8e4dc;border-radius:3px;height:4px">';
+  h += '<div style="height:100%;width:'+Math.min(100,_b04Rate)+'%;background:'+_b04RateColor+';border-radius:3px;transition:width .4s"></div></div>';
+  h += '<div style="font-size:7px;color:#b0a898;margin-top:2px">O2O '+fmtNum(ml.totalO2o)+' · Survey '+fmtNum(_combinedSurvey)+' = '+fmtNum(_o2oPlusSurvey)+'건</div>';
   h += '</div>';
-  h += '</div></div>';
-  h += '</div>';
+
+  h += '</div>'; // end Marketing Lead card
+  h += '</div>'; // end 2col grid (Choice Kit + Marketing Lead)
 
 
       // 3. Digital Channel + Channel Subscribers (2컬럼)
