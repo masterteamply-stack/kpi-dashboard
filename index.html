@@ -3180,37 +3180,51 @@ function renderSummary(s) {
   var _chMoLabel = _chLatestKey ? (parseInt(_chLatestKey.split('-')[1])+'월') : (_thisMonthLabel||'이번달');
   h += '<div style="font-size:9px;color:#8a8278">' + _chMoLabel + ' ' + fmtNum(_thisCh) + '</div></div>';
   // O2O 리드
-  h += '<div style="background:#fff8e8;border-radius:4px;padding:3px 5px">';
-  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1px">';
-  h += '<div style="font-size:8px;color:#7a6010;font-weight:700">🤝 O2O</div>';
-  h += '<button onclick="showO2ODetail()" style="font-size:7px;background:#fff0c0;border:1px solid #e6c84a;border-radius:2px;padding:1px 4px;color:#7a6010;cursor:pointer">분석↗</button>';
-  h += '</div>';
-  h += '<div style="font-size:13px;font-weight:800;color:#7a6010">' + fmtNum(ml.totalO2o) + '</div>';
-  var _o2oMoLabel = _o2oLatestKey ? (parseInt(_o2oLatestKey.split('-')[1])+'월') : (_thisMonthLabel||'이번달');
-  h += '<div style="font-size:9px;color:#8a8278">' + _o2oMoLabel + ' ' + fmtNum(_thisO2o) + '</div></div>';
-  // Survey 리드
-  h += '<div style="background:#eef0f8;border-radius:4px;padding:3px 5px">';
-  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1px">';
-  h += '<div style="font-size:8px;color:#3a4a8a;font-weight:700">📋 Survey</div>';
-  h += '<div style="display:flex;gap:3px">';
-  h += '<a href="https://ctr-cn-survey.gorddaru.workers.dev/" target="_blank" style="font-size:7px;background:#dde0f5;border:1px solid #b0b8e0;border-radius:2px;padding:1px 4px;color:#3a4a8a;text-decoration:none">분석↗</a>';
-  h += '<a href="https://masterteamply-stack.github.io/choicekit-dashboard/promo_dashboard_v10_6.html#p9" target="_blank" style="font-size:7px;background:#e8dfc8;border:1px solid #c8b88a;border-radius:2px;padding:1px 4px;color:#7a6010;text-decoration:none">CK↗</a>';
-  h += '</div></div>';
-  var _surveyMeta=(function(){try{var d=JSON.parse(localStorage.getItem('survey_lead_data')||'{}');return {countries:d.countries||0,groups:d.groups||0};}catch(e){return {countries:0,groups:0};}})();
-  // p9 프로모 설문 고정값 (SuperRepuestos 62 + PLUSCAR O2O 47)
-  // SteerStar 846건, REFATRIX/RUJAC 157건은 중첩 제외
-  var _ckSurveyTotal = 62 + 47; // = 109
+  // ── O2O + Survey 통합 카드 (B2D-04 KPI 실적 기준) ──
+  var _ckSurveyTotal = 62 + 47; // p9 프로모: SuperRepuestos 62 + PLUSCAR O2O 47 (중첩 제외)
   var _combinedSurvey = (ml.totalSurvey||0) + _ckSurveyTotal;
-  h += '<div style="font-size:13px;font-weight:800;color:#3a4a8a">' + fmtNum(_combinedSurvey) + '</div>';
-  h += '<div style="font-size:9px;color:#8a8278">';
-  if(_surveyMeta.countries>0) h += _surveyMeta.countries + '개국';
-  if(_surveyMeta.groups>0) h += ' · ' + _surveyMeta.groups + '개 응답군';
+  var _o2oPlusSurvey = (ml.totalO2o||0) + _combinedSurvey;
+  var _surveyMeta2=(function(){try{var d=JSON.parse(localStorage.getItem('survey_lead_data')||'{}');return {countries:d.countries||0,groups:d.groups||0};}catch(e){return {countries:0,groups:0};}})();
+  var _o2oMoLabel2 = _o2oLatestKey ? (parseInt(_o2oLatestKey.split('-')[1])+'월') : (_thisMonthLabel||'이번달');
+  // B2D-04 KPI 연간 목표 (state에서 읽기)
+  var _b04Kpi = (state._lastKpis||[]).find(function(k){return k.kpi_key==='B2D-04';});
+  var _b04Tgt = _b04Kpi ? (parseFloat((_b04Kpi.q4_target||'').toString().replace(/,/g,''))||5537) : 5537;
+  var _b04Rate = _b04Tgt>0 ? Math.round(_o2oPlusSurvey/_b04Tgt*100) : 0;
+  var _b04RateColor = _b04Rate>=80?'#5c9c3a':_b04Rate>=50?'#b8962e':'#c0634a';
+
+  h += '<div style="background:linear-gradient(135deg,#fff8e8 60%,#eef0f8 100%);border-radius:6px;padding:6px 8px;border:1px solid #e8e2d0">';
+  // 헤더
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">';
+  h += '<div style="font-size:8px;font-weight:700;color:#5a5048">🤝 O2O · 📋 Survey 통합</div>';
+  h += '<div style="display:flex;gap:3px;align-items:center">';
+  h += '<span style="font-size:9px;font-weight:800;color:'+_b04RateColor+'">'+_b04Rate+'%</span>';
+  h += '<button onclick="showO2ODetail()" style="font-size:7px;background:#fff0c0;border:1px solid #e6c84a;border-radius:2px;padding:1px 4px;color:#7a6010;cursor:pointer">분석↗</button>';
+  h += '</div></div>';
+  // 총합 수치
+  h += '<div style="font-size:16px;font-weight:900;color:#3a3020;line-height:1">' + fmtNum(_o2oPlusSurvey) + '</div>';
+  h += '<div style="font-size:9px;color:#8a8278;margin-bottom:4px">B2D-04 목표 ' + fmtNum(_b04Tgt) + '건 대비</div>';
+  // 달성률 바
+  h += '<div style="background:#e8e4dc;border-radius:3px;height:3px;margin-bottom:5px">';
+  h += '<div style="height:100%;width:'+Math.min(100,_b04Rate)+'%;background:'+_b04RateColor+';border-radius:3px"></div></div>';
+  // 소스별 분리 표기
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">';
+  // O2O
+  h += '<div style="background:rgba(255,248,232,0.8);border-radius:4px;padding:3px 5px">';
+  h += '<div style="font-size:8px;color:#7a6010;font-weight:700;margin-bottom:1px">🤝 O2O 리드</div>';
+  h += '<div style="font-size:12px;font-weight:800;color:#7a6010">'+fmtNum(ml.totalO2o)+'</div>';
+  h += '<div style="font-size:8px;color:#a89f94">'+_o2oMoLabel2+' '+fmtNum(_thisO2o)+'</div>';
   h += '</div>';
-  h += '<div style="font-size:8px;color:#8a8278;margin-top:2px;line-height:1.5">';
-  h += '<span style="color:#3a4a8a">' + fmtNum(ml.totalSurvey||0) + '</span><span style="color:#a89f94"> CN Survey</span>';
-  h += '<span style="color:#a89f94"> · </span>';
-  h += '<span style="color:#7a6010">' + fmtNum(_ckSurveyTotal) + '</span><span style="color:#a89f94"> CK 프로모</span>';
+  // Survey
+  h += '<div style="background:rgba(238,240,248,0.8);border-radius:4px;padding:3px 5px">';
+  h += '<div style="font-size:8px;color:#3a4a8a;font-weight:700;margin-bottom:1px">📋 Survey</div>';
+  h += '<div style="font-size:12px;font-weight:800;color:#3a4a8a">'+fmtNum(_combinedSurvey)+'</div>';
+  h += '<div style="font-size:8px;color:#a89f94">';
+  if(_surveyMeta2.countries>0) h += _surveyMeta2.countries+'개국';
+  if(_surveyMeta2.groups>0) h += ' · '+_surveyMeta2.groups+'군';
   h += '</div>';
+  h += '</div>';
+  h += '</div>';
+  h += '<div style="font-size:7px;color:#a89f94;margin-top:3px">CN Survey '+fmtNum(ml.totalSurvey||0)+' · CK프로모 '+fmtNum(_ckSurveyTotal)+'</div>';
   h += '</div>';
   h += '</div></div>';
   h += '</div>';
@@ -6426,10 +6440,13 @@ function renderKpiGauge(kpi, taskList) {
   var curMo=new Date().getMonth();
   var curQ=curMo<3?'q1':curMo<6?'q2':curMo<9?'q3':'q4';
 
-  // ── B2D-04: O2O 마케팅 리드 연계 KPI → o2o_lead_data + tasks.leads 연동 ──
+  // ── B2D-04: O2O + Survey 통합 마케팅 리드 연계 KPI ──
   if(kpi.kpi_key==='B2D-04') {
     var _ml=computeMarketingLeads();
-    var _o2oTotal=_ml.totalO2o||0;
+    var _o2oOnly=_ml.totalO2o||0;
+    var _ckSv04=62+47; // CK 프로모 고정값
+    var _svTotal04=(ml_totalSurvey=_ml.totalSurvey||0)+_ckSv04;
+    var _o2oTotal=_o2oOnly+_svTotal04; // O2O + Survey 합산
     var _annT=parseN(kpi.q4_target)||5537;
     var _curQT=parseN(kpi[curQ+'_target'])||null;
     var _achv=_annT>0?Math.round(_o2oTotal/_annT*100):0;
@@ -6484,13 +6501,16 @@ function renderKpiGauge(kpi, taskList) {
     }
     return '<div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px">'
       +'<span class="kpi-gauge-pct">'+_achv+'%</span>'
-      +'<span style="font-size:9px;color:#7a6010;font-weight:600">🤝 O2O 리드</span>'
+      +'<span style="font-size:9px;color:#5a5048;font-weight:600">🤝 O2O · 📋 Survey</span>'
       +_srcLabel
       +'</div>'
       +'<div class="kpi-gauge-outer"><div class="kpi-gauge-bar '+_cc+'" style="width:'+_bw+'%"></div></div>'
       +'<div style="font-size:10px;color:#6b6259;margin-top:3px">'
-        +'<span style="color:#7a6010;font-weight:700">'+fmtV(_o2oTotal)+'명</span>'
-        +'<span style="color:#8a8278"> / 연간목표 '+fmtV(_annT)+'명</span>'
+        +'<span style="color:#3a3020;font-weight:700">'+fmtV(_o2oTotal)+'건</span>'
+        +'<span style="color:#8a8278"> / 연간목표 '+fmtV(_annT)+'건</span>'
+      +'</div>'
+      +'<div style="font-size:8px;color:#a89f94;margin-top:2px">'
+        +'O2O '+fmtV(_o2oOnly)+' · Survey '+fmtV(_svTotal04)
       +'</div>'
       +_qDetail
       +_barHtml
@@ -7706,16 +7726,18 @@ function renderTop7KPI(kpis, tasks) {
 
     let result, target, rateOverride;
 
-    // ── B2D-04 (O2O 마케팅 리드 연계): computeMarketingLeads() 기준 ──
+    // ── B2D-04 (O2O + Survey 통합 마케팅 리드): computeMarketingLeads() 기준 ──
     if(kpi.kpi_key === 'B2D-04') {
       try {
         const _ml04 = computeMarketingLeads();
-        const _o2oAct = _ml04.totalO2o || 0;
+        const _ck04 = 62 + 47; // CK 프로모 고정값
+        const _sv04 = (_ml04.totalSurvey || 0) + _ck04;
+        const _combined04 = (_ml04.totalO2o || 0) + _sv04;
         const _o2oTgt = _pN(kpi.q4_target) || 5537;
-        if(_o2oAct >= 0 && _o2oTgt > 0) {
-          result = _o2oAct;
+        if(_combined04 >= 0 && _o2oTgt > 0) {
+          result = _combined04;
           target = _o2oTgt;
-          rateOverride = Math.round(_o2oAct / _o2oTgt * 100);
+          rateOverride = Math.round(_combined04 / _o2oTgt * 100);
         }
       } catch(e) {}
     }
