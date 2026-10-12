@@ -11210,12 +11210,17 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
   html+='<div style="display:flex;flex-direction:column;gap:5px">';
   allTypes.forEach(function(tp,i){
     var budget=planByType[tp]||0, spend=spendByType[tp]||0;
+    // ── 정부지원금: 집행액이 음수(환급)인 경우 특별 처리 ──
+    var isGovRefund = (spend < 0);
     var remain=Math.max(0,budget-spend);
     var rate=budget>0?Math.round(spend/budget*100):(spend>0?999:null);
     var col=PALETTE[i%PALETTE.length];
     var rcc=rate===null?'#8a8278':rate>=100?'#c0392b':rate>=70?'#c17f3a':rate>=30?'#2a7c2a':'#8a8278';
+    // 환급 항목은 우측 배지를 초록으로
+    if(isGovRefund){ rcc='#2a7c2a'; }
     var bPct=totalBudget>0&&budget>0?Math.round(budget/totalBudget*100):0;
     var isSel=_actTypeFilter===tp;
+    var refundAmt = isGovRefund ? Math.abs(spend) : 0;
     html+='<div data-acttype="'+tp.replace(/"/g,'&quot;')+'" style="background:#fff;border:2px solid '+(isSel?col:'#ede9e2')+';border-radius:6px;padding:6px 10px;cursor:pointer;transition:border-color .15s">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">'
       +'<div style="display:flex;align-items:center;gap:5px">'
@@ -11223,15 +11228,22 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
       +'<span style="font-size:11px;font-weight:700;color:#1a1714">'+tp+'</span>'
       +(bPct?'<span style="font-size:9px;color:#8a8278;background:#f0ede6;border-radius:3px;padding:1px 4px">예산'+bPct+'%</span>':'')
       +'</div>'
-      +'<span style="font-size:11px;font-weight:800;color:'+rcc+'">'+(rate===null?'–':rate>=999?'예산초과':rate+'%')+'</span></div>'
+      +(isGovRefund
+        ? '<span style="font-size:10px;font-weight:800;color:#2a7c2a">사업비 환급 <b>+'+fmt(refundAmt)+'</b></span>'
+        : '<span style="font-size:11px;font-weight:800;color:'+rcc+'">'+(rate===null?'–':rate+'%')+'</span>')
+      +'</div>'
       +'<div style="display:flex;gap:8px;font-size:10px;margin-bottom:3px">'
-      +(budget>0?'<span style="color:#5a5048">예산 <b>'+fmt(budget)+'</b></span>':'')
-      +(spend>0?'<span style="color:#9e4a3a">집행 <b>'+fmt(spend)+'</b></span>':'')
-      +(budget>0&&remain>=0?'<span style="color:#2a7c2a">잔여 <b>'+fmt(remain)+'</b></span>':'')
-      +(budget===0&&spend>0?'<span style="color:#c0392b;font-size:9px">예산 미배정</span>':'')
+      +(isGovRefund
+        ? '<span style="color:#2a7c2a;font-size:9px">환급액 예산 반영</span>'
+        : (budget>0?'<span style="color:#5a5048">예산 <b>'+fmt(budget)+'</b></span>':'')
+          +(spend>0?'<span style="color:#9e4a3a">집행 <b>'+fmt(spend)+'</b></span>':'')
+          +(budget>0&&remain>=0?'<span style="color:#2a7c2a">잔여 <b>'+fmt(remain)+'</b></span>':'')
+          +(budget===0&&spend>0?'<span style="color:#c0392b;font-size:9px">예산 미배정</span>':''))
       +'</div>'
       +'<div style="background:#f0ede6;border-radius:3px;height:4px;overflow:hidden">'
-      +'<div style="height:100%;width:'+Math.min(100,rate||0)+'%;background:'+col+';border-radius:3px"></div>'
+      +(isGovRefund
+        ? '<div style="height:100%;width:100%;background:linear-gradient(90deg,#2a7c2a,#4caf50);border-radius:3px"></div>'
+        : '<div style="height:100%;width:'+Math.min(100,rate||0)+'%;background:'+col+';border-radius:3px"></div>')
       +'</div></div>';
   });
   html+='</div>';
