@@ -1273,37 +1273,9 @@ try {
 } catch(e) { console.warn('revenue inject failed:', e); }
 </script>
 <script>
-// ── ChoiceKit 오더 데이터 강제 주입 (orders.csv 기준, 2026 상반기) ──
-(function(){
-  try {
-    var ckCache = {
-      total:   2328476,
-      count:   7076,
-      monthly: {
-        "2026-01": 624951,
-        "2026-02": 96263,
-        "2026-03": 215776,
-        "2026-04": 219430,
-        "2026-05": 221890,
-        "2026-06": 321556,
-        "2026-07": 485161,
-        "2026-08": 143449
-      },
-      byRegion: {
-        "CIS":     1212239,
-        "ASIA":    497400,
-        "NA":      408667,
-        "LATAM":   109378,
-        "KOREA":   91592,
-        "MENA":    9199,
-        "OCEANIA": 0
-      },
-      lastUpdated: new Date().toISOString()
-    };
-    localStorage.setItem('ck_order_cache',        JSON.stringify(ckCache));
-    localStorage.setItem('ck_order_cache_backup', JSON.stringify(ckCache));
-  } catch(e) { console.warn('ck order inject failed:', e); }
-})();
+// ── ChoiceKit 오더: 하드코딩 주입 제거 — orders.csv 실시간 fetch로 자동 갱신 ──
+// (이전 버전의 강제 주입 블록은 9월 이후 데이터 반영을 막아 삭제함)
+// fetchChoiceKitOrders()가 GitHub raw CSV에서 매번 최신 데이터를 로드함
 </script>
 <script>
 // ── Marketing Cost (xlsx: Bi-Customer_marketing_engagement_R3) 데이터 주입 ──
@@ -11543,12 +11515,7 @@ async function fetchChoiceKitOrders() {
         _cacheDate:new Date().toISOString().slice(0,10),
         _src:_url.split('/')[2],
         _campStarts:_campStarts};
-      // head 주입 캐시가 있으면 total/monthly/byRegion만 병합 (덮어쓰지 않음)
-      var _hc=null;try{_hc=JSON.parse(localStorage.getItem('ck_order_cache_backup')||'null');}catch(_e3){}
-      if(_hc&&_hc.total&&(!_nd.total||_nd.total<_hc.total)){
-        _nd.total=_hc.total;_nd.count=_hc.count||_nd.count;
-        _nd.monthly=_hc.monthly||_nd.monthly;_nd.byRegion=_hc.byRegion||_nd.byRegion;
-      }
+      // CSV fetch 결과를 항상 우선 사용 (하드코딩 캐시로 덮어쓰지 않음)
       state.choiceKitOrder=_nd;
       try{localStorage.setItem('ck_order_cache',JSON.stringify(_nd));}catch(_e2){}
       var _ckS=computeSummary(state.tasks||[],state._lastKpis||[]);
