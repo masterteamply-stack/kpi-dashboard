@@ -11555,8 +11555,10 @@ async function fetchChoiceKitOrders() {
       var _injected=null;
       try{_injected=JSON.parse(localStorage.getItem('ck_order_cache_backup')||'null');}catch(_ei){}
       if(_injected&&_injected._src==='promo_dashboard_v10_6'){
+        // total/byRegion/monthly 모두 promo 기준으로 보존
         _nd.total=_injected.total;
         _nd.byRegion=_injected.byRegion;
+        _nd.monthly=_injected.monthly;
         _nd._src='promo_dashboard_v10_6';
       }
       state.choiceKitOrder=_nd;
@@ -12560,7 +12562,8 @@ function renderRegionOrderBarChart() {
   var ms = Object.keys(monthly).sort();
   if(!ms.length) { if(tEl) tEl.textContent='--'; return; }
   var labels = ms.map(function(m2){ return parseInt(m2.split('-')[1])+'월'; });
-  var total  = ms.reduce(function(s,k){return s+(monthly[k]||0);},0);
+  // total은 monthly 합산 대신 state.choiceKitOrder.total 직접 사용 (promo 기준 $3.08M)
+  var total  = (state.choiceKitOrder&&state.choiceKitOrder.total) ? state.choiceKitOrder.total : ms.reduce(function(s,k){return s+(monthly[k]||0);},0);
   var cnt    = state.choiceKitOrder.count||0;
   if(tEl) tEl.textContent='$'+new Intl.NumberFormat('en-US').format(Math.round(total));
   if(sEl) sEl.textContent=new Intl.NumberFormat('ko-KR').format(cnt)+'건 · USD';
