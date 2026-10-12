@@ -2659,34 +2659,31 @@ function computeMarketingLeads() {
     _taskMo[mo]=(_taskMo[mo]||0)+leads;
   });
 
-  // localStorage 우선, 없으면 tasks 데이터 사용
-  // localStorage.total이 있으면 monthly도 localStorage만 사용 (tasks.leads 중복 방지)
-  var _o2oMo={};
-  if(_o2oLS.monthly) {
-    if(_o2oLS.total) {
-      // localStorage total이 있으면 monthly도 localStorage만 사용 (tasks 병합 안 함)
-      _o2oMo=_o2oLS.monthly;
-    } else {
-      // localStorage total이 없을 때만 tasks와 병합 (같은 월은 큰 값)
-      var allMoKeys=[...new Set([...Object.keys(_o2oLS.monthly),...Object.keys(_taskMo)])];
-      allMoKeys.forEach(function(m){
-        var lsV=_o2oLS.monthly[m]||0;
-        var tkV=_taskMo[m]||0;
-        _o2oMo[m]=lsV>0?lsV:tkV;
-      });
-    }
-  } else {
-    _o2oMo=_taskMo;
-  }
+  // ── O2O 월별 집계: localStorage(수동) + tasks.leads(태스크 입력) 합산 ──
+  // _o2oLS.monthly = 수동/외부 입력 데이터
+  // _o2oLS._task_monthly = syncTasksToDigitalKpi()가 tasks.leads에서 저장한 값
+  var _lsMo = (_o2oLS.monthly) ? _o2oLS.monthly : {};
+  var _lsTotal = _o2oLS.total || 0;
+  // tasks 기여분 (sync에서 저장됨 또는 직접 집계 _taskMo 사용)
+  var _syncedTaskMo = _o2oLS._task_monthly || {};
+  var _syncedTaskTotal = _o2oLS._task_total || 0;
+  // 두 tasks 소스 중 더 최신/정확한 것 사용: _taskMo(현재 실시간) vs _syncedTaskMo
+  var _effectiveTaskMo = Object.keys(_taskMo).length > 0 ? _taskMo : _syncedTaskMo;
+  var _effectiveTaskTotal = _taskTotal > 0 ? _taskTotal : _syncedTaskTotal;
 
-  // 총합: localStorage.total이 있으면 항상 우선 (tasks.leads 중복 합산 방지)
-  // tasks.leads는 localStorage 데이터가 전혀 없을 때만 폴백으로 사용
-  var o2oTotal=_o2oLS.total||_taskTotal;
-  // monthly 합산은 localStorage.total이 있을 때는 사용하지 않음 (캐시 누적 방지)
-  if(!_o2oLS.total) {
-    var _moSum=Object.values(_o2oMo).reduce(function(s,v){return s+v;},0);
-    if(_moSum>o2oTotal) o2oTotal=_moSum;
-  }
+  // 월별: localStorage 수동값 + tasks 입력값 합산
+  var _o2oMo={};
+  var allMoKeys2=[...new Set([...Object.keys(_lsMo),...Object.keys(_effectiveTaskMo)])];
+  allMoKeys2.forEach(function(m){
+    var lsV=_lsMo[m]||0;
+    var tkV=_effectiveTaskMo[m]||0;
+    _o2oMo[m]=lsV+tkV;
+  });
+
+  // 총합: 수동 총합 + 태스크 총합
+  var o2oTotal = _lsTotal + _effectiveTaskTotal;
+  var _moSum2=Object.values(_o2oMo).reduce(function(s,v){return s+v;},0);
+  if(_moSum2>o2oTotal) o2oTotal=_moSum2;
 
   const o2oMonthly=_o2oMo;
   const o2oByRegion=_o2oLS.byRegion||{};
@@ -7709,6 +7706,20 @@ function renderTop7KPI(kpis, tasks) {
 
     let result, target, rateOverride;
 
+    // ── B2D-04 (O2O 마케팅 리드 연계): computeMarketingLeads() 기준 ──
+    if(kpi.kpi_key === 'B2D-04') {
+      try {
+        const _ml04 = computeMarketingLeads();
+        const _o2oAct = _ml04.totalO2o || 0;
+        const _o2oTgt = _pN(kpi.q4_target) || 5537;
+        if(_o2oAct >= 0 && _o2oTgt > 0) {
+          result = _o2oAct;
+          target = _o2oTgt;
+          rateOverride = Math.round(_o2oAct / _o2oTgt * 100);
+        }
+      } catch(e) {}
+    }
+
     // ── B2D-11 (소셜 광고 효율성 제고/Click): 시트 월별 데이터 기준 ──
     if(kpi.kpi_key === 'B2D-11') {
       try {
@@ -8551,6 +8562,44 @@ var _DKPI_TITLE_MAP = {
 
 async function syncTasksToDigitalKpi(tasks, kpis) {
   if (!tasks || !tasks.length) return;
+
+  // ── B2D-04 특별 처리: tasks.leads → o2o_lead_data (localStorage) 반영 ──
+  // kpi_id가 B2D-04 KPI에 연결된 태스크의 leads를 월별 집계 후 localStorage에 병합
+  (function() {
+    try {
+      var _b04Kpi = (kpis||[]).find(function(k){ return k.kpi_key==='B2D-04'; });
+      if(!_b04Kpi) return;
+      var _b04Tasks = tasks.filter(function(t){ return t.kpi_id===_b04Kpi.id && Number(t.leads||0)>0; });
+      if(!_b04Tasks.length) return;
+
+      // 월별 집계 (due_date > started_at > quarter 순)
+      var _b04Mo = {};
+      var _b04Total = 0;
+      _b04Tasks.forEach(function(t){
+        var leads = Number(t.leads||0);
+        _b04Total += leads;
+        var mo = null;
+        if(t.due_date && t.due_date.length>=7) mo = t.due_date.slice(0,7);
+        else if(t.started_at && t.started_at.length>=7) mo = t.started_at.slice(0,7);
+        else if(t.quarter) {
+          var yr = new Date().getFullYear();
+          var qmap = {q1:'01',q2:'04',q3:'07',q4:'10'};
+          var qk = (t.quarter||'').toLowerCase().replace(/[^q1-4]/g,'').slice(0,2);
+          if(qmap[qk]) mo = yr+'-'+qmap[qk];
+        }
+        if(mo) _b04Mo[mo] = (_b04Mo[mo]||0) + leads;
+      });
+      if(!_b04Total) return;
+
+      // localStorage의 기존 o2o_lead_data와 병합 (tasks 기여분만 별도 보관)
+      var _existing = (function(){ try{ return JSON.parse(localStorage.getItem('o2o_lead_data')||'{}'); }catch(e){ return {}; } })();
+      // tasks 기여분 키: _task_monthly, _task_total로 저장 (ls 데이터와 분리)
+      _existing._task_monthly = _b04Mo;
+      _existing._task_total = _b04Total;
+      localStorage.setItem('o2o_lead_data', JSON.stringify(_existing));
+      console.log('[B2D-04 Sync] tasks.leads 반영:', _b04Total, '건', _b04Mo);
+    } catch(e) { console.warn('[B2D-04 Sync] 오류:', e); }
+  })();
 
   for (var dkpiKey of Object.keys(_DKPI_TITLE_MAP)) {
     var targetTitle = _DKPI_TITLE_MAP[dkpiKey];
