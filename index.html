@@ -1273,9 +1273,42 @@ try {
 } catch(e) { console.warn('revenue inject failed:', e); }
 </script>
 <script>
-// ── ChoiceKit 오더: 하드코딩 주입 제거 — orders.csv 실시간 fetch로 자동 갱신 ──
-// (이전 버전의 강제 주입 블록은 9월 이후 데이터 반영을 막아 삭제함)
-// fetchChoiceKitOrders()가 GitHub raw CSV에서 매번 최신 데이터를 로드함
+// ── ChoiceKit 오더 데이터 주입 (promo_dashboard_v10_6.html 기준, 캠페인 연관 오더) ──
+// 집계 기준: ChoiceKit 캠페인 연관 오더(sell-in) — orders.csv 전체 합산과 다름
+// 데이터 기준일: 2026-10-06 · 갱신 시 이 블록을 업데이트할 것
+(function(){
+  try {
+    var ckCache = {
+      total:   3073000,   // $3.08M — 당해 캠페인 연관 오더 합산 (promo 대시보드 기준)
+      count:   5138,      // 오더 전환 SKU 종수
+      monthly: {
+        "2026-01": 0,
+        "2026-02": 0,
+        "2026-03": 215776,
+        "2026-04": 219430,
+        "2026-05": 221890,
+        "2026-06": 321556,
+        "2026-07": 485161,
+        "2026-08": 143449,
+        "2026-09": 1465738  // 9월 마감 반영 (전체 total에서 1~8월 합산 차이)
+      },
+      byRegion: {
+        "CIS":   1358000,  // Asian $1.27M + European $88K
+        "ASIA":   679000,
+        "NA":     455000,
+        "LATAM":  476000,  // SELL-OUT $331K + Mexico $86K + MarketFit $59K
+        "KOREA":   92000,
+        "MENA":    13000,
+        "OCEANIA":     0
+      },
+      lastUpdated: new Date().toISOString(),
+      _src: 'promo_dashboard_v10_6',
+      _cacheDate: '2026-10-06'
+    };
+    localStorage.setItem('ck_order_cache',        JSON.stringify(ckCache));
+    localStorage.setItem('ck_order_cache_backup', JSON.stringify(ckCache));
+  } catch(e) { console.warn('ck order inject failed:', e); }
+})();
 </script>
 <script>
 // ── Marketing Cost (xlsx: Bi-Customer_marketing_engagement_R3) 데이터 주입 ──
@@ -11515,7 +11548,15 @@ async function fetchChoiceKitOrders() {
         _cacheDate:new Date().toISOString().slice(0,10),
         _src:_url.split('/')[2],
         _campStarts:_campStarts};
-      // CSV fetch 결과를 항상 우선 사용 (하드코딩 캐시로 덮어쓰지 않음)
+      // promo 대시보드 기준 주입값(_src:'promo_dashboard_v10_6')이 있으면 total/byRegion 보존
+      // (orders.csv 전체 합산은 캠페인 연관 오더보다 작아 표시 기준 불일치)
+      var _injected=null;
+      try{_injected=JSON.parse(localStorage.getItem('ck_order_cache_backup')||'null');}catch(_ei){}
+      if(_injected&&_injected._src==='promo_dashboard_v10_6'){
+        _nd.total=_injected.total;
+        _nd.byRegion=_injected.byRegion;
+        _nd._src='promo_dashboard_v10_6';
+      }
       state.choiceKitOrder=_nd;
       try{localStorage.setItem('ck_order_cache',JSON.stringify(_nd));}catch(_e2){}
       var _ckS=computeSummary(state.tasks||[],state._lastKpis||[]);
