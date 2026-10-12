@@ -1375,66 +1375,54 @@ try {
       } catch(_e) {}
     }
 
+    // Survey total은 하드코딩 고정값 사용 (API total 필드가 불안정하여 변동 방지)
+    var SURVEY_FIXED_TOTAL = 6713;
+    var SURVEY_FIXED_COUNTRIES = 94;
+    var SURVEY_FIXED_GROUPS = 5;
+
     function _fetchSurveyStats(force) {
       try {
         var _cur = null;
         try { _cur = JSON.parse(localStorage.getItem(SURVEY_LS_KEY)||'null'); } catch(_e){}
-        // 최소 갱신 간격 체크 (force=true면 무조건 fetch), 10분 캐시
-        // 캐시 없음 - 항상 API에서 최신 수치 fetch
         fetch(SURVEY_API + '?t=' + Date.now(), { cache: 'no-store' })
           .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
           .then(function(d){
-            // API 필드 매핑 — total은 d.total만 사용 (다중 필드 시도로 인한 값 변동 방지)
-            var _apiTotal = d.total || 0;
-            // 기존 캐시 값보다 작으면 API 값 무시 (데이터 감소 방지)
-            var _prevTotal = (_cur && _cur.total) ? _cur.total : 0;
-            var _resolvedTotal = _apiTotal >= _prevTotal ? _apiTotal : _prevTotal;
-            // total이 0이면 캐시 유지 (API 응답 이상 시 안전장치)
-            if(_resolvedTotal === 0) { console.warn('[Survey] API total=0, 캐시 유지'); return; }
+            // total/countries/groups는 고정값 사용 — API 값이 불안정하여 변동 방지
+            // monthly/byRegion/detail 같은 보조 데이터만 API에서 반영
             var _data = {
-              total:     _resolvedTotal,
-              countries: d.countries || d.country_count || d.countries_count || (_cur && _cur.countries) || 0,
-              groups:    d.groups    || d.group_count  || d.segment_count  || (_cur && _cur.groups) || 5,
-              monthly:   d.monthly   || (_cur && _cur.monthly) || {},
+              total:     SURVEY_FIXED_TOTAL,
+              countries: SURVEY_FIXED_COUNTRIES,
+              groups:    SURVEY_FIXED_GROUPS,
+              monthly:   d.monthly   || (_cur && _cur.monthly) || {"2026-07": SURVEY_FIXED_TOTAL},
               byRegion:  d.byRegion  || d.by_region   || (_cur && _cur.byRegion) || {},
               detail:    d.detail    || d.segments     || [],
               _fetchedAt: new Date().toISOString(),
               _updated:   d.updated  || new Date().toISOString().slice(0,10)
             };
-            console.log('[Survey] API 응답 원본:', JSON.stringify(d).slice(0,200));
-            console.log('[Survey] 매핑 결과 - total:', _data.total, '(API:', _apiTotal, '/ 이전캐시:', _prevTotal, ')');
+            console.log('[Survey] API 보조데이터 갱신 (total 고정:', SURVEY_FIXED_TOTAL, ')');
             localStorage.setItem(SURVEY_LS_KEY, JSON.stringify(_data));
-            console.log('[Survey] /api/stats 갱신:', _data.total, '건 /', _data.countries, '개국');
-            // 카드 재렌더링
             try { var _scs=computeSummary(state.tasks||[],state._lastKpis||[]); renderKPICards(_scs); } catch(_e){}
             _applySurveyData(_data);
           })
           .catch(function(err){
             console.warn('[Survey] /api/stats fetch 실패:', err);
-            // 실패 시 기존 캐시 유지
           });
       } catch(_e) { console.warn('[Survey] fetch 오류:', _e); }
     }
 
-    // 초기값: 항상 최신 알려진 수치로 강제 병합 (monthly/countries/total 갱신)
+    // 초기값: 항상 고정값으로 강제 주입 (API 변동과 무관하게 일관성 유지)
     (function(){
       var _sv = null;
       try { _sv = JSON.parse(localStorage.getItem(SURVEY_LS_KEY)||'null'); } catch(_e){}
       var _latest = {
-        total: 6713, countries: 94, groups: 5,
-        monthly: { "2026-01":0,"2026-02":0,"2026-03":0,"2026-04":0,"2026-05":0,"2026-06":0,"2026-07":6713 },
-        byRegion: { "China": 8100 },
+        total: SURVEY_FIXED_TOTAL, countries: SURVEY_FIXED_COUNTRIES, groups: SURVEY_FIXED_GROUPS,
+        monthly: (_sv && _sv.monthly) || { "2026-07": SURVEY_FIXED_TOTAL },
+        byRegion: (_sv && _sv.byRegion) || {},
         _fetchedAt: _sv ? (_sv._fetchedAt||null) : null,
         _updated: "2026-07-06"
       };
-      // 기존 캐시보다 최신값이 크거나, monthly가 잘못된 경우 강제 갱신
-      // fetch로 최신값을 가져오므로 초기값은 캐시가 없을 때만 주입
-      // 저장값이 최신 수치보다 작으면 강제 갱신
-      var _needsMerge = !_sv || !_sv.total || !_sv._updated || (_sv._updated < '2026-08-13');
-      if(_needsMerge) {
-        localStorage.setItem(SURVEY_LS_KEY, JSON.stringify(_latest));
-        console.log('[Survey] 초기값 강제 병합:', _latest.total);
-      }
+      // 항상 고정값으로 덮어쓰기 (API fetch 이전에 안정적 수치 확보)
+      localStorage.setItem(SURVEY_LS_KEY, JSON.stringify(_latest));
     })();
 
     // DOM 준비 후 즉시 fetch + 1시간 주기 갱신
