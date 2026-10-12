@@ -7695,20 +7695,39 @@ function renderTop7KPI(kpis, tasks) {
     const unit2 = (kpi.unit||'').trim();
     const isPct2 = (unit2==='%') || (annTgt===100);
 
-    let result, target;
-    if(isPct2) {
-      // % KPI: 진척도 % 자체가 실적
-      target = 100;
-      result = rate;
-    } else {
-      // 수치 KPI: raw 합산이 실적
-      const rawSum = kt.reduce((s,t)=>s+Number(t._progressRaw!=null?t._progressRaw:t.progress||0),0);
-      target = annTgt;
-      result = rawSum > 0 ? rawSum : null;
+    let result, target, rateOverride;
+
+    // ── B2D-11 (소셜 광고 효율성 제고/Click): 시트 월별 데이터 기준 ──
+    if(kpi.kpi_key === 'B2D-11') {
+      try {
+        const _d11 = getDkpiMonthly('B2D-11');
+        const _ms11 = Object.keys(_d11).sort();
+        const _act11 = _ms11.reduce((s,k)=>s+Number((_d11[k]||{}).actual||(_d11[k]||{}).result||0),0);
+        const _tgt11 = _ms11.reduce((s,k)=>s+Number((_d11[k]||{}).target||0),0);
+        if(_act11>0 && _tgt11>0) {
+          result = _act11;
+          target = _tgt11;
+          rateOverride = Math.round(_act11/_tgt11*100);
+        }
+      } catch(e) {}
     }
 
+    if(rateOverride == null) {
+      if(isPct2) {
+        // % KPI: 진척도 % 자체가 실적
+        target = 100;
+        result = rate;
+      } else {
+        // 수치 KPI: raw 합산이 실적
+        const rawSum = kt.reduce((s,t)=>s+Number(t._progressRaw!=null?t._progressRaw:t.progress||0),0);
+        target = annTgt;
+        result = rawSum > 0 ? rawSum : null;
+      }
+    }
+
+    const finalRate = rateOverride != null ? rateOverride : rate;
     const hasData = taskCnt > 0 || result != null;
-    return {kpi, rate, result, target, hasData, taskCnt};
+    return {kpi, rate: finalRate, result, target, hasData, taskCnt};
   });
 
   // 달성률 기준 정렬
