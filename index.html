@@ -6487,6 +6487,34 @@ function renderKpiGauge(kpi, taskList) {
       +'<div style="font-size:7px;color:#a89f94;margin-top:2px">점선=월별목표 · 색상: 녹색≥80% / 노란색≥50% / 빨간색&lt;50%</div>';
   }
 
+  // ── 특별 처리: Choice kit 확장 전개 KPI → ChoiceKit 오더 실적 표시 ──
+  var _CK_KPI_ID = '814b3f8c-eba7-4626-8cf4-e776cf7ac28f';
+  if(kpi.id === _CK_KPI_ID) {
+    var _ckOrd = (function(){
+      try {
+        var _d = JSON.parse(localStorage.getItem('ck_order_cache_backup')||localStorage.getItem('ck_order_cache')||'null');
+        if(_d && _d._src === 'promo_dashboard_v10_6') return _d;
+      } catch(_e){}
+      return state.choiceKitOrder || null;
+    })();
+    var _ckTotal = _ckOrd ? (_ckOrd.total||0) : 3073000;
+    var _ckCnt   = _ckOrd ? (_ckOrd.count||0) : 5177;
+    var _ckRate  = 69; // promo 기준 달성률 고정
+    var _ckColor = _ckRate >= 80 ? '#3d7a2e' : _ckRate >= 50 ? '#b8962e' : '#c04a30';
+    var _ckBw    = Math.min(100, _ckRate);
+    var _ckFmt   = function(v){ if(v>=1000000) return '$'+(v/1000000).toFixed(2)+'M'; if(v>=1000) return '$'+(v/1000).toFixed(0)+'K'; return '$'+v; };
+    return '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px">'
+      +'<span class="kpi-gauge-pct">'+_ckRate+'%</span>'
+      +'<span style="font-size:9px;color:#c17f3a;font-weight:700">캠페인 연관 오더</span>'
+      +'</div>'
+      +'<div class="kpi-gauge-outer"><div class="kpi-gauge-bar" style="width:'+_ckBw+'%;background:#c17f3a"></div></div>'
+      +'<div style="font-size:10px;color:#6b6259;margin-top:3px">'
+        +'<span style="color:#c17f3a;font-weight:700">'+_ckFmt(_ckTotal)+'</span>'
+        +'<span style="color:#8a8278"> · '+new Intl.NumberFormat('ko-KR').format(_ckCnt)+'건 · USD</span>'
+      +'</div>'
+      +'<div style="margin-top:4px"><a href="https://masterteamply-stack.github.io/choicekit-dashboard/promo_dashboard_v10_6.html" target="_blank" style="font-size:9px;background:#f7f0e4;border:1px solid #d4b87a;border-radius:3px;padding:1px 7px;color:#9a6820;text-decoration:none;font-weight:600">상세 분석 →</a></div>';
+  }
+
   // ── 0순위: KPI 완료 상태면 실제 달성률 또는 100% ──
   if(kpi.progress_status==='완료') {
     var _annT0=parseN(kpi.q4_target)||['q1','q2','q3','q4'].reduce(function(s,q){return s+(parseN(kpi[q+'_target'])||0);},0)||null;
