@@ -8671,12 +8671,23 @@ async function saveDkpiSheet() {
     });
     // grand total 자동 합산
     const grandTotal = Object.values(saved).reduce((s, rd) => s + (rd.total||0), 0);
+
+    // region_sub_net 자동 계산: 월별 전체 지역 순증 합계
+    const subNet = {};
+    Object.values(saved).forEach(rd => {
+      Object.entries(rd.monthly||{}).forEach(([mo, v]) => {
+        if(v) subNet[mo] = (subNet[mo]||0) + Number(v);
+      });
+    });
+
     try {
       setSharedConfig('region_sub_detail', saved);
       setSharedConfig('region_sub_grand_total', String(grandTotal));
+      setSharedConfig('region_sub_net', subNet);
       // localStorage도 동기화
       localStorage.setItem('region_sub_detail', JSON.stringify(saved));
       localStorage.setItem('region_sub_grand_total', String(grandTotal));
+      localStorage.setItem('region_sub_net', JSON.stringify(subNet));
     } catch(e){}
     state._regionSubData = saved;
     // 운영 요약 + 차트 즉시 갱신
