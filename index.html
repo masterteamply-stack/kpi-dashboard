@@ -3132,7 +3132,10 @@ function renderSummary(s) {
   h += '<div style="background:#f5f2ed;border-radius:6px;padding:7px 10px">';
   h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">';
   h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8278">Choice Kit 오더</div>';
+  h += '<div style="display:flex;gap:4px">';
   h += '<a href="https://masterteamply-stack.github.io/choicekit-dashboard/promo_dashboard_v10_6.html" target="_blank" style="font-size:9px;background:#f0ede6;border:1px solid #dedad2;border-radius:3px;padding:1px 6px;color:#6b6259;text-decoration:none">상세 분석 →</a>';
+  h += '<button onclick="showCKCustomerKpi()" style="font-size:9px;background:#e8d4b0;border:1px solid #c8a060;border-radius:3px;padding:1px 6px;color:#7a5010;cursor:pointer;font-weight:700">고객사 KPI ▾</button>';
+  h += '</div>';
   h += '</div>';
   // Choice Kit 달성률: promo_dashboard_v10_6.html 기준 (2026-10-13 업데이트 · 55.9% → 56%)
   var _ckRate = 56, _ckCol = '#c17f3a';
@@ -3142,6 +3145,10 @@ function renderSummary(s) {
 
   h += '</div>';
   h += '<div style="font-size:10px;color:#8a8278;margin-top:1px">' + (state.choiceKitOrder.count ? fmtNum(state.choiceKitOrder.count)+'건' : '로딩중') + ' · USD</div>';
+  // 고객사별 KPI 요약 (달성 고객사 수)
+  var _ckCustAchieved=0,_ckCustTotal=29;
+  [38,53,125,30,34,147,190,43,133,12,54,58,105,73,151,0,0,97,0,201,469,9,0,0,0,0,0,0,100].forEach(function(r){if(r>=100)_ckCustAchieved++;});
+  h += '<div style="margin-top:4px;font-size:9px;color:#8a8278">고객사 목표달성 <span style="color:#3a6b3a;font-weight:700">'+_ckCustAchieved+'</span>/'+_ckCustTotal+'사 · 합산 <span style="color:#c17f3a;font-weight:700">70%</span></div>';
   if(_revTotalDisp) {
     h += '<div style="margin-top:5px;padding-top:5px;border-top:1px solid #e8e4dc;display:flex;align-items:center;justify-content:space-between">';
     h += '<div><div style="font-size:9px;color:#8a8278;font-weight:600">매출 (B2B)</div>';
@@ -3609,6 +3616,128 @@ function showO2ODetail() {
   };
 }
 
+
+// ── Choice Kit 고객사별 전년+20% KPI 달성률 모달 ──
+function showCKCustomerKpi() {
+  var _ckCustData = [
+    {name:'Lordco Auto Parts',          no:'289029', reg:'NA',    target:1185141, actual:455162,  rate:38},
+    {name:'MAST MOTORING',              no:'200371', reg:'ASIA',  target:583293,  actual:309324,  rate:53},
+    {name:'CHUAN LAM AUTO',             no:'200241', reg:'ASIA',  target:332552,  actual:414954,  rate:125},
+    {name:'NAM BAC AUTO',               no:'200464', reg:'ASIA',  target:312021,  actual:94361,   rate:30},
+    {name:'세종파츠플러스',               no:'114621', reg:'Korea', target:270000,  actual:91592,   rate:34},
+    {name:'GP Mobility',                no:'288352', reg:'ASIA',  target:258218,  actual:380605,  rate:147},
+    {name:'Seri Wathana',               no:'289248', reg:'ASIA',  target:237640,  actual:452275,  rate:190},
+    {name:'REFATRIX',                   no:'289404', reg:'LATAM', target:200000,  actual:85919,   rate:43},
+    {name:'PLUSCAR S.A',                no:'140300', reg:'LATAM', target:200000,  actual:266117,  rate:133},
+    {name:'GTB LIMITED',                no:'200770', reg:'ASIA',  target:179234,  actual:20644,   rate:12},
+    {name:'Auto Business Corp',         no:'200332', reg:'ASIA',  target:175970,  actual:95125,   rate:54},
+    {name:'MARBORO AUTO PARTS',         no:'200264', reg:'ASIA',  target:125775,  actual:73236,   rate:58},
+    {name:'PT. Denso Centra',           no:'288291', reg:'ASIA',  target:116028,  actual:121879,  rate:105},
+    {name:'SUPER REPUESTOS',            no:'104100', reg:'LATAM', target:100000,  actual:72850,   rate:73},
+    {name:'ZENTRALINK OTOPARTS',        no:'200335', reg:'ASIA',  target:90827,   actual:137212,  rate:151},
+    {name:'MOTOR WORLD',                no:'288140', reg:'MENA',  target:70000,   actual:0,       rate:0},
+    {name:'Diamond Auto',               no:'202000', reg:'MENA',  target:70000,   actual:0,       rate:0},
+    {name:'YOUNG AUTO SUPPLY',          no:'200242', reg:'ASIA',  target:66073,   actual:64380,   rate:97},
+    {name:'EMERALD SPARE PARTS',        no:'200451', reg:'MENA',  target:60000,   actual:0,       rate:0},
+    {name:'EURL TASSRIAA',              no:'200389', reg:'MENA',  target:60000,   actual:120711,  rate:201},
+    {name:'CHIN SENG HUAT',             no:'200691', reg:'ASIA',  target:35591,   actual:167098,  rate:469},
+    {name:'DYNATRADE',                  no:'200387', reg:'MENA',  target:20000,   actual:1828,    rate:9},
+    {name:'AUTOBASS INTERNATIONAL',     no:'288760', reg:'MENA',  target:20000,   actual:0,       rate:0},
+    {name:'KHALED ALMRSOOMI',           no:'289200', reg:'MENA',  target:20000,   actual:0,       rate:0},
+    {name:'AUTOLINK',                   no:'289201', reg:'MENA',  target:20000,   actual:0,       rate:0},
+    {name:'PARTS DIRECT',               no:'289202', reg:'MENA',  target:20000,   actual:0,       rate:0},
+    {name:'AL WASIL AUTO',              no:'289203', reg:'MENA',  target:20000,   actual:0,       rate:0},
+    {name:'GULF MOTORS',                no:'289204', reg:'MENA',  target:20000,   actual:0,       rate:0},
+    {name:'TECHNICAL AUTO',             no:'289205', reg:'MENA',  target:20000,   actual:100,     rate:0}
+  ];
+  var _totalTgt = 4888363, _totalAct = 3436350, _totalRate = 70;
+  var _achieved = _ckCustData.filter(function(c){return c.rate>=100;}).length;
+
+  var h = '';
+  h += '<div id="ck-kpi-modal" onclick="if(event.target===this){this.remove()}" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px">';
+  h += '<div style="background:#fff;border-radius:12px;max-width:600px;width:100%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.25)">';
+
+  // 헤더
+  h += '<div style="padding:16px 20px 12px;border-bottom:1px solid #e8e4dc;flex-shrink:0">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between">';
+  h += '<div>';
+  h += '<div style="font-size:14px;font-weight:800;color:#1a1714">🎯 Choice Kit 고객사별 KPI 달성현황</div>';
+  h += '<div style="font-size:11px;color:#8a8278;margin-top:2px">전년 오더 대비 +20% 신장 목표 · SELL-IN 기준 · 2026.10.13 기준</div>';
+  h += '</div>';
+  h += '<button onclick="document.getElementById(\'ck-kpi-modal\').remove()" style="background:#f0ede6;border:1px solid #dedad2;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:13px">✕</button>';
+  h += '</div>';
+
+  // 전체 요약 바
+  h += '<div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">';
+  h += '<div style="background:#f5f2ed;border-radius:8px;padding:8px 12px;text-align:center">';
+  h += '<div style="font-size:10px;color:#8a8278;font-weight:600;text-transform:uppercase">전체 달성률</div>';
+  h += '<div style="font-size:22px;font-weight:900;color:#c17f3a;line-height:1.1">'+_totalRate+'%</div>';
+  h += '<div style="font-size:9px;color:#8a8278">$'+(_totalAct/1e6).toFixed(2)+'M / $'+(_totalTgt/1e6).toFixed(2)+'M</div>';
+  h += '</div>';
+  h += '<div style="background:#eef5ee;border-radius:8px;padding:8px 12px;text-align:center">';
+  h += '<div style="font-size:10px;color:#5c6b4a;font-weight:600;text-transform:uppercase">목표 달성</div>';
+  h += '<div style="font-size:22px;font-weight:900;color:#3a6b3a;line-height:1.1">'+_achieved+'<span style="font-size:13px;font-weight:600">사</span></div>';
+  h += '<div style="font-size:9px;color:#8a8278">전체 '+_ckCustData.length+'개 고객사</div>';
+  h += '</div>';
+  h += '<div style="background:#fff8e8;border-radius:8px;padding:8px 12px;text-align:center">';
+  h += '<div style="font-size:10px;color:#7a6010;font-weight:600;text-transform:uppercase">초과달성</div>';
+  var _over = _ckCustData.filter(function(c){return c.rate>=120;}).length;
+  h += '<div style="font-size:22px;font-weight:900;color:#b87020;line-height:1.1">'+_over+'<span style="font-size:13px;font-weight:600">사</span></div>';
+  h += '<div style="font-size:9px;color:#8a8278">120% 이상 초과</div>';
+  h += '</div>';
+  h += '</div>';
+
+  // 달성률 진행바
+  h += '<div style="margin-top:10px">';
+  h += '<div style="background:#e8e4dc;border-radius:4px;height:6px;overflow:hidden">';
+  h += '<div style="width:'+Math.min(100,_totalRate)+'%;height:100%;background:linear-gradient(90deg,#c17f3a,#e8a848);border-radius:4px;transition:width .5s"></div>';
+  h += '</div>';
+  h += '</div>';
+  h += '</div>'; // header end
+
+  // 테이블
+  h += '<div style="overflow-y:auto;flex:1;padding:0 20px 16px">';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:12px">';
+  h += '<thead><tr style="background:#f5f2ed;position:sticky;top:0;z-index:1">';
+  h += '<th style="text-align:left;padding:7px 8px;font-size:10px;font-weight:700;color:#6b6259;white-space:nowrap">고객사</th>';
+  h += '<th style="text-align:center;padding:7px 4px;font-size:10px;font-weight:700;color:#6b6259">권역</th>';
+  h += '<th style="text-align:right;padding:7px 8px;font-size:10px;font-weight:700;color:#6b6259">목표</th>';
+  h += '<th style="text-align:right;padding:7px 8px;font-size:10px;font-weight:700;color:#6b6259">실적</th>';
+  h += '<th style="text-align:center;padding:7px 8px;font-size:10px;font-weight:700;color:#6b6259">달성률</th>';
+  h += '<th style="padding:7px 8px;font-size:10px;font-weight:700;color:#6b6259" width="80">진행</th>';
+  h += '</tr></thead><tbody>';
+
+  var _sorted = _ckCustData.slice().sort(function(a,b){return b.rate-a.rate;});
+  _sorted.forEach(function(c, idx) {
+    var _bg = idx%2===0?'#ffffff':'#faf9f7';
+    var _rateColor = c.rate>=120?'#2a6b2a':c.rate>=100?'#3a7a3a':c.rate>=70?'#c17f3a':c.rate>=30?'#b85020':'#c04040';
+    var _badge = c.rate>=120?'🏆':c.rate>=100?'✅':c.rate>=70?'🔶':c.rate>0?'🔻':'⬜';
+    var _fmtK = function(v){return v>=1000000?'$'+(v/1e6).toFixed(2)+'M':v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+v;};
+    h += '<tr style="background:'+_bg+';border-bottom:1px solid #f0ede6">';
+    h += '<td style="padding:7px 8px;font-weight:600;color:#2a2420;white-space:nowrap">'+_badge+' '+c.name+'</td>';
+    h += '<td style="padding:7px 4px;text-align:center"><span style="font-size:9px;background:#e8e4dc;border-radius:3px;padding:1px 5px;color:#6b6259">'+c.reg+'</span></td>';
+    h += '<td style="padding:7px 8px;text-align:right;color:#8a8278">'+_fmtK(c.target)+'</td>';
+    h += '<td style="padding:7px 8px;text-align:right;font-weight:700;color:'+_rateColor+'">'+_fmtK(c.actual)+'</td>';
+    h += '<td style="padding:7px 8px;text-align:center;font-weight:800;color:'+_rateColor+';font-size:12px">'+c.rate+'%</td>';
+    var _bw = Math.min(100,c.rate);
+    var _bColor = c.rate>=120?'#3a9a3a':c.rate>=100?'#5ab05a':c.rate>=70?'#e8a040':c.rate>0?'#d07050':'#ddd';
+    h += '<td style="padding:5px 8px"><div style="background:#e8e4dc;border-radius:3px;height:6px"><div style="width:'+_bw+'%;height:100%;background:'+_bColor+';border-radius:3px"></div></div></td>';
+    h += '</tr>';
+  });
+  h += '</tbody></table>';
+
+  // 범례
+  h += '<div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;font-size:9px;color:#8a8278;padding-bottom:4px">';
+  h += '<span>🏆 120%+ 초과달성</span><span>✅ 100%+ 목표달성</span><span>🔶 70-99% 진행중</span><span>🔻 30-69% 미흡</span><span>⬜ 시작 전</span>';
+  h += '</div>';
+  h += '<div style="font-size:9px;color:#b0a898;padding-top:6px;border-top:1px solid #f0ede6">* Order_Target($) = 전년 동기간 오더 × 1.20 (전년+20% 신장 목표) · orders.csv SELL-IN 기준</div>';
+  h += '</div>'; // scroll area end
+  h += '</div></div>'; // modal end
+
+  var _el = document.createElement('div');
+  _el.innerHTML = h;
+  document.body.appendChild(_el.firstChild);
+}
 
 function renderChart(tasks) {
   const buckets = buildBuckets(tasks);
