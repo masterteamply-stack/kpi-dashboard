@@ -8705,9 +8705,10 @@ async function saveDkpiSheet() {
       localStorage.setItem('region_sub_net', JSON.stringify(subNet));
     } catch(e){}
     state._regionSubData = saved;
-    // 운영 요약 + 차트 즉시 갱신
+    // 운영 요약 + 차트 + KPI 카드 즉시 갱신 (Channel Subscribers richCard 반영)
     renderRegionSubChart();
     const cs = computeSummary(state.tasks||[], state._lastKpis||[]);
+    renderKPICards(cs);
     renderSummary(cs);
 
   } else if(false) { // region_sub_DISABLED - channel_discriber로 통합됨
