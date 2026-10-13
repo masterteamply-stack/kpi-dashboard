@@ -3667,32 +3667,47 @@ function showCKCustomerKpi() {
   h += '<button onclick="document.getElementById(\'ck-kpi-modal\').remove()" style="background:#f0ede6;border:1px solid #dedad2;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:13px">✕</button>';
   h += '</div>';
 
-  // 전체 요약 바
-  h += '<div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">';
-  h += '<div style="background:#f5f2ed;border-radius:8px;padding:8px 12px;text-align:center">';
-  h += '<div style="font-size:10px;color:#8a8278;font-weight:600;text-transform:uppercase">전체 달성률</div>';
-  h += '<div style="font-size:22px;font-weight:900;color:#c17f3a;line-height:1.1">'+_totalRate+'%</div>';
-  h += '<div style="font-size:9px;color:#8a8278">$'+(_totalAct/1e6).toFixed(2)+'M / $'+(_totalTgt/1e6).toFixed(2)+'M</div>';
-  h += '</div>';
-  h += '<div style="background:#eef5ee;border-radius:8px;padding:8px 12px;text-align:center">';
-  h += '<div style="font-size:10px;color:#5c6b4a;font-weight:600;text-transform:uppercase">목표 달성</div>';
-  h += '<div style="font-size:22px;font-weight:900;color:#3a6b3a;line-height:1.1">'+_achieved+'<span style="font-size:13px;font-weight:600">사</span></div>';
-  h += '<div style="font-size:9px;color:#8a8278">전체 '+_ckCustData.length+'개 고객사</div>';
-  h += '</div>';
-  h += '<div style="background:#fff8e8;border-radius:8px;padding:8px 12px;text-align:center">';
-  h += '<div style="font-size:10px;color:#7a6010;font-weight:600;text-transform:uppercase">초과달성</div>';
+  // ── 전체 달성률 메인 배너 ──
   var _over = _ckCustData.filter(function(c){return c.rate>=120;}).length;
-  h += '<div style="font-size:22px;font-weight:900;color:#b87020;line-height:1.1">'+_over+'<span style="font-size:13px;font-weight:600">사</span></div>';
-  h += '<div style="font-size:9px;color:#8a8278">120% 이상 초과</div>';
+  var _rateColor = _totalRate>=80?'#2a7a2a':_totalRate>=60?'#c17f3a':'#c04040';
+  h += '<div style="margin-top:14px;background:linear-gradient(135deg,#2a2018 0%,#3d2e10 100%);border-radius:10px;padding:14px 18px;position:relative;overflow:hidden">';
+  // 배경 장식
+  h += '<div style="position:absolute;right:-20px;top:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.04)"></div>';
+  h += '<div style="position:absolute;right:20px;bottom:-30px;width:70px;height:70px;border-radius:50%;background:rgba(255,255,255,.03)"></div>';
+  // 상단 레이블
+  h += '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">Choice Kit 전체 달성률 · SELL-IN</div>';
+  // 메인 수치 + 서브 지표 가로 배치
+  h += '<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px">';
+  // 달성률 대형 수치
+  h += '<div style="display:flex;align-items:baseline;gap:6px">';
+  h += '<div style="font-size:48px;font-weight:900;color:#e8a848;line-height:1;letter-spacing:-.02em">'+_totalRate+'<span style="font-size:26px">%</span></div>';
   h += '</div>';
+  // 우측 서브 지표
+  h += '<div style="display:flex;gap:16px;padding-bottom:4px">';
+  h += '<div style="text-align:center">';
+  h += '<div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:600;margin-bottom:2px">목표달성</div>';
+  h += '<div style="font-size:22px;font-weight:900;color:#7ecfa0;line-height:1">'+_achieved+'<span style="font-size:13px">사</span></div>';
+  h += '<div style="font-size:9px;color:rgba(255,255,255,.35)">/ '+_ckCustData.length+'개사</div>';
   h += '</div>';
-
-  // 달성률 진행바
+  h += '<div style="width:1px;background:rgba(255,255,255,.12);align-self:stretch"></div>';
+  h += '<div style="text-align:center">';
+  h += '<div style="font-size:10px;color:rgba(255,255,255,.5);font-weight:600;margin-bottom:2px">120% 초과</div>';
+  h += '<div style="font-size:22px;font-weight:900;color:#f5c842;line-height:1">'+_over+'<span style="font-size:13px">사</span></div>';
+  h += '<div style="font-size:9px;color:rgba(255,255,255,.35)">초과달성</div>';
+  h += '</div>';
+  h += '</div>'; // 서브 지표 end
+  h += '</div>'; // 가로 배치 end
+  // 실적 금액 + 진행바
   h += '<div style="margin-top:10px">';
-  h += '<div style="background:#e8e4dc;border-radius:4px;height:6px;overflow:hidden">';
-  h += '<div style="width:'+Math.min(100,_totalRate)+'%;height:100%;background:linear-gradient(90deg,#c17f3a,#e8a848);border-radius:4px;transition:width .5s"></div>';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">';
+  h += '<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.8)">$'+(_totalAct/1e6).toFixed(2)+'M <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,.4)">/ $'+(_totalTgt/1e6).toFixed(2)+'M 목표</span></div>';
+  h += '<div style="font-size:10px;color:rgba(255,255,255,.4)">연간 누적 실적</div>';
   h += '</div>';
+  h += '<div style="background:rgba(255,255,255,.12);border-radius:4px;height:8px;overflow:hidden">';
+  h += '<div style="width:'+Math.min(100,_totalRate)+'%;height:100%;background:linear-gradient(90deg,#c17f3a,#e8a848);border-radius:4px;transition:width .6s ease"></div>';
   h += '</div>';
+  h += '</div>'; // 금액+바 end
+  h += '</div>'; // 배너 end
   h += '</div>'; // header end
 
   // 테이블
