@@ -3137,18 +3137,40 @@ function renderSummary(s) {
   h += '<button onclick="showCKCustomerKpi()" style="font-size:9px;background:#e8d4b0;border:1px solid #c8a060;border-radius:3px;padding:1px 6px;color:#7a5010;cursor:pointer;font-weight:700">고객사 KPI ▾</button>';
   h += '</div>';
   h += '</div>';
-  // Choice Kit 달성률: promo_dashboard_v10_6.html 기준 (2026-10-13 업데이트 · 55.9% → 56%)
-  var _ckRate = 56, _ckCol = '#c17f3a';
-  h += '<div style="display:flex;align-items:baseline;gap:8px">';
-  h += '<div style="font-size:17px;font-weight:800;color:#1a1714;line-height:1">' + orderVal + '</div>';
-  h += '<span style="font-size:11px;font-weight:700;color:'+_ckCol+'">' + _ckRate + '%</span>';
-
+  // Choice Kit 고객사 KPI 수치 (메인 강조)
+  var _ckCustAchieved=0,_ckCustTotal=29,_ckCustOver=0;
+  [38,53,125,30,34,147,190,43,133,12,54,58,105,73,151,0,0,97,0,201,469,9,0,0,0,0,0,0,100].forEach(function(r){if(r>=100)_ckCustAchieved++;if(r>=120)_ckCustOver++;});
+  var _ckTotalRate = 70;
+  // ── 히어로: 달성률 + 고객사 수 ──
+  h += '<div style="margin-top:4px;display:flex;align-items:flex-end;gap:10px">';
+  // 달성률 대형
+  h += '<div style="display:flex;align-items:baseline;gap:3px">';
+  h += '<div style="font-size:28px;font-weight:900;color:#c17f3a;line-height:1">'+_ckTotalRate+'</div>';
+  h += '<div style="font-size:14px;font-weight:700;color:#c17f3a">%</div>';
   h += '</div>';
-  h += '<div style="font-size:10px;color:#8a8278;margin-top:1px">' + (state.choiceKitOrder.count ? fmtNum(state.choiceKitOrder.count)+'건' : '로딩중') + ' · USD</div>';
-  // 고객사별 KPI 요약 (달성 고객사 수)
-  var _ckCustAchieved=0,_ckCustTotal=29;
-  [38,53,125,30,34,147,190,43,133,12,54,58,105,73,151,0,0,97,0,201,469,9,0,0,0,0,0,0,100].forEach(function(r){if(r>=100)_ckCustAchieved++;});
-  h += '<div style="margin-top:4px;font-size:9px;color:#8a8278">고객사 목표달성 <span style="color:#3a6b3a;font-weight:700">'+_ckCustAchieved+'</span>/'+_ckCustTotal+'사 · 합산 <span style="color:#c17f3a;font-weight:700">70%</span></div>';
+  // 구분선
+  h += '<div style="width:1px;height:32px;background:#e0dbd2;margin-bottom:2px"></div>';
+  // 달성 고객사 / 초과 고객사
+  h += '<div style="display:flex;gap:8px;padding-bottom:3px">';
+  h += '<div style="text-align:center">';
+  h += '<div style="font-size:16px;font-weight:900;color:#3a6b3a;line-height:1">'+_ckCustAchieved+'<span style="font-size:10px;font-weight:600">사</span></div>';
+  h += '<div style="font-size:8px;color:#8a8278;margin-top:1px">목표달성</div>';
+  h += '</div>';
+  h += '<div style="text-align:center">';
+  h += '<div style="font-size:16px;font-weight:900;color:#b87020;line-height:1">'+_ckCustOver+'<span style="font-size:10px;font-weight:600">사</span></div>';
+  h += '<div style="font-size:8px;color:#8a8278;margin-top:1px">120%+</div>';
+  h += '</div>';
+  h += '</div>'; // 고객사 수 end
+  h += '</div>'; // 히어로 row end
+  // 진행바
+  h += '<div style="background:#e8e4dc;border-radius:3px;height:5px;overflow:hidden;margin-top:5px">';
+  h += '<div style="width:'+_ckTotalRate+'%;height:100%;background:linear-gradient(90deg,#c17f3a,#e8a848);border-radius:3px"></div>';
+  h += '</div>';
+  // 보조: 금액
+  h += '<div style="margin-top:4px;display:flex;align-items:center;justify-content:space-between">';
+  h += '<div style="font-size:10px;color:#8a8278">$3.44M <span style="color:#b8b0a4">/ $4.89M 목표</span></div>';
+  h += '<div style="font-size:9px;color:#b0a898">' + (state.choiceKitOrder.count ? fmtNum(state.choiceKitOrder.count)+'건' : '') + '</div>';
+  h += '</div>';
   if(_revTotalDisp) {
     h += '<div style="margin-top:5px;padding-top:5px;border-top:1px solid #e8e4dc;display:flex;align-items:center;justify-content:space-between">';
     h += '<div><div style="font-size:9px;color:#8a8278;font-weight:600">매출 (B2B)</div>';
