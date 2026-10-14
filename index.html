@@ -3035,19 +3035,19 @@ function renderSummary(s) {
     var subGrowthPct = null; // 이달 순증 / 총 구독자 × 100
     if(isSub) {
       try {
+        var _SUB_RC_CUTOFF = '2026-09';
         var _net = JSON.parse(localStorage.getItem('region_sub_net')||'{}');
+        // cutoff 이후 키는 완전 무시
+        Object.keys(_net).forEach(function(k){ if(k > _SUB_RC_CUTOFF) delete _net[k]; });
         var _netKeys = Object.keys(_net).sort();
         // ── region_sub_detail 에서도 최신 입력 월을 추출 (fallback) ──
-        // region_sub_net에 최신 월이 없을 수 있으므로
-        // detail의 모든 지역 monthly 키를 합쳐 최신 월을 구함
         try {
           var _rsdForNet = JSON.parse(localStorage.getItem('region_sub_detail')||'{}');
           var _allDetailMonths = new Set();
           Object.values(_rsdForNet).forEach(function(rd){
-            Object.keys(rd.monthly||{}).forEach(function(m){ _allDetailMonths.add(m); });
+            Object.keys(rd.monthly||{}).forEach(function(m){ if(m <= _SUB_RC_CUTOFF) _allDetailMonths.add(m); });
           });
-          var _detailLatest = Array.from(_allDetailMonths).sort().pop(); // 예: '2026-09'
-          // detail에 더 최신 월이 있으면 net 키셋에 추가 (값은 재합산)
+          var _detailLatest = Array.from(_allDetailMonths).sort().pop();
           if(_detailLatest && (!_netKeys.length || _detailLatest > _netKeys[_netKeys.length-1])) {
             var _recomputed = 0;
             Object.values(_rsdForNet).forEach(function(rd){
@@ -3120,6 +3120,9 @@ function renderSummary(s) {
             + '</div>'
           : '');
 
+    var subDetailBtn = isSub
+      ? '<button onclick="openSubRegionModal()" style="display:block;margin-top:6px;font-size:10px;padding:3px 8px;background:#e8e4dc;border:1px solid #d0ccc4;border-radius:5px;cursor:pointer;color:#5a5248;font-weight:600">🌍 지역별 분석</button>'
+      : '';
     return '<div style="background:#f5f2ed;border-radius:6px;padding:8px 10px">'
       + '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8a8278;margin-bottom:3px">'+label+'</div>'
       + '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:3px">'
@@ -3127,6 +3130,7 @@ function renderSummary(s) {
       +   topBadge
       + '</div>'
       + bottomLine
+      + subDetailBtn
       + '</div>';
   };
 
@@ -13247,6 +13251,172 @@ var CK_TARGET_BY_REGION = {
     </div>
   </div>
 </div>
+
+<!-- ── 지역별 구독자 분석 모달 ── -->
+<div id="subRegionModal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.45);align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;width:min(720px,96vw);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.22);overflow:hidden">
+    <div style="padding:16px 20px;background:#f5f2ed;border-bottom:1px solid #e4e0d8;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:14px;font-weight:800;color:#1a1714">🌍 지역별 구독자 분석</div>
+        <div id="subRegionModalSub" style="font-size:11px;color:#8a8278;margin-top:2px"></div>
+      </div>
+      <button onclick="closeSubRegionModal()" style="font-size:18px;background:none;border:none;cursor:pointer;color:#8a8278;line-height:1">✕</button>
+    </div>
+    <div style="overflow-y:auto;flex:1;padding:16px 20px">
+      <!-- 요약 바 -->
+      <div id="subRegionSummaryBar" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px"></div>
+      <!-- 월별 탭 -->
+      <div id="subRegionMonthTabs" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px"></div>
+      <!-- 테이블 -->
+      <div id="subRegionTableWrap"></div>
+      <!-- 월별 순증 추이 바 차트 -->
+      <div style="margin-top:20px">
+        <div style="font-size:11px;font-weight:700;color:#5a5248;margin-bottom:8px">월별 전체 순증 추이</div>
+        <div id="subRegionBarChart" style="display:flex;align-items:flex-end;gap:4px;height:80px"></div>
+        <div id="subRegionBarLabels" style="display:flex;gap:4px;margin-top:3px"></div>
+      </div>
+    </div>
+    <div style="padding:10px 20px;border-top:1px solid #e4e0d8;display:flex;justify-content:flex-end">
+      <button onclick="closeSubRegionModal()" style="padding:7px 20px;border:1px solid #d4cec5;border-radius:7px;background:#f5f2ed;font-size:12px;cursor:pointer;color:#5a5248;font-weight:600">닫기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function openSubRegionModal() {
+  var modal = document.getElementById('subRegionModal');
+  if(!modal) return;
+  modal.style.display = 'flex';
+  _renderSubRegionModal();
+}
+function closeSubRegionModal() {
+  var modal = document.getElementById('subRegionModal');
+  if(modal) modal.style.display = 'none';
+}
+document.getElementById('subRegionModal').addEventListener('click', function(e){ if(e.target===this) closeSubRegionModal(); });
+
+function _renderSubRegionModal(selMo) {
+  var REGIONS = ['GLOBAL','MENA','EUROPE','NA','LATAM','ASIA','TH','RUS','MX','CIS','IN','BR'];
+  var CUTOFF  = '2026-09';
+  var rsd = (function(){ try{ return JSON.parse(localStorage.getItem('region_sub_detail')||'{}'); }catch(e){return {};} })();
+  var net = (function(){ try{ var n=JSON.parse(localStorage.getItem('region_sub_net')||'{}'); Object.keys(n).forEach(function(k){if(k>CUTOFF)delete n[k];}); return n; }catch(e){return {};} })();
+  var grandTotal = Number(localStorage.getItem('region_sub_grand_total')||0);
+
+  // 사용 가능한 월 목록 (cutoff 이하)
+  var moSet = new Set(Object.keys(net));
+  Object.values(rsd).forEach(function(rd){ Object.keys(rd.monthly||{}).forEach(function(m){ if(m<=CUTOFF) moSet.add(m); }); });
+  var months = Array.from(moSet).sort();
+  if(!months.length){ document.getElementById('subRegionTableWrap').innerHTML='<div style="color:#8a8278;font-size:12px;padding:20px">데이터 없음</div>'; return; }
+
+  var latestMo = months[months.length-1];
+  if(!selMo || !months.includes(selMo)) selMo = latestMo;
+  var selLabel = parseInt(selMo.split('-')[1])+'월';
+
+  // 부제
+  document.getElementById('subRegionModalSub').textContent = '합계 '+grandTotal.toLocaleString('ko-KR')+'명  |  '+selLabel+' 기준';
+
+  // 요약 바
+  var latestNet = Number(net[latestMo]||0);
+  var sbHtml = [
+    {label:'총 구독자', val: grandTotal.toLocaleString('ko-KR'), color:'#1a1714'},
+    {label:selLabel+' 순증', val:(latestNet>=0?'+':'')+latestNet.toLocaleString('ko-KR'), color:latestNet>=0?'#2a7c2a':'#c0392b'},
+    {label:'집계 지역', val:REGIONS.length+'개', color:'#4a6b7c'},
+  ].map(function(x){
+    return '<div style="flex:1;min-width:100px;background:#f5f2ed;border-radius:8px;padding:8px 12px">'
+      +'<div style="font-size:9px;color:#8a8278;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">'+x.label+'</div>'
+      +'<div style="font-size:18px;font-weight:800;color:'+x.color+'">'+x.val+'</div>'
+      +'</div>';
+  }).join('');
+  document.getElementById('subRegionSummaryBar').innerHTML = sbHtml;
+
+  // 월별 탭
+  var tabHtml = months.map(function(mo){
+    var lbl = parseInt(mo.split('-')[1])+'월';
+    var active = mo===selMo;
+    return '<button onclick="_renderSubRegionModal(\''+mo+'\')" style="padding:4px 10px;font-size:11px;border-radius:6px;cursor:pointer;font-weight:'+(active?'700':'500')+';background:'+(active?'#4a6b7c':'#f0ede6')+';color:'+(active?'#fff':'#5a5248')+';border:1px solid '+(active?'#4a6b7c':'#d4cec5')+'">'+lbl+'</button>';
+  }).join('');
+  document.getElementById('subRegionMonthTabs').innerHTML = tabHtml;
+
+  // 테이블: 각 지역의 선택 월 순증 + 누적합계
+  var moKey = selMo;
+  var rows = REGIONS.map(function(rg){
+    var rd = rsd[rg]||{};
+    var total = Number(rd.total||0);
+    var monthly = rd.monthly||{};
+    // 선택 월 순증
+    var netVal = Number(monthly[moKey]||0);
+    // 전월 순증
+    var prevMo = months[months.indexOf(selMo)-1];
+    var prevNet = prevMo ? Number(monthly[prevMo]||0) : null;
+    // 비중 (전체 대비)
+    var share = grandTotal>0 ? (total/grandTotal*100).toFixed(1) : '0.0';
+    return {rg:rg, total:total, netVal:netVal, prevNet:prevNet, share:share};
+  }).sort(function(a,b){return b.total-a.total;});
+
+  var maxAbs = Math.max(1, Math.max.apply(null, rows.map(function(r){return Math.abs(r.netVal);})));
+
+  var tblHtml = '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+    +'<thead><tr style="background:#eceae3">'
+    +'<th style="padding:7px 10px;text-align:left;font-size:10px;color:#8a8278;font-weight:700">지역</th>'
+    +'<th style="padding:7px 10px;text-align:right;font-size:10px;color:#8a8278;font-weight:700">총 구독자</th>'
+    +'<th style="padding:7px 10px;text-align:right;font-size:10px;color:#8a8278;font-weight:700">비중</th>'
+    +'<th style="padding:7px 10px;text-align:right;font-size:10px;color:#8a8278;font-weight:700">'+selLabel+' 순증</th>'
+    +'<th style="padding:7px 10px;text-align:right;font-size:10px;color:#8a8278;font-weight:700">전월 순증</th>'
+    +'<th style="padding:7px 10px;text-align:left;font-size:10px;color:#8a8278;font-weight:700">순증 바</th>'
+    +'</tr></thead><tbody>';
+
+  rows.forEach(function(r, i){
+    var nc = r.netVal>0?'#2a7c2a':r.netVal<0?'#c0392b':'#8a8278';
+    var pc = r.prevNet===null?'#8a8278':r.prevNet>0?'#2a7c2a':r.prevNet<0?'#c0392b':'#8a8278';
+    var barW = Math.round(Math.abs(r.netVal)/maxAbs*80);
+    var barColor = r.netVal>=0?'#4a6b7c':'#c0392b';
+    var barHtml = '<div style="display:flex;align-items:center;gap:3px">'
+      +(r.netVal<0?'<div style="width:'+barW+'px;height:10px;background:'+barColor+';border-radius:2px;margin-left:auto"></div><div style="width:'+(80-barW)+'px"></div>':'')
+      +(r.netVal>=0?'<div style="width:'+(80-barW)+'px"></div><div style="width:'+barW+'px;height:10px;background:'+barColor+';border-radius:2px"></div>':'')
+      +'</div>';
+    tblHtml += '<tr style="border-top:1px solid #eceae3;background:'+(i%2===0?'#faf9f7':'#f5f2ed')+'">'
+      +'<td style="padding:7px 10px;font-weight:700;color:#3d3830">'+r.rg+'</td>'
+      +'<td style="padding:7px 10px;text-align:right;color:#3d3830">'+r.total.toLocaleString('ko-KR')+'</td>'
+      +'<td style="padding:7px 10px;text-align:right;color:#8a8278">'+r.share+'%</td>'
+      +'<td style="padding:7px 10px;text-align:right;font-weight:700;color:'+nc+'">'+(r.netVal>0?'+':'')+r.netVal.toLocaleString('ko-KR')+'</td>'
+      +'<td style="padding:7px 10px;text-align:right;color:'+pc+'">'+(r.prevNet===null?'–':(r.prevNet>0?'+':'')+r.prevNet.toLocaleString('ko-KR'))+'</td>'
+      +'<td style="padding:7px 10px;min-width:90px">'+barHtml+'</td>'
+      +'</tr>';
+  });
+
+  // 합계 행
+  var totalNet = rows.reduce(function(s,r){return s+r.netVal;},0);
+  var nc2 = totalNet>=0?'#2a7c2a':'#c0392b';
+  tblHtml += '<tr style="border-top:2px solid #d4cec5;background:#e8e4dc;font-weight:700">'
+    +'<td style="padding:7px 10px;color:#3d3830">합계</td>'
+    +'<td style="padding:7px 10px;text-align:right;color:#3d3830">'+grandTotal.toLocaleString('ko-KR')+'</td>'
+    +'<td style="padding:7px 10px;text-align:right;color:#8a8278">100%</td>'
+    +'<td style="padding:7px 10px;text-align:right;color:'+nc2+'">'+(totalNet>=0?'+':'')+totalNet.toLocaleString('ko-KR')+'</td>'
+    +'<td colspan="2" style="padding:7px 10px"></td>'
+    +'</tr>';
+  tblHtml += '</tbody></table>';
+  document.getElementById('subRegionTableWrap').innerHTML = tblHtml;
+
+  // 월별 순증 추이 바 차트
+  var chartMos = months;
+  var maxNetAbs = Math.max(1, Math.max.apply(null, chartMos.map(function(m){return Math.abs(Number(net[m]||0));})));
+  var barChartHtml = '', barLabelHtml = '';
+  var barW2 = Math.max(20, Math.floor(280/Math.max(chartMos.length,1)));
+  chartMos.forEach(function(mo){
+    var v = Number(net[mo]||0);
+    var h2 = Math.round(Math.abs(v)/maxNetAbs*60);
+    var bc = v>=0?'#4a6b7c':'#c0392b';
+    var sel = mo===selMo;
+    barChartHtml += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;opacity:'+(sel?1:.65)+'" onclick="_renderSubRegionModal(\''+mo+'\')">'
+      +'<div style="font-size:9px;color:'+bc+';font-weight:'+(sel?'700':'500')+'">'+(v>=0?'+':'')+v.toLocaleString('ko-KR')+'</div>'
+      +'<div style="width:'+barW2+'px;height:'+h2+'px;background:'+bc+';border-radius:3px 3px 0 0"></div>'
+      +'</div>';
+    barLabelHtml += '<div style="font-size:9px;color:#8a8278;text-align:center;width:'+barW2+'px;font-weight:'+(sel?'700':'400')+'">'+parseInt(mo.split('-')[1])+'월</div>';
+  });
+  document.getElementById('subRegionBarChart').innerHTML = barChartHtml;
+  document.getElementById('subRegionBarLabels').innerHTML = barLabelHtml;
+}
+</script>
 </body>
 </html>
 <!-- force-rebuild:20260617020425 -->
