@@ -3127,59 +3127,7 @@ function renderSummary(s) {
   h += '<div class="progress-shell" style="margin-top:5px"><div class="progress-bar" style="width:' + _dispAvg + '%"></div></div>';
   h += '</div>';
 
-  // 2. 관련 오더 + Marketing Lead
-  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-  h += '<div style="background:#f5f2ed;border-radius:6px;padding:7px 10px">';
-  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">';
-  h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8278">Choice Kit 오더</div>';
-  h += '<div style="display:flex;gap:4px">';
-  h += '<a href="https://masterteamply-stack.github.io/choicekit-dashboard/promo_dashboard_v10_6.html" target="_blank" style="font-size:9px;background:#f0ede6;border:1px solid #dedad2;border-radius:3px;padding:1px 6px;color:#6b6259;text-decoration:none">상세 분석 →</a>';
-  h += '<button onclick="showCKCustomerKpi()" style="font-size:9px;background:#e8d4b0;border:1px solid #c8a060;border-radius:3px;padding:1px 6px;color:#7a5010;cursor:pointer;font-weight:700">고객사 KPI ▾</button>';
-  h += '</div>';
-  h += '</div>';
-  // Choice Kit 고객사 KPI 수치 (메인 강조)
-  var _ckCustAchieved=0,_ckCustTotal=29,_ckCustOver=0;
-  [38,53,125,30,34,147,190,43,133,12,54,58,105,73,151,0,0,97,0,201,469,9,0,0,0,0,0,0,100].forEach(function(r){if(r>=100)_ckCustAchieved++;if(r>=120)_ckCustOver++;});
-  var _ckTotalRate = 70;
-  // ── 히어로: 달성률 + 고객사 수 ──
-  h += '<div style="margin-top:4px;display:flex;align-items:flex-end;gap:10px">';
-  // 달성률 대형
-  h += '<div style="display:flex;align-items:baseline;gap:3px">';
-  h += '<div style="font-size:28px;font-weight:900;color:#c17f3a;line-height:1">'+_ckTotalRate+'</div>';
-  h += '<div style="font-size:14px;font-weight:700;color:#c17f3a">%</div>';
-  h += '</div>';
-  // 구분선
-  h += '<div style="width:1px;height:32px;background:#e0dbd2;margin-bottom:2px"></div>';
-  // 달성 고객사 / 초과 고객사
-  h += '<div style="display:flex;gap:8px;padding-bottom:3px">';
-  h += '<div style="text-align:center">';
-  h += '<div style="font-size:16px;font-weight:900;color:#3a6b3a;line-height:1">'+_ckCustAchieved+'<span style="font-size:10px;font-weight:600">사</span></div>';
-  h += '<div style="font-size:8px;color:#8a8278;margin-top:1px">목표달성</div>';
-  h += '</div>';
-  h += '<div style="text-align:center">';
-  h += '<div style="font-size:16px;font-weight:900;color:#b87020;line-height:1">'+_ckCustOver+'<span style="font-size:10px;font-weight:600">사</span></div>';
-  h += '<div style="font-size:8px;color:#8a8278;margin-top:1px">120%+</div>';
-  h += '</div>';
-  h += '</div>'; // 고객사 수 end
-  h += '</div>'; // 히어로 row end
-  // 진행바
-  h += '<div style="background:#e8e4dc;border-radius:3px;height:5px;overflow:hidden;margin-top:5px">';
-  h += '<div style="width:'+_ckTotalRate+'%;height:100%;background:linear-gradient(90deg,#c17f3a,#e8a848);border-radius:3px"></div>';
-  h += '</div>';
-  // 보조: 금액
-  h += '<div style="margin-top:4px;display:flex;align-items:center;justify-content:space-between">';
-  h += '<div style="font-size:10px;color:#8a8278">$3.44M <span style="color:#b8b0a4">/ $4.89M 목표</span></div>';
-  h += '<div style="font-size:9px;color:#b0a898">' + (state.choiceKitOrder.count ? fmtNum(state.choiceKitOrder.count)+'건' : '') + '</div>';
-  h += '</div>';
-  if(_revTotalDisp) {
-    h += '<div style="margin-top:5px;padding-top:5px;border-top:1px solid #e8e4dc;display:flex;align-items:center;justify-content:space-between">';
-    h += '<div><div style="font-size:9px;color:#8a8278;font-weight:600">매출 (B2B)</div>';
-    h += '<div style="font-size:13px;font-weight:800;color:#3a6b3a">' + _revTotalDisp + '</div>';
-    if(_thisMonthDisp) h += '<div style="font-size:9px;color:#5c6b4a">' + _thisMonthDisp + '</div>';
-    h += '</div><button onclick="openRevenueInput()" style="background:none;border:1px solid #b8ccaa;border-radius:4px;padding:3px 7px;font-size:11px;cursor:pointer;color:#5c6b4a">✏️</button></div>';
-  }
-  h += '</div>';
-
+  // 2. Marketing Lead (단독 전폭)
   var _thisCh  = ml.channelMonthly[thisKey] ? (ml.channelMonthly[thisKey].total||0) : 0;
   var _thisO2o = ml.o2oMonthly[thisKey] || 0;
   // 채널: 데이터 있는 최신 월 기준
@@ -3273,7 +3221,6 @@ function renderSummary(s) {
   h += '</div>';
 
   h += '</div>'; // end Marketing Lead card
-  h += '</div>'; // end 2col grid (Choice Kit + Marketing Lead)
 
 
       // 3. Digital Channel + Channel Subscribers (2컬럼)
@@ -3299,7 +3246,57 @@ function renderSummary(s) {
   h += richCard('Click', 'B2D-11', '#7a6010', clkVal);
   h += '</div>';
 
-  // 4-1. SteerStar 미션 달성도 요약 카드
+  // 4-1. Choice Kit 오더 (SteerStar 위)
+  {
+    var _ckCustAchieved2=0,_ckCustOver2=0;
+    [38,53,125,30,34,147,190,43,133,12,54,58,105,73,151,0,0,97,0,201,469,9,0,0,0,0,0,0,100].forEach(function(r){if(r>=100)_ckCustAchieved2++;if(r>=120)_ckCustOver2++;});
+    var _ckTotalRate2 = 70;
+    h += '<div style="background:#f5f2ed;border-radius:6px;padding:7px 10px">';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">';
+    h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8278">Choice Kit 오더</div>';
+    h += '<div style="display:flex;gap:4px">';
+    h += '<a href="https://masterteamply-stack.github.io/choicekit-dashboard/promo_dashboard_v10_6.html" target="_blank" style="font-size:9px;background:#f0ede6;border:1px solid #dedad2;border-radius:3px;padding:1px 6px;color:#6b6259;text-decoration:none">상세 분석 →</a>';
+    h += '<button onclick="showCKCustomerKpi()" style="font-size:9px;background:#e8d4b0;border:1px solid #c8a060;border-radius:3px;padding:1px 6px;color:#7a5010;cursor:pointer;font-weight:700">고객사 KPI ▾</button>';
+    h += '</div>';
+    h += '</div>';
+    // 히어로: 달성률 + 고객사 수
+    h += '<div style="margin-top:4px;display:flex;align-items:flex-end;gap:10px">';
+    h += '<div style="display:flex;align-items:baseline;gap:3px">';
+    h += '<div style="font-size:28px;font-weight:900;color:#c17f3a;line-height:1">'+_ckTotalRate2+'</div>';
+    h += '<div style="font-size:14px;font-weight:700;color:#c17f3a">%</div>';
+    h += '</div>';
+    h += '<div style="width:1px;height:32px;background:#e0dbd2;margin-bottom:2px"></div>';
+    h += '<div style="display:flex;gap:8px;padding-bottom:3px">';
+    h += '<div style="text-align:center">';
+    h += '<div style="font-size:16px;font-weight:900;color:#3a6b3a;line-height:1">'+_ckCustAchieved2+'<span style="font-size:10px;font-weight:600">사</span></div>';
+    h += '<div style="font-size:8px;color:#8a8278;margin-top:1px">목표달성</div>';
+    h += '</div>';
+    h += '<div style="text-align:center">';
+    h += '<div style="font-size:16px;font-weight:900;color:#b87020;line-height:1">'+_ckCustOver2+'<span style="font-size:10px;font-weight:600">사</span></div>';
+    h += '<div style="font-size:8px;color:#8a8278;margin-top:1px">120%+</div>';
+    h += '</div>';
+    h += '</div>';
+    h += '</div>';
+    // 진행바
+    h += '<div style="background:#e8e4dc;border-radius:3px;height:5px;overflow:hidden;margin-top:5px">';
+    h += '<div style="width:'+_ckTotalRate2+'%;height:100%;background:linear-gradient(90deg,#c17f3a,#e8a848);border-radius:3px"></div>';
+    h += '</div>';
+    // 보조: 금액
+    h += '<div style="margin-top:4px;display:flex;align-items:center;justify-content:space-between">';
+    h += '<div style="font-size:10px;color:#8a8278">$3.44M <span style="color:#b8b0a4">/ $4.89M 목표</span></div>';
+    h += '<div style="font-size:9px;color:#b0a898">' + (state.choiceKitOrder.count ? fmtNum(state.choiceKitOrder.count)+'건' : '') + '</div>';
+    h += '</div>';
+    if(_revTotalDisp) {
+      h += '<div style="margin-top:5px;padding-top:5px;border-top:1px solid #e8e4dc;display:flex;align-items:center;justify-content:space-between">';
+      h += '<div><div style="font-size:9px;color:#8a8278;font-weight:600">매출 (B2B)</div>';
+      h += '<div style="font-size:13px;font-weight:800;color:#3a6b3a">' + _revTotalDisp + '</div>';
+      if(_thisMonthDisp) h += '<div style="font-size:9px;color:#5c6b4a">' + _thisMonthDisp + '</div>';
+      h += '</div><button onclick="openRevenueInput()" style="background:none;border:1px solid #b8ccaa;border-radius:4px;padding:3px 7px;font-size:11px;cursor:pointer;color:#5c6b4a">✏️</button></div>';
+    }
+    h += '</div>';
+  }
+
+  // 4-2. SteerStar 미션 달성도 요약 카드
   h += '<div style="background:linear-gradient(135deg,#f9f6f0,#f0ede5);border:1px solid #d8d3c8;border-radius:8px;padding:10px 12px">';
   h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
   h += '<div style="font-size:9px;font-weight:700;color:#6b5a3a;text-transform:uppercase;letter-spacing:.06em">⭐ SteerStar 미션 · 9월 성과</div>';
