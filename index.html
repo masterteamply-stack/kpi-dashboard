@@ -3037,6 +3037,26 @@ function renderSummary(s) {
       try {
         var _net = JSON.parse(localStorage.getItem('region_sub_net')||'{}');
         var _netKeys = Object.keys(_net).sort();
+        // ── region_sub_detail 에서도 최신 입력 월을 추출 (fallback) ──
+        // region_sub_net에 최신 월이 없을 수 있으므로
+        // detail의 모든 지역 monthly 키를 합쳐 최신 월을 구함
+        try {
+          var _rsdForNet = JSON.parse(localStorage.getItem('region_sub_detail')||'{}');
+          var _allDetailMonths = new Set();
+          Object.values(_rsdForNet).forEach(function(rd){
+            Object.keys(rd.monthly||{}).forEach(function(m){ _allDetailMonths.add(m); });
+          });
+          var _detailLatest = Array.from(_allDetailMonths).sort().pop(); // 예: '2026-09'
+          // detail에 더 최신 월이 있으면 net 키셋에 추가 (값은 재합산)
+          if(_detailLatest && (!_netKeys.length || _detailLatest > _netKeys[_netKeys.length-1])) {
+            var _recomputed = 0;
+            Object.values(_rsdForNet).forEach(function(rd){
+              _recomputed += Number((rd.monthly||{})[_detailLatest]||0);
+            });
+            _net[_detailLatest] = _recomputed;
+            _netKeys = Object.keys(_net).sort();
+          }
+        } catch(_e2){}
         if(_netKeys.length) {
           var _lastNetKey = _netKeys[_netKeys.length-1];
           subNetMo    = Number(_net[_lastNetKey]||0);
@@ -8725,10 +8745,17 @@ async function saveDkpiSheet() {
     const grandTotal = Object.values(saved).reduce((s, rd) => s + (rd.total||0), 0);
 
     // region_sub_net 자동 계산: 월별 전체 지역 순증 합계
+    // ※ v===0 또는 빈 칸도 포함하여 '입력된 모든 월'의 키를 생성
+    //    → richCard가 최신 입력 월(9월 등)을 정확히 잡을 수 있도록
+    const _subNetMonths = new Set();
+    Object.values(saved).forEach(rd => {
+      Object.keys(rd.monthly||{}).forEach(mo => _subNetMonths.add(mo));
+    });
     const subNet = {};
+    _subNetMonths.forEach(mo => { subNet[mo] = 0; });
     Object.values(saved).forEach(rd => {
       Object.entries(rd.monthly||{}).forEach(([mo, v]) => {
-        if(v) subNet[mo] = (subNet[mo]||0) + Number(v);
+        subNet[mo] = (subNet[mo]||0) + Number(v||0);
       });
     });
 
