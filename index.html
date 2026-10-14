@@ -11547,13 +11547,14 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
     +'<span>26예산 <b>'+fmt(totalBudget)+'</b></span>'
     +'<span>집행 <b style="color:#9e4a3a">'+fmt(totalSpend)+'</b></span>'
     +'<span>잔여 <b style="color:#2a7c2a">'+fmt(totalRemain)+'</b></span></div>'
-    +(total2027>0?'<div style="margin-bottom:4px;padding:3px 7px;background:#eaf0ff;border:1px solid #b8c8e8;border-radius:4px;display:flex;justify-content:space-between;align-items:center">'
+    +'<div style="background:#e8e4dc;border-radius:4px;height:6px;overflow:hidden;margin-bottom:'+(total2027>0?'4':'0')+'px">'
+    +'<div style="height:100%;width:'+Math.min(100,totalRate)+'%;background:'+rc(totalRate)+';border-radius:4px"></div>'
+    +'</div>'
+    +(total2027>0?'<div style="padding:3px 7px;background:#eaf0ff;border:1px solid #b8c8e8;border-radius:4px;display:flex;justify-content:space-between;align-items:center">'
       +'<span style="font-size:9px;font-weight:700;color:#3a5fa5">▶ 2027 계획</span>'
       +'<span style="font-size:10px;font-weight:800;color:#3a5fa5">'+fmt(total2027)+'</span>'
       +'</div>':'')
-    +'<div style="background:#e8e4dc;border-radius:4px;height:6px;overflow:hidden">'
-    +'<div style="height:100%;width:'+Math.min(100,totalRate)+'%;background:'+rc(totalRate)+';border-radius:4px"></div>'
-    +'</div></div>';
+    +'</div>';
 
   // 유형별 행
   html+='<div style="display:flex;flex-direction:column;gap:5px">';
@@ -11594,16 +11595,17 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
           +(budget>0&&remain>=0?'<span style="color:#2a7c2a">잔여 <b>'+fmt(remain)+'</b></span>':'')
           +(budget===0&&spend>0?'<span style="color:#c0392b;font-size:9px">예산 미배정</span>':''))
       +'</div>'
-      +(b27>0?'<div style="margin-bottom:3px;padding:2px 6px;background:#eaf0ff;border:1px solid #b8c8e8;border-radius:3px;display:flex;justify-content:space-between;align-items:center">'
+      +'<div style="background:#f0ede6;border-radius:3px;height:4px;overflow:hidden;margin-bottom:'+(b27>0?'3':'0')+'px">'
+      +(isGovRefund
+        ? '<div style="height:100%;width:100%;background:linear-gradient(90deg,#2a7c2a,#4caf50);border-radius:3px"></div>'
+        : '<div style="height:100%;width:'+Math.min(100,rate||0)+'%;background:'+col+';border-radius:3px"></div>')
+      +'</div>'
+      +(b27>0?'<div style="padding:2px 6px;background:#eaf0ff;border:1px solid #b8c8e8;border-radius:3px;display:flex;justify-content:space-between;align-items:center">'
         +'<span style="font-size:8px;font-weight:700;color:#3a5fa5">27 계획</span>'
         +'<span style="font-size:9px;font-weight:800;color:#3a5fa5">'+fmt(b27)
         +(chgStr?'<span style="font-size:8px;color:'+chgCol+';margin-left:4px">'+chgStr+'</span>':'')
         +'</span></div>':'')
-      +'<div style="background:#f0ede6;border-radius:3px;height:4px;overflow:hidden">'
-      +(isGovRefund
-        ? '<div style="height:100%;width:100%;background:linear-gradient(90deg,#2a7c2a,#4caf50);border-radius:3px"></div>'
-        : '<div style="height:100%;width:'+Math.min(100,rate||0)+'%;background:'+col+';border-radius:3px"></div>')
-      +'</div></div>';
+      +'</div>';
   });
   html+='</div>';
 
