@@ -1345,6 +1345,24 @@ try {
     var _planMonthly = {"Exhibition": {"2026-11": 3150000, "2026-12": 117000000}, "POS": {"2026-03": 13500000}, "BizRewards": {"2026-02": 15000000, "2026-03": 20000000, "2026-06": 20000000, "2026-08": 12500000}, "앰배서더": {"2026-03": 111679091, "2026-04": 15000000, "2026-11": 20000000}, "콘텐츠": {"2026-02": 8000000, "2026-03": 10000000, "2026-04": 10000000, "2026-05": 10000000, "2026-06": 10000000, "2026-07": 8000000, "2026-08": 8000000, "2026-09": 8000000}, "프로모션": {"2026-02": 53000000, "2026-06": 53000000}, "e-Commerce": {"2026-01": 1500000, "2026-02": 1500000, "2026-03": 1500000, "2026-04": 1500000, "2026-05": 1500000, "2026-06": 1500000, "2026-07": 1500000, "2026-08": 1500000, "2026-09": 1500000, "2026-10": 1500000, "2026-11": 1500000, "2026-12": 1500000}, "소셜미디어": {"2026-02": 100000000, "2026-03": 100000000, "2026-06": 100000000, "2026-09": 100000000, "2026-12": 57000000}};
     sessionStorage.setItem('budget_plan_annual',  JSON.stringify(_planAnnual));
     sessionStorage.setItem('budget_plan_monthly', JSON.stringify(_planMonthly));
+    // ── 2027년 계획 예산 (유형별 매핑) ──
+    var _plan2027 = {
+      "Exhibition":  146240000,   // AAPEX 3.5M + Automechanika Dubai 142.74M
+      "POS":          25000000,   // Sales Enablement/POS
+      "BizRewards":   70000000,   // Customer Activation
+      "앰배서더":    125000000,   // SteerStar/Customer Program
+      "콘텐츠":      331900000,   // Customer Voice 66M + Brand Campaign 265.9M
+      "프로모션":    120000000,   // Demand Generation/Choice Kit
+      "e-Commerce":   19700000,   // e-Commerce Content
+      "소셜미디어":  535000000,   // Global Digital B2B 재편
+      "Chinese Vehicle":20000000, // Chinese Vehicle Top10 신규
+      "LCV Segment":  10000000,   // LCV Segment Validation 신규
+      "NA High VIO":  15000000,   // North America High VIO 200 신규
+      "Japanese Coverage":15000000,// Japanese Coverage/555 Catch-up
+      "Authenticity QR":45000000, // Authenticity/QR Campaign 신규
+      "Strategy Reserve":5000000  // Strategy Reserve
+    };
+    sessionStorage.setItem('budget_plan_2027', JSON.stringify(_plan2027));
     console.log('[Budget] 광고선전비 예산 주입 완료, 총:', Object.values(_planAnnual).reduce(function(s,v){return s+v;},0).toLocaleString());
   } catch(e) { console.warn('budget inject failed:', e); }
 })();
@@ -11461,7 +11479,12 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
     });
   }
 
-    var allTypes=[...new Set([...Object.keys(planByType),...Object.keys(spendByType)])].filter(Boolean)
+    // ── 2027 계획 예산 로드 ──
+  var plan2027ByType = {};
+  try { var _p27=JSON.parse(sessionStorage.getItem('budget_plan_2027')||'null'); if(_p27) plan2027ByType=_p27; } catch(_e){}
+  var total2027=Object.values(plan2027ByType).reduce(function(s,v){return s+(v||0);},0);
+
+  var allTypes=[...new Set([...Object.keys(planByType),...Object.keys(spendByType),...Object.keys(plan2027ByType)])].filter(Boolean)
     .sort(function(a,b){return (planByType[b]||0)-(planByType[a]||0);});
 
   if(!allTypes.length){wrapEl.innerHTML='<p style="color:#8a8278;font-size:11px;padding:16px">데이터 없음</p>';return;}
@@ -11488,9 +11511,13 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
     +'<span style="font-size:11px;font-weight:800;color:#1a1714">전체 합계</span>'
     +'<span style="font-size:11px;font-weight:800;color:'+rc(totalRate)+'">'+totalRate+'% 집행</span></div>'
     +'<div style="display:flex;gap:8px;font-size:10px;color:#5a5048;margin-bottom:4px">'
-    +'<span>예산 <b>'+fmt(totalBudget)+'</b></span>'
+    +'<span>26예산 <b>'+fmt(totalBudget)+'</b></span>'
     +'<span>집행 <b style="color:#9e4a3a">'+fmt(totalSpend)+'</b></span>'
     +'<span>잔여 <b style="color:#2a7c2a">'+fmt(totalRemain)+'</b></span></div>'
+    +(total2027>0?'<div style="margin-bottom:4px;padding:3px 7px;background:#eaf0ff;border:1px solid #b8c8e8;border-radius:4px;display:flex;justify-content:space-between;align-items:center">'
+      +'<span style="font-size:9px;font-weight:700;color:#3a5fa5">▶ 2027 계획</span>'
+      +'<span style="font-size:10px;font-weight:800;color:#3a5fa5">'+fmt(total2027)+'</span>'
+      +'</div>':'')
     +'<div style="background:#e8e4dc;border-radius:4px;height:6px;overflow:hidden">'
     +'<div style="height:100%;width:'+Math.min(100,totalRate)+'%;background:'+rc(totalRate)+';border-radius:4px"></div>'
     +'</div></div>';
@@ -11499,6 +11526,7 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
   html+='<div style="display:flex;flex-direction:column;gap:5px">';
   allTypes.forEach(function(tp,i){
     var budget=planByType[tp]||0, spend=spendByType[tp]||0;
+    var b27=plan2027ByType[tp]||0;
     // ── 정부지원금: 집행액이 음수(환급)인 경우 특별 처리 ──
     var isGovRefund = (spend < 0);
     var remain=Math.max(0,budget-spend);
@@ -11510,6 +11538,10 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
     var bPct=totalBudget>0&&budget>0?Math.round(budget/totalBudget*100):0;
     var isSel=_actTypeFilter===tp;
     var refundAmt = isGovRefund ? Math.abs(spend) : 0;
+    // 2027 증감
+    var chgPct = (budget>0&&b27>0) ? Math.round((b27-budget)/budget*100) : null;
+    var chgStr = chgPct===null ? '' : (chgPct>=0?'+':'')+chgPct+'%';
+    var chgCol = chgPct===null?'#8a8278':chgPct>0?'#3a5fa5':chgPct<0?'#c0392b':'#6b6259';
     html+='<div data-acttype="'+tp.replace(/"/g,'&quot;')+'" style="background:#fff;border:2px solid '+(isSel?col:'#ede9e2')+';border-radius:6px;padding:6px 10px;cursor:pointer;transition:border-color .15s">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">'
       +'<div style="display:flex;align-items:center;gap:5px">'
@@ -11524,11 +11556,16 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
       +'<div style="display:flex;gap:8px;font-size:10px;margin-bottom:3px">'
       +(isGovRefund
         ? '<span style="color:#2a7c2a;font-size:9px">환급액 예산 반영</span>'
-        : (budget>0?'<span style="color:#5a5048">예산 <b>'+fmt(budget)+'</b></span>':'')
+        : (budget>0?'<span style="color:#5a5048">26예산 <b>'+fmt(budget)+'</b></span>':'')
           +(spend>0?'<span style="color:#9e4a3a">집행 <b>'+fmt(spend)+'</b></span>':'')
           +(budget>0&&remain>=0?'<span style="color:#2a7c2a">잔여 <b>'+fmt(remain)+'</b></span>':'')
           +(budget===0&&spend>0?'<span style="color:#c0392b;font-size:9px">예산 미배정</span>':''))
       +'</div>'
+      +(b27>0?'<div style="margin-bottom:3px;padding:2px 6px;background:#eaf0ff;border:1px solid #b8c8e8;border-radius:3px;display:flex;justify-content:space-between;align-items:center">'
+        +'<span style="font-size:8px;font-weight:700;color:#3a5fa5">27 계획</span>'
+        +'<span style="font-size:9px;font-weight:800;color:#3a5fa5">'+fmt(b27)
+        +(chgStr?'<span style="font-size:8px;color:'+chgCol+';margin-left:4px">'+chgStr+'</span>':'')
+        +'</span></div>':'')
       +'<div style="background:#f0ede6;border-radius:3px;height:4px;overflow:hidden">'
       +(isGovRefund
         ? '<div style="height:100%;width:100%;background:linear-gradient(90deg,#2a7c2a,#4caf50);border-radius:3px"></div>'
