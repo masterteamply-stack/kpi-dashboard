@@ -8492,8 +8492,12 @@ async function renderDkpiSheetBody(kpiKey) {
   // 기존 배너 제거
   const _oldBanner = document.getElementById('dkpiBanner');
   if(_oldBanner) _oldBanner.remove();
-  const months   = ['01','02','03','04','05','06','07','08','09','10','11','12'];
-  const moLabels = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const months   = (kpiKey === 'channel_discriber')
+    ? ['01','02','03','04','05','06','07','08','09']
+    : ['01','02','03','04','05','06','07','08','09','10','11','12'];
+  const moLabels = (kpiKey === 'channel_discriber')
+    ? ['1월','2월','3월','4월','5월','6월','7월','8월','9월']
+    : ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
   // ── 월 누적 데이터 배너 (상단) ──
   const _data  = getDkpiMonthly(kpiKey);
   const _months = Object.keys(_data).filter(k => !isNaN(Number(k.split('-')[1]))).sort();
@@ -8745,18 +8749,22 @@ async function saveDkpiSheet() {
     const grandTotal = Object.values(saved).reduce((s, rd) => s + (rd.total||0), 0);
 
     // region_sub_net 자동 계산: 월별 전체 지역 순증 합계
-    // ※ v===0 또는 빈 칸도 포함하여 '입력된 모든 월'의 키를 생성
-    //    → richCard가 최신 입력 월(9월 등)을 정확히 잡을 수 있도록
+    // ※ 9월(2026-09)까지만 포함 — 이후 월은 무시
+    const _SUB_CUTOFF = '2026-09';
     const _subNetMonths = new Set();
     Object.values(saved).forEach(rd => {
-      Object.keys(rd.monthly||{}).forEach(mo => _subNetMonths.add(mo));
+      Object.keys(rd.monthly||{}).forEach(mo => { if(mo <= _SUB_CUTOFF) _subNetMonths.add(mo); });
     });
     const subNet = {};
     _subNetMonths.forEach(mo => { subNet[mo] = 0; });
     Object.values(saved).forEach(rd => {
       Object.entries(rd.monthly||{}).forEach(([mo, v]) => {
-        subNet[mo] = (subNet[mo]||0) + Number(v||0);
+        if(mo <= _SUB_CUTOFF) subNet[mo] = (subNet[mo]||0) + Number(v||0);
       });
+    });
+    // saved(detail)에서도 cutoff 이후 키 제거
+    Object.values(saved).forEach(rd => {
+      Object.keys(rd.monthly||{}).forEach(mo => { if(mo > _SUB_CUTOFF) delete rd.monthly[mo]; });
     });
 
     try {
