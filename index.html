@@ -12308,7 +12308,32 @@ function initDkpiDefaultData() {
       localStorage.setItem('region_sub_grand_total', '1432959');
       localStorage.setItem("region_sub_ver","2026-09-v2");
     }
-      // ── Marketing Asset Library Downloads ──
+    // ── region_sub_net 미래월 키 정리 (항상 실행) ──
+    // 9월 이후 키(10·11·12월)가 남아있으면 제거 후 재저장
+    (function(){
+      try {
+        var _CUTOFF = '2026-09';
+        var _netNow = JSON.parse(localStorage.getItem('region_sub_net')||'{}');
+        var _dirty = false;
+        Object.keys(_netNow).forEach(function(k){ if(k > _CUTOFF){ delete _netNow[k]; _dirty=true; } });
+        if(_dirty){
+          localStorage.setItem('region_sub_net', JSON.stringify(_netNow));
+          setSharedConfig('region_sub_net', _netNow);
+        }
+        // region_sub_detail monthly도 동일하게 정리
+        var _rsdNow = JSON.parse(localStorage.getItem('region_sub_detail')||'{}');
+        var _dirty2 = false;
+        Object.values(_rsdNow).forEach(function(rd){
+          if(!rd.monthly) return;
+          Object.keys(rd.monthly).forEach(function(k){ if(k > _CUTOFF){ delete rd.monthly[k]; _dirty2=true; } });
+        });
+        if(_dirty2){
+          localStorage.setItem('region_sub_detail', JSON.stringify(_rsdNow));
+          setSharedConfig('region_sub_detail', _rsdNow);
+        }
+      } catch(_e){}
+    })();
+    // ── Marketing Asset Library Downloads ──
       if(localStorage.getItem("asset_dl_ver")!=="2026-06-v1"){
         localStorage.setItem("dkpi_monthly_asset_download","{\"2026-01\":{\"actual\":1,\"target\":0,\"accumulated\":22179},\"2026-02\":{\"actual\":11564,\"target\":0,\"accumulated\":33743},\"2026-03\":{\"actual\":18246,\"target\":0,\"accumulated\":51989},\"2026-04\":{\"actual\":74643,\"target\":0,\"accumulated\":126632},\"2026-05\":{\"actual\":70304,\"target\":0,\"accumulated\":196936},\"2026-06\":{\"actual\":20240,\"target\":0,\"accumulated\":217176}}");
         localStorage.setItem("asset_dl_ver","2026-06-v1");
