@@ -1355,15 +1355,12 @@ try {
       "프로모션":    120000000,   // Demand Generation/Choice Kit
       "e-Commerce":   19700000,   // e-Commerce Content
       "소셜미디어":  535000000,   // Global Digital B2B 재편
-      // 프로모션 캠페인 (별도 섹션)
-      "__promo_campaigns__": {
-        "Chinese Vehicle":  20000000,
-        "LCV Segment":      10000000,
-        "NA High VIO":      15000000,
-        "Japanese Coverage":15000000,
-        "Authenticity QR":  45000000,
-        "Strategy Reserve":  5000000
-      }
+      "Chinese Vehicle":  20000000,
+      "LCV Segment":      10000000,
+      "NA High VIO":      15000000,
+      "Japanese Coverage":15000000,
+      "Authenticity QR":  45000000,
+      "Strategy Reserve":  5000000
     };
     sessionStorage.setItem('budget_plan_2027', JSON.stringify(_plan2027));
     console.log('[Budget] 광고선전비 예산 주입 완료, 총:', Object.values(_planAnnual).reduce(function(s,v){return s+v;},0).toLocaleString());
@@ -11522,16 +11519,9 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
   }
 
     // ── 2027 계획 예산 로드 ──
-  var plan2027ByType = {}, promoCampaigns2027 = {};
-  try {
-    var _p27=JSON.parse(sessionStorage.getItem('budget_plan_2027')||'null');
-    if(_p27){
-      promoCampaigns2027 = _p27['__promo_campaigns__'] || {};
-      Object.entries(_p27).forEach(function(e){ if(e[0]!=='__promo_campaigns__') plan2027ByType[e[0]]=e[1]; });
-    }
-  } catch(_e){}
-  var total2027 = Object.values(plan2027ByType).reduce(function(s,v){return s+(v||0);},0);
-  var totalPromo2027 = Object.values(promoCampaigns2027).reduce(function(s,v){return s+(v||0);},0);
+  var plan2027ByType = {};
+  try { var _p27=JSON.parse(sessionStorage.getItem('budget_plan_2027')||'null'); if(_p27) plan2027ByType=_p27; } catch(_e){}
+  var total2027=Object.values(plan2027ByType).reduce(function(s,v){return s+(v||0);},0);
 
   var allTypes=[...new Set([...Object.keys(planByType),...Object.keys(spendByType),...Object.keys(plan2027ByType)])].filter(Boolean)
     .sort(function(a,b){return (planByType[b]||0)-(planByType[a]||0);});
@@ -11563,9 +11553,9 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
     +'<span>26예산 <b>'+fmt(totalBudget)+'</b></span>'
     +'<span>집행 <b style="color:#9e4a3a">'+fmt(totalSpend)+'</b></span>'
     +'<span>잔여 <b style="color:#2a7c2a">'+fmt(totalRemain)+'</b></span></div>'
-    +(total2027+totalPromo2027>0?'<div style="margin-bottom:4px;padding:3px 7px;background:#eaf0ff;border:1px solid #b8c8e8;border-radius:4px;display:flex;justify-content:space-between;align-items:center">'
+    +(total2027>0?'<div style="margin-bottom:4px;padding:3px 7px;background:#eaf0ff;border:1px solid #b8c8e8;border-radius:4px;display:flex;justify-content:space-between;align-items:center">'
       +'<span style="font-size:9px;font-weight:700;color:#3a5fa5">▶ 2027 계획</span>'
-      +'<span style="font-size:10px;font-weight:800;color:#3a5fa5">'+fmt(total2027+totalPromo2027)+'<span style="font-size:8px;font-weight:500;margin-left:4px;opacity:.75">(캠페인 포함)</span></span>'
+      +'<span style="font-size:10px;font-weight:800;color:#3a5fa5">'+fmt(total2027)+'</span>'
       +'</div>':'')
     +'<div style="background:#e8e4dc;border-radius:4px;height:6px;overflow:hidden">'
     +'<div style="height:100%;width:'+Math.min(100,totalRate)+'%;background:'+rc(totalRate)+';border-radius:4px"></div>'
@@ -11623,41 +11613,8 @@ function renderActivityTypeChartWithBudget(kpis, tasks) {
   });
   html+='</div>';
 
-  // ── 프로모션 캠페인 섹션 (27년 신규) ──
-  if(Object.keys(promoCampaigns2027).length>0){
-    var CAMP_PALETTE=['#7c4a5c','#4a547c','#5c6b4a','#9e4a3a','#4a7c59','#b8962e'];
-    html+='<div style="margin-top:14px">';
-    html+='<div style="font-size:10px;font-weight:800;color:#3a5fa5;letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:6px">'
-      +'<span style="background:#3a5fa5;color:#fff;font-size:8px;padding:2px 6px;border-radius:3px">27 신규</span>'
-      +'📌 프로모션 캠페인</div>';
-    html+='<div style="background:#f0f5ff;border:1px solid #c0cfea;border-radius:8px;padding:8px 10px">';
-    var _campTotal=Object.values(promoCampaigns2027).reduce(function(s,v){return s+v;},0);
-    html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #c0cfea">'
-      +'<span style="font-size:10px;font-weight:700;color:#1a1714">캠페인 합계</span>'
-      +'<span style="font-size:12px;font-weight:800;color:#3a5fa5">'+fmt(_campTotal)+'</span></div>';
-    html+='<div style="display:flex;flex-direction:column;gap:5px">';
-    Object.entries(promoCampaigns2027).forEach(function(entry,ci){
-      var cname=entry[0], cval=entry[1];
-      var cPct=_campTotal>0?Math.round(cval/_campTotal*100):0;
-      var ccol=CAMP_PALETTE[ci%CAMP_PALETTE.length];
-      html+='<div style="background:#fff;border:1px solid #dce6f5;border-radius:6px;padding:5px 10px">'
-        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">'
-        +'<div style="display:flex;align-items:center;gap:5px">'
-        +'<div style="width:7px;height:7px;border-radius:50%;background:'+ccol+'"></div>'
-        +'<span style="font-size:11px;font-weight:700;color:#1a1714">'+cname+'</span>'
-        +'</div>'
-        +'<div style="display:flex;align-items:center;gap:6px">'
-        +'<span style="font-size:9px;color:#8a8278;background:#f0ede6;padding:1px 4px;border-radius:3px">'+cPct+'%</span>'
-        +'<span style="font-size:11px;font-weight:800;color:#3a5fa5">'+fmt(cval)+'</span>'
-        +'</div></div>'
-        +'<div style="background:#e0e8f5;border-radius:3px;height:3px;overflow:hidden">'
-        +'<div style="height:100%;width:'+cPct+'%;background:'+ccol+';border-radius:3px"></div>'
-        +'</div></div>';
-    });
-    html+='</div></div></div>';
-  }
 
-  wrapEl.innerHTML=html;
+    wrapEl.innerHTML=html;
   if(window._actChart){try{window._actChart.destroy();}catch(_e){}window._actChart=null;}
 
   // 이벤트 리스너 바인딩 (onclick 속성 대신)
