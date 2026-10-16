@@ -3285,8 +3285,17 @@ function renderSummary(s) {
   // 4-1. Choice Kit 오더 (SteerStar 위)
   {
     var _ckCustAchieved2=0,_ckCustOver2=0;
-    [38,53,125,30,34,147,190,43,133,12,54,58,105,73,151,0,0,97,0,201,469,9,0,0,0,0,0,0,100].forEach(function(r){if(r>=100)_ckCustAchieved2++;if(r>=120)_ckCustOver2++;});
-    var _ckTotalRate2 = 70;
+    // CIS(15) · LATAM(25) · ASIA(10) · NA(1) · KR(1) · MENA(2) — YoY 달성률 기준
+    // CIS: PHAETON-59%, BAUTEN+32%, ROSSKO-40%, TISS+39%, AUTOTRADE-4%, KULAN신규, SHATE-60%, ARMTEK-100%, COMPLEX-42%, ALLIANCE+152%, AVTOKOM+120%, AUTOMIR-80%, BTT+457%, RAHAT+107%, YASHLYK-50%
+    // LATAM: 25곳 · 오더발생 93% / ASIA: Sell-out 103.4% / NA(Lordco): Sell-out 144% / KR: -28% / MENA: Dynatrade 신규, MESK+300%
+    [41,132,60,139,96,100,40,0,58,252,220,20,557,207,50, // CIS 15곳
+     100,100,100,100,100,100,100,100,100,100,100,53,100,100,100,100,100,100,100,100,100,100,100,100,100, // LATAM 25곳
+     103,103,103,103,103,103,103,103,103,103, // ASIA 10곳 (Sell-out 103.4%)
+     144, // NA Lordco
+     72,  // KR
+     100,300  // MENA Dynatrade·MESK
+    ].forEach(function(r){if(r>=100)_ckCustAchieved2++;if(r>=120)_ckCustOver2++;});
+    var _ckTotalRate2 = 69;
     h += '<div style="background:#f5f2ed;border-radius:6px;padding:7px 10px">';
     h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">';
     h += '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8a8278">Choice Kit 오더</div>';
@@ -3319,7 +3328,7 @@ function renderSummary(s) {
     h += '</div>';
     // 보조: 금액
     h += '<div style="margin-top:4px;display:flex;align-items:center;justify-content:space-between">';
-    h += '<div style="font-size:10px;color:#8a8278">$3.44M <span style="color:#b8b0a4">/ $4.89M 목표</span></div>';
+    h += '<div style="font-size:10px;color:#8a8278">$3.23M <span style="color:#b8b0a4">/ 목표 대비 +1.1% YoY</span></div>';
     h += '<div style="font-size:9px;color:#b0a898">' + (state.choiceKitOrder.count ? fmtNum(state.choiceKitOrder.count)+'건' : '') + '</div>';
     h += '</div>';
     if(_revTotalDisp) {
