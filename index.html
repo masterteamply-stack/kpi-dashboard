@@ -3339,6 +3339,32 @@ function renderSummary(s) {
     h += '<div style="font-size:10px;color:#8a8278">$3.23M <span style="color:#b8b0a4">/ 목표 대비 +1.1% YoY</span></div>';
     h += '<div style="font-size:9px;color:#b0a898">' + (state.choiceKitOrder.count ? fmtNum(state.choiceKitOrder.count)+'건' : '') + '</div>';
     h += '</div>';
+    // Q4 예측 섹션
+    h += '<div style="margin-top:7px;padding:7px 9px;background:#f0ede6;border:1px solid #dedad2;border-radius:6px">';
+    h += '<div style="font-size:8px;font-weight:700;color:#8a8278;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Q4 오더 예측 · 전년비</div>';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">';
+    // 보수
+    h += '<div style="background:#fffdf9;border:1px solid #e0dbd2;border-radius:4px;padding:4px 5px;text-align:center">';
+    h += '<div style="font-size:7px;color:#b0a898;margin-bottom:2px">보수</div>';
+    h += '<div style="font-size:13px;font-weight:900;color:#8a8278;line-height:1">96<span style="font-size:9px">%</span></div>';
+    h += '<div style="font-size:7px;color:#b8b0a4;margin-top:1px">$4.09M</div>';
+    h += '</div>';
+    // 기준 (현 페이스)
+    h += '<div style="background:#fff8f0;border:1.5px solid #c8a060;border-radius:4px;padding:4px 5px;text-align:center">';
+    h += '<div style="font-size:7px;color:#9a7040;font-weight:700;margin-bottom:2px">기준 ★</div>';
+    h += '<div style="font-size:13px;font-weight:900;color:#b87020;line-height:1">101<span style="font-size:9px">%</span></div>';
+    h += '<div style="font-size:7px;color:#c8a060;margin-top:1px">$4.31M</div>';
+    h += '</div>';
+    // 낙관
+    h += '<div style="background:#fffdf9;border:1px solid #e0dbd2;border-radius:4px;padding:4px 5px;text-align:center">';
+    h += '<div style="font-size:7px;color:#b0a898;margin-bottom:2px">낙관</div>';
+    h += '<div style="font-size:13px;font-weight:900;color:#3a6b3a;line-height:1">106<span style="font-size:9px">%</span></div>';
+    h += '<div style="font-size:7px;color:#7aaa7a;margin-top:1px">$4.52M</div>';
+    h += '</div>';
+    h += '</div>';
+    // 하단 주석
+    h += '<div style="margin-top:4px;font-size:7px;color:#b0a898">1~9월 $3.23M 기준 · 月평균 $359K · Q4 3개월 추산</div>';
+    h += '</div>';
     if(_revTotalDisp) {
       h += '<div style="margin-top:5px;padding-top:5px;border-top:1px solid #e8e4dc;display:flex;align-items:center;justify-content:space-between">';
       h += '<div><div style="font-size:9px;color:#8a8278;font-weight:600">매출 (B2B)</div>';
