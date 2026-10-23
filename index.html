@@ -2118,8 +2118,13 @@ async function fetchMeta() {
 }
 
 async function hydrateFilters() {
-  const { data, error } = await state.sb.from("tasks").select("quarter,region").order("quarter");
-  if(error) throw error;
+  var data = [];
+  if (!window._supabaseOffline) {
+    try {
+      const { data: _d, error } = await state.sb.from("tasks").select("quarter,region").order("quarter");
+      if(!error) data = _d || [];
+    } catch(_e) { console.warn('[hydrateFilters] 실패, 기본값 사용'); }
+  }
   const qs=[...new Set((data||[]).map(r=>r.quarter).filter(Boolean))];
 
   // 지역: KR·빈값 → GLOBAL 통합 (DB의 구버전 KR 데이터 포함)
@@ -2155,6 +2160,14 @@ async function hydrateFilters() {
 }
 
 async function fetchTasks() {
+  // 오프라인 모드: localStorage 캐시 우선
+  if (window._supabaseOffline) {
+    try {
+      var _cached = JSON.parse(localStorage.getItem('_cachedTasks')||'null');
+      if(_cached && Array.isArray(_cached)) return _cached;
+    } catch(_e) {}
+    return [];
+  }
   let q = state.sb.from("tasks")
     .select(`id,title,owner_id,co_owners,kpi_id,quarter,region,status,priority,progress,
              allocated_budget,spend,revenue,leads,due_date,started_at,notes,task_type,updated_at,
@@ -2163,13 +2176,14 @@ async function fetchTasks() {
   if(state.filters.quarter!=="all") q=q.eq("quarter",state.filters.quarter);
   if(state.filters.region !=="all") q=q.eq("region", state.filters.region);
   if(state.filters.owner !== "all") {
-    // 이름으로 담당자 id 매핑 후 필터
     const ownerObj = (state.owners||[]).find(o => o.name === state.filters.owner);
     if(ownerObj) q=q.eq("owner_id", ownerObj.id);
   }
   const { data, error } = await q;
   if(error) throw error;
-  return data||[];
+  var _result = data||[];
+  try { localStorage.setItem('_cachedTasks', JSON.stringify(_result)); } catch(_e) {}
+  return _result;
 }
 
 async function fetchTaskDetail(id) {
@@ -2199,14 +2213,22 @@ async function fetchAttachments(taskId) {
 }
 
 async function fetchKpisWithTasks() {
+  // 오프라인 모드: localStorage 캐시 사용
+  if (window._supabaseOffline) {
+    try {
+      var _ck = JSON.parse(localStorage.getItem('_cachedKpis')||'null');
+      var _ct = JSON.parse(localStorage.getItem('_cachedTasks')||'null');
+      return { kpis: (_ck||[]), tasks: (_ct||[]) };
+    } catch(_e) { return { kpis:[], tasks:[] }; }
+  }
   const { data: kpis, error: ke } = await state.sb
     .from('kpis')
     .select('id,title,kpi_key,statement,owners,progress_status,q1_target,q2_target,q3_target,q4_target,q1_result,q2_result,q3_result,q4_result,unit,strategic_theme,budget_plan')
     .order('kpi_key');
   if(ke) throw ke;
+  // KPI 캐싱
+  try { localStorage.setItem('_cachedKpis', JSON.stringify(kpis||[])); } catch(_e) {}
 
-  // tasks는 state.tasks를 그대로 참조 (업무 상세 테이블과 동일한 소스)
-  // 단, state.tasks가 없으면 DB에서 fetch
   var tasks = state.tasks && state.tasks.length > 0
     ? state.tasks
     : (function() {
@@ -6468,20 +6490,53 @@ async function refreshDashboard() {
   try {
     // shared_config + KPI 월별 데이터 먼저 로드
     if (state.sb) {
-      await loadAllSharedConfig();
-      // 모든 KPI의 monthly 실적 로드 (Top5 달성률 정확도 위해)
-      var _allKpiKeys = ['B2D-01','B2D-02','B2D-03','B2D-04','B2D-05',
-        'B2D-06','B2D-07','B2D-08','B2D-09','B2D-10','B2D-11','B2D-12',
-        'asset_download'];
-      await Promise.all(_allKpiKeys.map(function(k){ return loadDkpiFromSupabase(k); }));
-      console.log('[Init] Supabase KPI 월별 로드 완료');
+      // Supabase 연결 가능 여부 사전 확인 (타임아웃 3초)
+      var _sbReachable = false;
+      try {
+        var _testCtrl = new AbortController();
+        var _testTimer = setTimeout(function(){ _testCtrl.abort(); }, 3000);
+        var _testUrl = window.__SUPABASE_URL__ + '/rest/v1/owners?select=id&limit=1';
+        var _testResp = await fetch(_testUrl, {
+          headers: { 'apikey': window.__SUPABASE_ANON_KEY__, 'Authorization': 'Bearer ' + window.__SUPABASE_ANON_KEY__ },
+          signal: _testCtrl.signal
+        });
+        clearTimeout(_testTimer);
+        _sbReachable = _testResp.ok || _testResp.status === 400 || _testResp.status === 401 || _testResp.status === 200;
+      } catch(_ce) {
+        console.warn('[Init] Supabase 연결 불가 (네트워크/인증서 오류) - 로컬 모드로 전환:', _ce && _ce.message);
+        _sbReachable = false;
+      }
+      if (!_sbReachable) {
+        window._supabaseOffline = true;
+        console.warn('[Init] 오프라인 모드 활성화 - localStorage 데이터 사용');
+      } else {
+        window._supabaseOffline = false;
+        await loadAllSharedConfig();
+        var _allKpiKeys = ['B2D-01','B2D-02','B2D-03','B2D-04','B2D-05',
+          'B2D-06','B2D-07','B2D-08','B2D-09','B2D-10','B2D-11','B2D-12',
+          'asset_download'];
+        await Promise.all(_allKpiKeys.map(function(k){ return loadDkpiFromSupabase(k); }));
+        console.log('[Init] Supabase KPI 월별 로드 완료');
+      }
     }
-    await fetchMetaWithWebhook();
-    await hydrateFilters();
+    // fetchMetaWithWebhook: 실패해도 로컬 폴백으로 계속
+    try {
+      await fetchMetaWithWebhook();
+    } catch(_me) {
+      console.warn('[Init] fetchMeta 실패, 로컬 데이터 사용:', _me && _me.message);
+      if (!state.owners || !state.owners.length) state.owners = [];
+      if (!state.kpis || !state.kpis.length) state.kpis = [];
+    }
+    // hydrateFilters: 실패해도 무시
+    try {
+      await hydrateFilters();
+    } catch(_hf) {
+      console.warn('[Init] hydrateFilters 실패, 기본값 사용');
+    }
 
     // KPI + Tasks 병렬 로드 (state._lastKpis 먼저 채워야 KPI count가 바르게 표시됨)
     const [tasksData, kpiResult] = await Promise.all([
-      fetchTasks(),
+      fetchTasks().catch(function(e){ console.warn('Tasks fetch 실패:', e && e.message); return []; }),
       fetchKpisWithTasks().catch(e => { console.warn('KPI fetch:', e); return { kpis:[], tasks:[] }; })
     ]);
     // progress: DB에서 받은 raw 수치 그대로 유지 (_progressRaw 동기화만)
@@ -6580,11 +6635,15 @@ async function refreshDashboard() {
         await _recalcKpiOwners(_kpis[_ki].id);
       }
     }, 1000);
-    setStatus(`마지막 업데이트: ${new Date().toLocaleTimeString('ko-KR')}`);
+    if (window._supabaseOffline) {
+      setStatus(`📋 로컬 데이터 모드 (네트워크 제한 환경) | ${new Date().toLocaleTimeString('ko-KR')}`);
+    } else {
+      setStatus(`마지막 업데이트: ${new Date().toLocaleTimeString('ko-KR')}`);
+    }
   } catch(e) {
     console.error('refreshDashboard error:', e);
     console.error('[refreshDashboard] catch:', e && e.message, e && e.code, e);
-    setStatus(`⚠️ Supabase 연결 오류 - 로컬 데이터로 표시 중 (${e && (e.message||e.code||String(e))})`, true);
+    setStatus(`📋 로컬 데이터로 표시 중 (${e && (e.message||e.code||String(e))})`);
     // ── Supabase 실패 시 로컬 데이터로 fallback 렌더링 ──
     try {
       renderSummary(computeSummary(state.tasks||[], state._lastKpis||[]));
@@ -6600,12 +6659,17 @@ async function refreshDashboard() {
 }
 
 async function fetchMetaWithWebhook() {
+  // 오프라인 모드: Supabase 호출 건너뜀
+  if (window._supabaseOffline) {
+    if (!state.owners || !state.owners.length) state.owners = [];
+    if (!state.kpis || !state.kpis.length) state.kpis = [];
+    return;
+  }
   const [{ data: owners, error: e1 }, { data: kpis, error: e2 }] = await Promise.all([
     state.sb.from("owners").select("id,name,team,email,teams_webhook_url").order("name"),
     state.sb.from("kpis").select("id,title,kpi_key,statement,owners,progress_status,q1_target,q2_target,q3_target,q4_target,q1_result,q2_result,q3_result,q4_result,unit,strategic_theme,budget_plan").order("kpi_key")
   ]);
   if(e1) {
-    // teams_webhook_url 컬럼 없으면 fallback
     if(e1.message && e1.message.includes('teams_webhook_url')) {
       const { data: owners2, error: e3 } = await state.sb.from("owners").select("id,name,team").order("name");
       if(e3) throw e3;
@@ -6615,7 +6679,6 @@ async function fetchMetaWithWebhook() {
     state.owners = owners||[];
   }
   if(e2) {
-    // budget_plan 컬럼 없으면 fallback (컬럼 미추가 환경 대비)
     if(e2.message && e2.message.includes('budget_plan')) {
       const { data: kpis2, error: e4 } = await state.sb.from("kpis")
         .select("id,title,kpi_key,statement,owners,progress_status,q1_target,q2_target,q3_target,q4_target,q1_result,q2_result,q3_result,q4_result,unit,strategic_theme")
@@ -8373,6 +8436,15 @@ function getDkpiMonthly(kpiKey) {
 }
 
 async function loadDkpiFromSupabase(kpiKey) {
+  // 오프라인 모드: localStorage 우선
+  if (window._supabaseOffline) {
+    return getDkpiMonthly(kpiKey);
+  }
+  // localStorage에 데이터가 있으면 즉시 반환 (네트워크 없이)
+  var _lsData = getDkpiMonthly(kpiKey);
+  if (_lsData && Object.keys(_lsData).some(function(k){ return /^\d{4}-\d{2}$/.test(k); })) {
+    return _lsData;
+  }
   try {
     const { data, error } = await state.sb
       .from('kpi_monthly_data')
@@ -8383,18 +8455,14 @@ async function loadDkpiFromSupabase(kpiKey) {
     var _manualMonthsList = [];
     (data||[]).forEach(function(r) {
       if(r.year_month === '_manual_months') {
-        // _manual_months 특수 행: actual에 JSON 배열이나 비트맵 대신 월 목록 복원 불가
-        // 단순히 배열로 처리
         return;
       }
       result[r.year_month] = { actual: r.actual||0, target: r.target||0 };
     });
-    // _manual_months: 실적이 있는 월을 자동으로 보호 목록에 추가
     result._manual_months = Object.keys(result).filter(function(m){
       return /^\d{4}-\d{2}$/.test(m) && result[m].actual > 0;
     });
     _dkpiMonthlyCache[kpiKey] = result;
-    // localStorage도 동기화
     try { localStorage.setItem('dkpi_monthly_' + kpiKey, JSON.stringify(result)); } catch(e) {}
     return result;
   } catch(e) {
@@ -8407,6 +8475,9 @@ async function saveDkpiMonthlyData(kpiKey, data) {
   // 메모리 캐시 + localStorage 즉시 갱신
   _dkpiMonthlyCache[kpiKey] = data;
   try { localStorage.setItem('dkpi_monthly_' + kpiKey, JSON.stringify(data)); } catch(e) {}
+
+  // 오프라인 모드: localStorage만 사용
+  if (window._supabaseOffline) { return; }
 
   // Supabase upsert
   try {
