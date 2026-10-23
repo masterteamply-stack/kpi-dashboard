@@ -6583,7 +6583,8 @@ async function refreshDashboard() {
     setStatus(`마지막 업데이트: ${new Date().toLocaleTimeString('ko-KR')}`);
   } catch(e) {
     console.error('refreshDashboard error:', e);
-    setStatus(`⚠️ Supabase 연결 오류 - 로컬 데이터로 표시 중`, true);
+    console.error('[refreshDashboard] catch:', e && e.message, e && e.code, e);
+    setStatus(`⚠️ Supabase 연결 오류 - 로컬 데이터로 표시 중 (${e && (e.message||e.code||String(e))})`, true);
     // ── Supabase 실패 시 로컬 데이터로 fallback 렌더링 ──
     try {
       renderSummary(computeSummary(state.tasks||[], state._lastKpis||[]));
@@ -6613,8 +6614,18 @@ async function fetchMetaWithWebhook() {
   } else {
     state.owners = owners||[];
   }
-  if(e2) throw e2;
-  state.kpis = kpis||[];
+  if(e2) {
+    // budget_plan 컬럼 없으면 fallback (컬럼 미추가 환경 대비)
+    if(e2.message && e2.message.includes('budget_plan')) {
+      const { data: kpis2, error: e4 } = await state.sb.from("kpis")
+        .select("id,title,kpi_key,statement,owners,progress_status,q1_target,q2_target,q3_target,q4_target,q1_result,q2_result,q3_result,q4_result,unit,strategic_theme")
+        .order("kpi_key");
+      if(e4) throw e4;
+      state.kpis = (kpis2||[]).map(k=>({...k, budget_plan:null}));
+    } else { throw e2; }
+  } else {
+    state.kpis = kpis||[];
+  }
 }
 
 // ── Teams 웹훅 설정 모달 ──
