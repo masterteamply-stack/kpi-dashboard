@@ -8391,6 +8391,8 @@ async function getSharedConfig(key) {
 
 async function setSharedConfig(key, value) {
   _sharedConfigCache[key] = value;
+  // 오프라인 모드: 메모리/localStorage 캐시만 갱신, Supabase 쓰기 건너뜀
+  if (window._supabaseOffline) { return; }
   try {
     const { error } = await state.sb.from('shared_config').upsert(
       { key, value, updated_at: new Date().toISOString() },
@@ -12685,6 +12687,11 @@ function renderRegionSubChart() {
 
 
 function setupRealtime() {
+  // 오프라인 모드: WebSocket 연결 시도 건너뜀
+  if (window._supabaseOffline) {
+    console.log('[RT] 오프라인 모드 - Realtime 비활성화');
+    return;
+  }
   try {
     state.sb.channel('public:tasks-kpis-rt')
       .on('postgres_changes', { event:'INSERT', schema:'public', table:'tasks' }, async function(payload) {
