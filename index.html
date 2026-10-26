@@ -1625,7 +1625,10 @@ document.addEventListener('DOMContentLoaded', function() {
         <!-- 지역별 구독자 증가 추이 -->
         <div class="digital-kpi-card" id="regionSubCard">
           <div class="digital-kpi-name">
-            <span>📡 Subscribers <small style="font-size:11px;font-weight:500;color:#8a8278">(채널 구독자)</small></span>
+            <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+              <span>📡 Subscribers <small style="font-size:11px;font-weight:500;color:#8a8278">(채널 구독자)</small></span>
+              <span id="regionSubTotalBadge" style="font-size:13px;font-weight:800;color:#3d5228;letter-spacing:-0.3px"></span>
+            </div>
             <div style="display:flex;gap:4px">
               <button id="regViewDonut" class="toggle-btn active" style="font-size:10px;padding:3px 7px" onclick="switchRegionView('donut')">포션</button>
               <button id="regViewBar" class="toggle-btn" style="font-size:10px;padding:3px 7px" onclick="switchRegionView('bar')">추이↔</button>
@@ -12512,6 +12515,21 @@ function renderRegionSubChart() {
   const detail     = (() => { try { return JSON.parse(localStorage.getItem('region_sub_detail')||'{}'); } catch(e){return {};} })();
   const netRaw     = (() => { try { return JSON.parse(localStorage.getItem('region_sub_net')||'{}'); } catch(e){return {};} })();
   const grandTotal = (() => { try { return parseInt(localStorage.getItem('region_sub_grand_total')||'0'); } catch(e){return 0;} })();
+
+  // 총 구독자 수 배지 업데이트
+  (function() {
+    var badge = document.getElementById('regionSubTotalBadge');
+    if(!badge) return;
+    var total = grandTotal || Object.values(detail).reduce(function(s,v){ return s+(v.total||0); }, 0);
+    if(total > 0) {
+      var fmt = total >= 1000000 ? (total/1000000).toFixed(2).replace(/\.?0+$/,'')+'M'
+              : total >= 1000    ? (total/1000).toFixed(1).replace(/\.?0+$/,'')+'K'
+              : String(total);
+      badge.textContent = fmt + ' 구독자';
+    } else {
+      badge.textContent = '';
+    }
+  })();
 
   if(!Object.keys(detail).length) {
     wrap.innerHTML = '<div style="text-align:center;font-size:11px;color:#8a8278;padding:24px">데이터 없음<br>📝 데이터 입력 → 🗺️ 지역별</div>';
