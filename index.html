@@ -12417,7 +12417,7 @@ function initDkpiDefaultData() {
   try {
     // ── B2D-10 Engagement: target 갱신, result 보존 ──
     var _engT={"2026-01":7466667,"2026-02":7466667,"2026-03":7466666,"2026-04":10803333,"2026-05":10803333,"2026-06":10803334,"2026-07":11063333,"2026-08":11063333,"2026-09":11063334,"2026-10":11443333,"2026-11":11443333,"2026-12":11443334};
-    var _engR={"2026-01":4381186,"2026-02":5685770,"2026-03":6128704,"2026-04":2719219,"2026-05":5059873,"2026-06":11482977,"2026-07":7108975,"2026-08":13479296};
+    var _engR={"2026-01":4381186,"2026-02":5685770,"2026-03":6128704,"2026-04":2719219,"2026-05":5059873,"2026-06":11482977,"2026-07":7108975,"2026-08":13479296,"2026-09":14117206};
     var _engD=(function(){try{return JSON.parse(localStorage.getItem("dkpi_monthly_B2D-10")||"{}");}catch(e){return {};}})();
     Object.keys(_engT).forEach(function(mo){if(!_engD[mo])_engD[mo]={};_engD[mo].target=_engT[mo];if(_engR[mo]!==undefined)_engD[mo].result=_engR[mo];else if(!("result" in _engD[mo]))_engD[mo].result=null;});
     localStorage.setItem("dkpi_monthly_B2D-10",JSON.stringify(_engD));
@@ -12432,7 +12432,7 @@ function initDkpiDefaultData() {
     }catch(e){}})();
     // ── B2D-11 Click: target 갱신, result 보존 ──
     var _clkT={"2026-01":83604,"2026-02":125405,"2026-03":209009,"2026-04":334414,"2026-05":334414,"2026-06":376216,"2026-07":376216,"2026-08":418018,"2026-09":418018,"2026-10":418018,"2026-11":543423,"2026-12":543423};
-    var _clkR={"2026-01":97900,"2026-02":105568,"2026-03":141947,"2026-04":177904,"2026-05":699000,"2026-06":1035650,"2026-07":1379919,"2026-08":417644};
+    var _clkR={"2026-01":97900,"2026-02":105568,"2026-03":141947,"2026-04":177904,"2026-05":699000,"2026-06":1035650,"2026-07":1379919,"2026-08":417644,"2026-09":381851};
     var _clkD=(function(){try{return JSON.parse(localStorage.getItem("dkpi_monthly_B2D-11")||"{}");}catch(e){return {};}})();
     Object.keys(_clkT).forEach(function(mo){if(!_clkD[mo])_clkD[mo]={};_clkD[mo].target=_clkT[mo];if(_clkR[mo]!==undefined)_clkD[mo].result=_clkR[mo];else if(!("result" in _clkD[mo]))_clkD[mo].result=null;});
     localStorage.setItem("dkpi_monthly_B2D-11",JSON.stringify(_clkD));
