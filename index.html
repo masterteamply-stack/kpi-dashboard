@@ -1511,7 +1511,10 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
   </section>
 
-  <div id="statusLine" class="status-line">초기화 중…</div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div id="statusLine" class="status-line" style="flex:1">초기화 중…</div>
+    <button id="snapshotBtn" onclick="exportSnapshot()" title="현재 Supabase 데이터를 내장한 HTML 파일 다운로드 → GitHub에 올리면 팀 전원 동일 화면" style="display:none;font-size:10px;padding:3px 9px;background:#3d5228;color:#fff;border:none;border-radius:4px;cursor:pointer;white-space:nowrap;font-weight:700;letter-spacing:-.2px">📦 스냅샷 배포</button>
+  </div>
 
   <!-- KPI cards -->
   <section id="kpiGrid" class="grid kpi-grid"></section>
@@ -2004,6 +2007,94 @@ const priorityLabel = p => ({low:"낮음",medium:"보통",high:"높음",critical
 function setStatus(txt, err=false) {
   el.statusLine.textContent = txt;
   el.statusLine.style.color = err ? "#ff9f9f" : "var(--muted)";
+}
+
+// ── exportSnapshot: 현재 Supabase 데이터를 index.html에 내장하여 다운로드 ──
+async function exportSnapshot() {
+  var btn = document.getElementById('snapshotBtn');
+  if (btn) { btn.textContent = '⏳ 수집 중…'; btn.disabled = true; }
+  try {
+    // 1. Supabase에서 최신 전체 데이터 수집
+    var _sb = state.sb;
+    if (!_sb) throw new Error('Supabase 연결 없음');
+
+    var [tasksRes, kpisRes, ownersRes] = await Promise.all([
+      _sb.from('tasks').select('id,title,kpi_id,owner_id,co_owners,quarter,region,status,priority,progress,allocated_budget,spend,revenue,leads,due_date,started_at,notes,task_type,updated_at,owners(name,team),kpis(title,unit,target_value)').order('updated_at',{ascending:false}),
+      _sb.from('kpis').select('id,title,kpi_key,statement,owners,progress_status,q1_target,q2_target,q3_target,q4_target,q1_result,q2_result,q3_result,q4_result,unit,strategic_theme,budget_plan').order('kpi_key'),
+      _sb.from('owners').select('id,name,team').order('name')
+    ]);
+    if (tasksRes.error) throw tasksRes.error;
+    if (kpisRes.error) throw kpisRes.error;
+    if (ownersRes.error) throw ownersRes.error;
+
+    var tasks  = tasksRes.data  || [];
+    var kpis   = kpisRes.data   || [];
+    var owners = ownersRes.data || [];
+
+    // 2. localStorage에 있는 월별 KPI 데이터도 포함
+    var _lsKeys = [];
+    try {
+      for (var _i = 0; _i < localStorage.length; _i++) {
+        var _k = localStorage.key(_i);
+        if (_k && (_k.startsWith('dkpi_monthly_') || _k === 'region_sub_net' || _k === 'region_sub_grand_total' || _k === 'region_sub_detail' || _k === 'revenue_by_region' || _k === 'revenue_monthly_total' || _k === 'o2o_lead_data' || _k === 'survey_lead_data')) {
+          _lsKeys.push({ k: _k, v: localStorage.getItem(_k) });
+        }
+      }
+    } catch(_e) {}
+
+    var snapTs = new Date().toISOString().slice(0,16).replace('T',' ');
+    var snapVer = 'snap-' + Date.now();
+
+    // 3. 현재 index.html 텍스트를 fetch
+    var htmlText = await fetch(location.href).then(r => r.text());
+
+    // 4. @@SNAPSHOT_STATIC_START@@ ~ @@SNAPSHOT_STATIC_END@@ 구간 교체
+    var newBlock = `// @@SNAPSHOT_STATIC_START@@
+// [오프라인 스냅샷] ${snapTs} 기준 데이터 (자동생성)
+(function() {
+  try {
+    window.__STATIC_TASKS_VER = '${snapVer}';
+    window.__STATIC_TASKS = (${JSON.stringify(tasks)});
+    window.__STATIC_KPIS_VER = '${snapVer}';
+    window.__STATIC_KPIS = (${JSON.stringify(kpis)});
+    window.__STATIC_OWNERS = (${JSON.stringify(owners)});
+    window.__SNAPSHOT_TS = '${snapTs}';
+    // localStorage 미리 적재 (처음 접속자 포함)
+    var _snap = ${JSON.stringify(_lsKeys)};
+    _snap.forEach(function(item) { try { localStorage.setItem(item.k, item.v); } catch(e){} });
+    localStorage.setItem('_cachedTasks', JSON.stringify(window.__STATIC_TASKS));
+    localStorage.setItem('_cachedTasksVer', '${snapVer}');
+    localStorage.setItem('_cachedKpis', JSON.stringify(window.__STATIC_KPIS));
+    localStorage.setItem('_cachedKpisVer', '${snapVer}');
+    localStorage.setItem('_cachedOwners', JSON.stringify(window.__STATIC_OWNERS.map(function(o){return o.name;})));
+    console.log('[Snapshot] ${snapTs} 기준 스냅샷 데이터 적재 완료');
+  } catch(_e) { console.warn('[Snapshot] 데이터 적재 실패:', _e); }
+})();
+// @@SNAPSHOT_STATIC_END@@`;
+
+    var startTag = '// @@SNAPSHOT_STATIC_START@@';
+    var endTag   = '// @@SNAPSHOT_STATIC_END@@';
+    var si = htmlText.indexOf(startTag);
+    var ei = htmlText.indexOf(endTag);
+    if (si === -1 || ei === -1) throw new Error('스냅샷 마커를 찾을 수 없습니다');
+    var newHtml = htmlText.slice(0, si) + newBlock + htmlText.slice(ei + endTag.length);
+
+    // 5. 다운로드
+    var blob = new Blob([newHtml], {type:'text/html;charset=utf-8'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'index.html';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+
+    if (btn) { btn.textContent = '✅ 다운로드 완료'; btn.disabled = false; setTimeout(function(){ btn.textContent = '📦 스냅샷 배포'; }, 3000); }
+    alert('📦 스냅샷 index.html 다운로드 완료\n\n이 파일을 GitHub 저장소 루트에 올리면\n팀 전원이 ' + snapTs + ' 기준 동일 데이터를 봅니다.');
+  } catch(err) {
+    console.error('[exportSnapshot]', err);
+    if (btn) { btn.textContent = '❌ 실패'; btn.disabled = false; setTimeout(function(){ btn.textContent = '📦 스냅샷 배포'; }, 3000); }
+    alert('스냅샷 생성 실패: ' + (err && err.message || err));
+  }
 }
 
 // ── 4. Form validation ─────────────────────────────────────
@@ -6512,7 +6603,8 @@ async function refreshDashboard() {
       if (!_sbReachable) {
         window._supabaseOffline = true;
         console.warn('[Init] 오프라인 모드 활성화 - localStorage 데이터 사용');
-      // [오프라인 정적 데이터 주입] - 항상 window.__STATIC_* 에 적재 (공유 보장)
+      // @@SNAPSHOT_STATIC_START@@
+// [오프라인 정적 데이터 주입] - 항상 window.__STATIC_* 에 적재 (공유 보장)
       (function() {
         try {
           window.__STATIC_TASKS_VER = '2026-v3';
@@ -6526,6 +6618,7 @@ async function refreshDashboard() {
             localStorage.setItem('_cachedOwners', JSON.stringify([{"id": "5a2001ff-9f9d-4958-bd57-be8996c83c1a", "name": "이기환"}, {"id": "344bd318-a845-4d88-8ab2-e15801434e0a", "name": "송현진"}, {"id": "3aab5e3b-c911-440f-aead-33565aa20bd1", "name": "송하영"}, {"id": "d79cdd4c-7368-4126-8d78-2af86f670812", "name": "이다혜"}, {"id": "eec10a33-f20a-4b3f-ba51-9f7845cf6f78", "name": "장우석"}, {"id": "4eaf823f-4a42-4d2b-a12c-59703e81767b", "name": "박정림"}]));
           }
           console.log('[Offline] 정적 fallback 데이터 주입 완료');
+// @@SNAPSHOT_STATIC_END@@
         } catch(_e) { console.warn('[Offline] 데이터 주입 실패:', _e); }
       })();
       } else {
@@ -6658,6 +6751,8 @@ async function refreshDashboard() {
       setStatus(`📋 로컬 데이터 모드 (네트워크 제한 환경) | ${new Date().toLocaleTimeString('ko-KR')}`);
     } else {
       setStatus(`마지막 업데이트: ${new Date().toLocaleTimeString('ko-KR')}`);
+      var _sb = document.getElementById('snapshotBtn');
+      if (_sb) _sb.style.display = 'inline-block';
     }
   } catch(e) {
     console.error('refreshDashboard error:', e);
