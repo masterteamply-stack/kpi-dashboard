@@ -8620,16 +8620,18 @@ async function renderDkpiSheetBody(kpiKey) {
   const _data  = getDkpiMonthly(kpiKey);
   const _months = Object.keys(_data).filter(k => !isNaN(Number(k.split('-')[1]))).sort();
 
+  // actual 또는 result 키 통합 읽기 헬퍼
+  const _getAct = d => Number(d?.actual ?? d?.result ?? 0);
   // 누적 actual 합계 (실적 있는 월만)
-  const _sumActual = _months.reduce((s,k) => s + Number(_data[k]?.actual||0), 0);
+  const _sumActual = _months.reduce((s,k) => s + _getAct(_data[k]), 0);
   // 누적 target 합계 (실적 있는 월만)
   const _sumTarget = _months.reduce((s,k) => s + Number(_data[k]?.target||0), 0);
   // 실적이 있는 가장 마지막 월 (없으면 null)
-  const _lastMoWithData = [..._months].reverse().find(k => Number(_data[k]?.actual||0) > 0) || null;
+  const _lastMoWithData = [..._months].reverse().find(k => _getAct(_data[k]) > 0) || null;
   // 표시할 마지막 월: 실적 있는 마지막 월 우선
   const _lastMo = _lastMoWithData || (_months.length ? _months[_months.length-1] : null);
   // 이달 실적 (실적 있는 마지막 달)
-  const _thisMonthAct = _lastMo ? Number(_data[_lastMo]?.actual||0) : 0;
+  const _thisMonthAct = _lastMo ? _getAct(_data[_lastMo]) : 0;
   const _thisMonthTgt = _lastMo ? Number(_data[_lastMo]?.target||0) : 0;
   // 달성률
   const _achvRate = (_sumActual>0 && _sumTarget>0) ? Math.round(_sumActual/_sumTarget*100) : null;
@@ -8756,7 +8758,7 @@ async function renderDkpiSheetBody(kpiKey) {
   months.forEach(mm => {
     const key = '2026-' + mm;
     const val = data[key]?.target ?? '';
-    tRow += `<td style="padding:4px 4px;text-align:right"><input type="number" min="0" data-kpi="${kpiKey}" data-month="${key}" data-type="target" value="${val}" style="width:60px;text-align:right;border:1px solid #e0dbd2;border-radius:3px;padding:2px 4px;font-size:11px;font-family:var(--font-body);background:#fdfcf9"/></td>`;
+    tRow += `<td style="padding:4px 2px;text-align:right"><input type="number" min="0" data-kpi="${kpiKey}" data-month="${key}" data-type="target" value="${val}" style="width:72px;text-align:right;border:1px solid #e0dbd2;border-radius:3px;padding:2px 3px;font-size:10px;font-family:var(--font-body);background:#fdfcf9"/></td>`;
   });
   tRow += '</tr>';
   let rRow = '<tr>';
@@ -8764,7 +8766,7 @@ async function renderDkpiSheetBody(kpiKey) {
   months.forEach(mm => {
     const key = '2026-' + mm;
     const val = data[key]?.actual ?? data[key]?.result ?? '';
-    rRow += `<td style="padding:4px 4px;text-align:right"><input type="number" min="0" data-kpi="${kpiKey}" data-month="${key}" data-type="result" value="${val}" style="width:60px;text-align:right;border:1px solid #e0dbd2;border-radius:3px;padding:2px 4px;font-size:11px;font-family:var(--font-body);background:#fdfcf9"/></td>`;
+    rRow += `<td style="padding:4px 2px;text-align:right"><input type="number" min="0" data-kpi="${kpiKey}" data-month="${key}" data-type="result" value="${val}" style="width:72px;text-align:right;border:1px solid #e0dbd2;border-radius:3px;padding:2px 3px;font-size:10px;font-family:var(--font-body);background:#fdfcf9"/></td>`;
   });
   rRow += '</tr>';
 
