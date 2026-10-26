@@ -9115,7 +9115,25 @@ async function drawKpiChart(canvasId, kpi) {
 
     if(isQ) {
       targets = [kpi.q1_target,kpi.q2_target,kpi.q3_target,kpi.q4_target].map(v=>Number(v)||0);
-      actuals = [kpi.q1_result,kpi.q2_result,kpi.q3_result,kpi.q4_result].map(parseResult);
+      // 월별 데이터에서 분기 합산 우선, 없으면 kpi.qN_result 텍스트 파싱
+      const _mQ = getDkpiMonthly(kpi.kpi_key);
+      var _getActQ = function(d){ return Number(d && d.actual != null ? d.actual : (d && d.result != null ? d.result : 0)); };
+      var _qSum = function(months){ return months.reduce(function(s,mm){ return s + _getActQ(_mQ['2026-'+mm]); }, 0); };
+      var _hasMonthlyQ = ['01','02','03','04','05','06','07','08','09','10','11','12'].some(function(mm){ return (_mQ['2026-'+mm]?.actual || _mQ['2026-'+mm]?.result) > 0; });
+      if(_hasMonthlyQ) {
+        var _q1s = _qSum(['01','02','03']);
+        var _q2s = _qSum(['04','05','06']);
+        var _q3s = _qSum(['07','08','09']);
+        var _q4s = _qSum(['10','11','12']);
+        actuals = [
+          _q1s > 0 ? _q1s : parseResult(kpi.q1_result),
+          _q2s > 0 ? _q2s : parseResult(kpi.q2_result),
+          _q3s > 0 ? _q3s : parseResult(kpi.q3_result),
+          _q4s > 0 ? _q4s : parseResult(kpi.q4_result)
+        ];
+      } else {
+        actuals = [kpi.q1_result,kpi.q2_result,kpi.q3_result,kpi.q4_result].map(parseResult);
+      }
       // 분기 누적은 별도 처리하지 않음 (분기 목표가 이미 누계형인 경우가 많음)
     } else {
       // localStorage 월별 데이터 우선, 없으면 분기 데이터 분배
@@ -12587,10 +12605,15 @@ function renderRegionSubChart() {
       data: qOrder.map(q => allMonths.filter(m=>qMap[m.slice(5)]===q).reduce((s,mo)=>s+(x.monthly[mo]||0),0)),
       backgroundColor: x.color+'cc', borderColor: x.color, borderWidth:1, stack:'region'
     }));
-    // 분기별 순증 라인
-    const netQData = qOrder.map(q => allMonths.filter(m=>qMap[m.slice(5)]===q).reduce((s,mo)=>s+(netRaw[mo]||0),0));
+    // 분기별 순증 라인 (데이터 없는 분기는 null 처리 → 라인 미연장)
+    const netQData = qOrder.map(q => {
+      var qMonths = allMonths.filter(m=>qMap[m.slice(5)]===q);
+      if(!qMonths.length) return null;
+      var sum = qMonths.reduce((s,mo)=>s+(netRaw[mo]||0),0);
+      return sum > 0 ? sum : null;
+    });
     datasets.unshift({type:'line',label:'전체 순증',data:netQData,borderColor:'#1a1714',borderWidth:2,
-      pointBackgroundColor:'#1a1714',pointRadius:4,fill:false,tension:.3,order:0,yAxisID:'y'});
+      pointBackgroundColor:'#1a1714',pointRadius:4,fill:false,tension:.3,order:0,yAxisID:'y',spanGaps:false});
 
   } else if(currentView === 'month') {
     // 월별: 지역별 스택
@@ -12601,9 +12624,9 @@ function renderRegionSubChart() {
       data: allMonths.map(m => x.monthly[m]||0),
       backgroundColor: x.color+'cc', borderColor: x.color, borderWidth:1, stack:'region'
     }));
-    const netDataset = {type:'line',label:'전체 순증',data:allMonths.map(m=>netRaw[m]||0),
+    const netDataset = {type:'line',label:'전체 순증',data:allMonths.map(m=>netRaw[m]!=null && netRaw[m]>0?netRaw[m]:null),
       borderColor:'#1a1714',borderWidth:2,pointBackgroundColor:'#1a1714',pointRadius:4,
-      fill:false,tension:.3,order:0,yAxisID:'y'};
+      fill:false,tension:.3,order:0,yAxisID:'y',spanGaps:false};
     datasets.unshift(netDataset);
 
   } else {
