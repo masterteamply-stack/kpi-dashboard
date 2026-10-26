@@ -9706,29 +9706,33 @@ function renderDrawerEditForm(task) {
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div>
-          <label class="field-label">주담당자</label>
-          <select id="de_owner" style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)">
-            <option value="">미지정</option>
-            ${owners.map(n=>`<option value="${n}" ${(task.owners?.name||task.owner_name)===n?'selected':''}>${n}</option>`).join('')}
-          </select>
+      <div>
+        <label class="field-label">담당자 배정 <span style="font-size:9px;color:#8a8278;font-weight:400">주담당자 1명 + 공동담당자 복수 선택 가능</span></label>
+        <div id="de_owner_list" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:#faf9f7;display:flex;flex-direction:column;gap:2px;max-height:160px;overflow-y:auto">
+          ${(function(){
+            var mainOwnerName = task.owners?.name || task.owner_name || '';
+            var _co = task.co_owners ? String(task.co_owners).split(',').map(function(c){return c.trim();}).filter(Boolean) : [];
+            return (state.owners||[]).map(function(o){
+              var isMain = o.name === mainOwnerName || o.id === task.owner_id;
+              var isCo = _co.indexOf(o.id) >= 0 || _co.indexOf(o.name) >= 0;
+              var role = isMain ? 'main' : (isCo ? 'co' : '');
+              return '<label style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:4px;cursor:pointer;font-size:12px;transition:background .15s" onmouseover="this.style.background=\'#f0ede6\'" onmouseout="this.style.background=\'transparent\'">'
+                + '<input type="radio" name="de_owner_radio" value="'+esc(o.id)+'" data-name="'+esc(o.name)+'" '+(isMain?'checked':'')+' style="accent-color:#5c6b4a;flex-shrink:0;width:14px;height:14px"/>'
+                + '<span style="font-weight:600;color:#1a1714;min-width:60px">'+esc(o.name)+'</span>'
+                + '<span style="font-size:10px;color:#8a8278">'+esc(o.team||'')+'</span>'
+                + '<span style="margin-left:auto;display:flex;align-items:center;gap:4px;font-size:10px;color:#5c6b4a">'
+                + '<input type="checkbox" id="de_co_'+esc(o.id)+'" value="'+esc(o.id)+'" data-name="'+esc(o.name)+'" '+(isCo?'checked':'')+' style="accent-color:#5c6b4a;width:13px;height:13px"/> 공동</span>'
+                + '</label>';
+            }).join('');
+          })()}
         </div>
-        <div>
-          <label class="field-label">공동담당자 <span style="font-size:9px;color:#8a8278">(Ctrl/Cmd+클릭으로 복수 선택)</span></label>
-          <select id="de_co_owners" multiple style="width:100%;border:1px solid var(--line);border-radius:4px;padding:4px 6px;font-size:12px;font-family:var(--font-body);min-height:70px">${(function(){
-              var _co=task.co_owners?String(task.co_owners).split(',').map(function(c){return c.trim();}).filter(Boolean):[];
-              return (state.owners||[]).map(function(o){
-                var sel=_co.indexOf(o.id)>=0||_co.indexOf(o.name)>=0;
-                return '<option value="'+esc(o.id)+'"'+(sel?' selected':'')+'>'+esc(o.name)+'</option>';
-              }).join('');
-            })()}</select>
-        </div>
-        <div>
-          <label class="field-label">마감일</label>
-          <input type="date" id="de_due" value="${fmtD(task.due_date)}"
-            style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)"/>
-        </div>
+        <div style="font-size:10px;color:#8a8278;margin-top:3px">◉ 라디오 = 주담당자 · ☑ 체크 = 공동담당자</div>
+      </div>
+
+      <div>
+        <label class="field-label">마감일</label>
+        <input type="date" id="de_due" value="${fmtD(task.due_date)}"
+          style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)"/>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -9866,31 +9870,27 @@ async function saveDrawerEdit(taskId) {
   };
 
   // owner 처리
-  var ownerName = document.getElementById('de_owner') && document.getElementById('de_owner').value;
-  if(ownerName) {
-    var ow = (state.owners||[]).find(function(o){return o.name===ownerName;});
-    if(ow) {
-      updates.owner_id = ow.id;
-      task.owners = {name:ow.name, team:ow.team||''};
-      ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
-        var t2=(state[k]||[]).find(function(t){return t.id===task.id;});
-        if(t2) t2.owners={name:ow.name,team:ow.team||''};
-      });
-    }
-  }
-  // 공동담당자 저장
-  var _coSel = document.getElementById('de_co_owners');
-  if(_coSel) {
-    var _coIds = Array.from(_coSel.selectedOptions).map(function(o){return o.value;}).filter(Boolean);
-    var _mainOw2 = ownerName ? (state.owners||[]).find(function(o){return o.name===ownerName;}) : null;
-    if(_mainOw2) _coIds = _coIds.filter(function(id){return id!==_mainOw2.id;});
-    updates.co_owners = _coIds.length>0 ? _coIds.join(',') : null;
-    task.co_owners = updates.co_owners;
+  // 주담당자: 라디오 버튼
+  var _mainRadio = document.querySelector('input[name="de_owner_radio"]:checked');
+  var _mainOwnerId = _mainRadio ? _mainRadio.value : '';
+  var ow = _mainOwnerId ? (state.owners||[]).find(function(o){return o.id===_mainOwnerId;}) : null;
+  if(ow) {
+    updates.owner_id = ow.id;
+    task.owners = {name:ow.name, team:ow.team||''};
     ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
       var t2=(state[k]||[]).find(function(t){return t.id===task.id;});
-      if(t2) t2.co_owners=updates.co_owners;
+      if(t2) t2.owners={name:ow.name,team:ow.team||''};
     });
   }
+  // 공동담당자: 체크박스 (주담당자 제외)
+  var _coChecks = document.querySelectorAll('#de_owner_list input[type="checkbox"]:checked');
+  var _coIds = Array.from(_coChecks).map(function(cb){return cb.value;}).filter(function(id){return id !== _mainOwnerId;});
+  updates.co_owners = _coIds.length > 0 ? _coIds.join(',') : null;
+  task.co_owners = updates.co_owners;
+  ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
+    var t2=(state[k]||[]).find(function(t){return t.id===task.id;});
+    if(t2) t2.co_owners=updates.co_owners;
+  });
   var btn = document.querySelector('#drawerTabEdit .btn-primary');
   try {
     // 1. Task DB 저장
