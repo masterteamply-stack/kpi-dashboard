@@ -2163,9 +2163,8 @@ async function hydrateFilters() {
 }
 
 async function fetchTasks() {
-  // 오프라인 모드: index.html 내장 정적 데이터 우선 (공유 일관성 보장)
+  // 오프라인 모드: localStorage 캐시 우선
   if (window._supabaseOffline) {
-    if (window.__STATIC_TASKS && window.__STATIC_TASKS.length > 0) return window.__STATIC_TASKS;
     try {
       var _cached = JSON.parse(localStorage.getItem('_cachedTasks')||'null');
       if(_cached && Array.isArray(_cached)) return _cached;
@@ -2217,17 +2216,8 @@ async function fetchAttachments(taskId) {
 }
 
 async function fetchKpisWithTasks() {
-  // 오프라인 모드: index.html 내장 정적 데이터 우선 (공유 일관성 보장)
+  // 오프라인 모드: localStorage 캐시 사용
   if (window._supabaseOffline) {
-    var _sk = (window.__STATIC_KPIS && window.__STATIC_KPIS.length > 0) ? window.__STATIC_KPIS : null;
-    var _st = (window.__STATIC_TASKS && window.__STATIC_TASKS.length > 0) ? window.__STATIC_TASKS : null;
-    if (_sk || _st) {
-      try {
-        var _ck2 = _sk || JSON.parse(localStorage.getItem('_cachedKpis')||'null') || [];
-        var _ct2 = _st || JSON.parse(localStorage.getItem('_cachedTasks')||'null') || [];
-        return { kpis: _ck2, tasks: _ct2 };
-      } catch(_e) { return { kpis: _sk||[], tasks: _st||[] }; }
-    }
     try {
       var _ck = JSON.parse(localStorage.getItem('_cachedKpis')||'null');
       var _ct = JSON.parse(localStorage.getItem('_cachedTasks')||'null');
