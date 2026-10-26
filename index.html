@@ -9674,11 +9674,16 @@ function renderDrawerEditForm(task) {
   el.innerHTML = `
     <div style="display:flex;flex-direction:column;gap:12px;padding:4px 0">
 
-      ${kpiTitle ? `<div style="background:#f0ede6;border-radius:6px;padding:8px 12px">
-        <div style="font-size:9px;color:#8a8278;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px">연결 KPI</div>
-        <div style="font-size:12px;font-weight:700;color:#1a1714">${esc(kpiTitle)}</div>
-        <div style="font-size:10px;color:#5c6b4a">${qLabel} 분기</div>
-      </div>` : ''}
+      <div>
+        <label class="field-label" style="display:flex;align-items:center;gap:5px">
+          연결 KPI
+          <span style="font-size:9px;color:#5c6b4a;background:#e4f0dd;padding:1px 5px;border-radius:3px">선택 시 분기 목표 연동</span>
+        </label>
+        <select id="de_kpi_id" style="width:100%;border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-size:12px;font-family:var(--font-body)" onchange="onDrawerKpiChange(this.value)">
+          <option value="">연결 안 함</option>
+          ${(state._lastKpis||state.kpis||[]).map(k=>`<option value="${esc(k.id)}"${k.id===task.kpi_id?' selected':''}>${esc(k.kpi_key?k.kpi_key+' · ':'')}${esc(k.title)}</option>`).join('')}
+        </select>
+      </div>
 
       <div>
         <label class="field-label">제목</label>
@@ -9788,13 +9793,53 @@ function renderDrawerEditForm(task) {
     </div>`;
 }
 
+// ── Drawer: KPI 변경 시 목표값 자동 업데이트 ──
+function onDrawerKpiChange(kpiId) {
+  var formEl = document.getElementById('drawerEditForm');
+  var task = state.drawer && state.drawer.task;
+  if(!formEl) return;
+
+  var allKpis = state._lastKpis || state.kpis || [];
+  var kpi = kpiId ? allKpis.find(k => k.id === kpiId) : null;
+  var qKey = formEl.dataset.qKey || 'q1';
+  var unit = kpi ? (kpi.unit || '') : '';
+  var qLabel = qKey.toUpperCase();
+
+  // KPI ID 저장 (저장 시 사용)
+  formEl.dataset.kpiId = kpiId || '';
+  formEl.dataset.origTarget = ''; // 신규 연결이면 원본 없음
+
+  // 목표값 업데이트
+  var targetEl = document.getElementById('de_target');
+  if(targetEl) {
+    var newTarget = kpi ? (kpi[qKey + '_target'] != null ? Number(kpi[qKey + '_target']) : '') : '';
+    targetEl.value = newTarget !== '' ? newTarget : 0;
+    formEl.dataset.origTarget = String(newTarget !== '' ? newTarget : '');
+  }
+
+  // 목표 라벨 업데이트
+  var targetLabelEl = document.getElementById('de_target_label');
+  if(targetLabelEl) {
+    targetLabelEl.textContent = qLabel + ' 목표' + (unit ? ' (' + unit + ')' : '');
+  }
+
+  // 실적 라벨 업데이트
+  var progLabelEl = document.getElementById('de_progress_label');
+  if(progLabelEl) {
+    progLabelEl.textContent = '실적 수치' + (unit ? ' (' + unit + ')' : '');
+  }
+}
+
 // ── Drawer: 저장 ──
 async function saveDrawerEdit(taskId) {
   var task = state.drawer && state.drawer.task;
   if(!task) return;
 
   var formEl     = document.getElementById('drawerEditForm');
-  var kpiId      = formEl && formEl.dataset.kpiId;
+  // KPI는 드롭다운에서 실시간으로 읽음 (dataset은 onDrawerKpiChange에서 동기화되지만 혹시 모르니 직접 읽기)
+  var kpiIdEl    = document.getElementById('de_kpi_id');
+  var kpiId      = kpiIdEl ? (kpiIdEl.value || '') : (formEl && formEl.dataset.kpiId) || '';
+  if(formEl) formEl.dataset.kpiId = kpiId; // 동기화
   var qKey       = formEl && formEl.dataset.qKey;
   var origTarget = parseFloat((formEl && formEl.dataset.origTarget)||'0')||0;
   var newTarget  = parseFloat((document.getElementById('de_target') && document.getElementById('de_target').value))||0;
@@ -9816,6 +9861,7 @@ async function saveDrawerEdit(taskId) {
     allocated_budget: parseFloat((document.getElementById('de_budget') && document.getElementById('de_budget').value)||0)||0,
     region:   ((document.getElementById('de_region') && document.getElementById('de_region').value.trim().toUpperCase()) || 'GLOBAL'),
     task_type: (document.getElementById('de_task_type') && document.getElementById('de_task_type').value) || null,
+    kpi_id: kpiId || null,
     updated_at: new Date().toISOString(),
   };
 
@@ -9924,9 +9970,21 @@ async function saveDrawerEdit(taskId) {
       renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||[]);
     }
 
-    // 8. 드로어 타이틀 갱신
+    // 8. 드로어 타이틀/KPI 서브타이틀 갱신
     var _dTitle = document.getElementById('drawerTitle');
     if(_dTitle) _dTitle.textContent = updates.title;
+    var _dSub = document.getElementById('drawerSub');
+    if(_dSub) {
+      if(kpiId) {
+        var _newKpi = (state._lastKpis||state.kpis||[]).find(function(k){return k.id===kpiId;});
+        _dSub.textContent = _newKpi ? ('KPI: ' + (_newKpi.title||kpiId)) : '';
+      } else {
+        _dSub.textContent = '';
+      }
+    }
+    // kpi_id 변경 시 task 객체에도 반영
+    task.kpi_id = kpiId || null;
+    if(formEl) formEl.dataset.kpiId = kpiId || '';
 
     // 9. summary/차트 갱신
     _syncAfterTaskChange(task, Object.keys(updates));
