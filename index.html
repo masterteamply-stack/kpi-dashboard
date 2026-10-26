@@ -12630,25 +12630,43 @@ function renderRegionSubChart() {
     datasets.unshift(netDataset);
 
   } else {
-    // 누적: 월별 누계 라인 (지역별 + 전체)
+    // 누적: 월별 실제 누적 구독자 수 라인 (total 기준 역산)
     isCum = true;
     labels = allMonths.map(m => parseInt(m.slice(5))+'월');
-    const filteredEntries = entries.filter(x => allMonths.some(m=>(x.monthly[m]||0)>0));
+    const filteredEntries = entries.filter(x => allMonths.some(m=>(x.monthly[m]||0)!==0) || x.total > 0);
+
+    // 각 지역별: total(현재 기준)에서 역산하여 각 월 말 누적 구독자 계산
     datasets = filteredEntries.map(x => {
-      let cum = 0;
+      // allMonths를 역순으로 돌며 각 월 말 구독자 역산
+      var monthlyTotal = {};
+      var runningTotal = x.total || 0;
+      var sortedMonths = allMonths.slice().sort();
+      for(var _i = sortedMonths.length - 1; _i >= 0; _i--) {
+        monthlyTotal[sortedMonths[_i]] = runningTotal;
+        runningTotal -= (x.monthly[sortedMonths[_i]] || 0);
+      }
       return {
         type:'line', label: x.r,
-        data: allMonths.map(m => { cum += x.monthly[m]||0; return cum; }),
+        data: allMonths.map(m => monthlyTotal[m] != null ? monthlyTotal[m] : null),
         borderColor: x.color, borderWidth:2, pointRadius:3,
-        fill: false, tension:.4, order:1
+        fill: false, tension:.4, order:1, spanGaps:false
       };
     });
-    // 전체 누적 라인
-    let cumNet = 0;
-    const netCumData = allMonths.map(m => { cumNet += netRaw[m]||0; return cumNet; });
-    datasets.unshift({type:'line',label:'전체 순증 누계',data:netCumData,
+
+    // 전체 누적 라인: grandTotal(전체 합산)에서 역산
+    var _allTotal = entries.reduce(function(s,x){ return s + (x.total||0); }, 0);
+    if(grandTotal > 0) _allTotal = grandTotal;
+    var _cumByMonth = {};
+    var _runTotal = _allTotal;
+    var _sortedM = allMonths.slice().sort();
+    for(var _j = _sortedM.length - 1; _j >= 0; _j--) {
+      _cumByMonth[_sortedM[_j]] = _runTotal;
+      _runTotal -= (netRaw[_sortedM[_j]] || 0);
+    }
+    const netCumData = allMonths.map(m => _cumByMonth[m] != null ? _cumByMonth[m] : null);
+    datasets.unshift({type:'line',label:'전체 구독자 누계',data:netCumData,
       borderColor:'#1a1714',borderWidth:2.5,pointBackgroundColor:'#1a1714',
-      pointRadius:4,fill:false,tension:.4,order:0,borderDash:[]});
+      pointRadius:4,fill:false,tension:.4,order:0,borderDash:[],spanGaps:false});
   }
 
   wrap.innerHTML = '<canvas id="regionBarChart" height="240"></canvas>';
