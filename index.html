@@ -1913,7 +1913,13 @@ window.__SUPABASE_URL__      = "https://oehfptlkpqlpruaqogkk.supabase.co";
 window.__SUPABASE_ANON_KEY__ = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9laGZwdGxrcHFscHJ1YXFvZ2trIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MjEyMzIsImV4cCI6MjA5NTM5NzIzMn0.8ssyrGtrrE0guYErEezDpsy7ckq6fPtke9ffxCj6FL0";
 
 const ATTACHMENT_BUCKET = "task-attachments";
-const { createClient } = window.supabase;
+
+// Supabase CDN 로드 실패 가드: window.supabase가 없으면 즉시 오프라인 모드
+if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+  console.warn('[Init] Supabase CDN 로드 실패 — 오프라인 모드로 자동 전환');
+  window._supabaseOffline = true;
+}
+const { createClient } = (window.supabase || {});
 
 // ── 1. State ───────────────────────────────────────────────
 const state = {
@@ -13548,10 +13554,18 @@ var CK_TARGET_BY_REGION = {
     };
     window.__avgProgPatched = true;
   }
-  // state.sb 초기화
+  // state.sb 초기화 (CDN 로드 실패 시 오프라인 모드 전환)
   if(!state.sb) {
-    try { state.sb = createClient(url, key); }
-    catch(e) { setStatus("⚠️ Supabase 연결 실패: "+e.message, true); return; }
+    if (window._supabaseOffline || typeof createClient !== 'function') {
+      window._supabaseOffline = true;
+      console.warn('[Init] createClient 없음 — 오프라인 모드로 실행');
+    } else {
+      try { state.sb = createClient(url, key); }
+      catch(e) {
+        console.warn('[Init] Supabase 클라이언트 생성 실패 — 오프라인 전환:', e.message);
+        window._supabaseOffline = true;
+      }
+    }
   }
   restorePanelStates();
   setStatus("데이터 불러오는 중…");
