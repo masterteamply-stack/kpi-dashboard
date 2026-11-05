@@ -6729,7 +6729,7 @@ async function refreshDashboard() {
       var _sbReachable = false;
       try {
         var _testCtrl = new AbortController();
-        var _testTimer = setTimeout(function(){ _testCtrl.abort(); }, 3000);
+        var _testTimer = setTimeout(function(){ _testCtrl.abort(); }, 8000);
         var _testUrl = window.__SUPABASE_URL__ + '/rest/v1/owners?select=id&limit=1';
         var _testResp = await fetch(_testUrl, {
           headers: { 'apikey': window.__SUPABASE_ANON_KEY__, 'Authorization': 'Bearer ' + window.__SUPABASE_ANON_KEY__ },
