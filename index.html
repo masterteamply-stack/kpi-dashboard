@@ -2730,11 +2730,19 @@ function buildBuckets(tasks) {
 
 // ── 7. Render ──────────────────────────────────────────────
 function renderKPICards(s) {
+  // KPI 완료 반영: 완료된 KPI 하위 태스크는 완료로 간주(computeSummary에서 처리됨)
+  const _kpiProgStr = (function(){
+    var _kl = state._lastKpis||[];
+    var _kDone = _kl.filter(function(k){return k.progress_status==='완료';}).length;
+    var _kTotal = _kl.length;
+    var _kInProg = _kl.filter(function(k){return k.progress_status==='진행 중';}).length;
+    return 'KPI 완료 '+fmtNum(_kDone)+'개 / '+fmtNum(_kTotal)+'개 · 진행중 '+fmtNum(_kInProg)+'개';
+  })();
   const items=[
     { label:"전체 업무",   value:fmtNum(s.total),
       sub:`완료 ${fmtNum(s.done)}건 · KPI ${fmtNum(s.kpiTotal||0)}개`,      icon:"📋" },
     { label:"완료율",      value:fmtPct(s.compRate),
-      sub:`KPI 완료 ${fmtNum(s.kpiDone||0)}개 · 진행중 ${fmtNum(s.inProg)}건`,   icon:"✅" },
+      sub:_kpiProgStr,   icon:"✅" },
     { label:"평균 진척도", value:fmtPct(Math.min(100,Math.max(0,s.avgProg||0))),   sub:`완료 ${fmtNum(s.done)}건 / 전체 ${fmtNum(s.total)}건`,    icon:"📈" },
     { label:"Marketing Lead", value: (function(){
         var _ml = computeMarketingLeads();
@@ -7421,8 +7429,9 @@ async function saveTaskSelectEdit(el) {
     if(state._activeKpiModal&&typeof refreshKpiDetailModal==='function') refreshKpiDetailModal();
     renderOwnerTable(state.tasks||[],state._lastKpis||[]);
     if(field==='status'||field==='progress'){
-      renderSummary(computeSummary(state.tasks||[],state._lastKpis||[]));
-      renderKPICards(state._lastKpis||[],state._lastKpiTasks||[]);
+      var _cs2 = computeSummary(state.tasks||[], state._lastKpis||[]);
+      renderSummary(_cs2);
+      renderKPICards(_cs2);
     }
     // 전략 영역 + Top5 즉시 갱신
     _reRenderStrategyPanel();
