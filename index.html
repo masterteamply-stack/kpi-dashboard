@@ -7423,9 +7423,31 @@ async function saveTaskSelectEdit(el) {
     var t2=(state[k]||[]).find(function(t){return t.id===taskId;});
     if(t2) t2[field]=newVal;
   });
+  // ── localStorage 캐시 즉시 갱신 (오프라인/reload 모두 반영) ──
   try {
-    var res=await state.sb.from('tasks').update({[field]:newVal,updated_at:new Date().toISOString()}).eq('id',taskId);
+    var _lsCache = JSON.parse(localStorage.getItem('_cachedTasks')||'null');
+    if(_lsCache && Array.isArray(_lsCache)) {
+      var _lsIdx = _lsCache.findIndex(function(t){ return t.id===taskId; });
+      if(_lsIdx>=0) { _lsCache[_lsIdx][field]=newVal; localStorage.setItem('_cachedTasks', JSON.stringify(_lsCache)); }
+    }
+  } catch(_lse) {}
+  // 오프라인 모드: localStorage만 업데이트하고 반환
+  if(window._supabaseOffline || !state.sb) {
+    console.log('[SAVE-OFFLINE] tasks.' + field + ' = ' + newVal + ' → localStorage만 저장 (오프라인)');
+    if(field==='status'||field==='progress'){
+      var _allTO = (state.tasks||[]).slice();
+      (state._lastKpiTasks||[]).forEach(function(kt){
+        if(!_allTO.find(function(t){return t.id===kt.id;})) _allTO.push(kt);
+      });
+      var _csO = computeSummary(_allTO, state._lastKpis||[]);
+      renderSummary(_csO); renderKPICards(_csO);
+    }
+    return;
+  }
+  try {
+    var res=await state.sb.from('tasks').update({[field]:newVal,updated_at:new Date().toISOString()}).eq('id',taskId).select('id,'+field);
     if(res.error) throw res.error;
+    console.log('[SAVE] tasks.' + field + ' = ' + newVal + ' → Supabase 저장 성공', res.data);
     if(field==='owner_id'){
       var ow2=(state.owners||[]).find(function(o){return o.id===newVal;});
       if(ow2){
@@ -7474,6 +7496,14 @@ async function saveTaskSelectEdit(el) {
       var t2=(state[k]||[]).find(function(t){return t.id===taskId;});
       if(t2) t2[field]=_oldVal;
     });
+    // localStorage 캐시도 rollback
+    try {
+      var _lsRb = JSON.parse(localStorage.getItem('_cachedTasks')||'null');
+      if(_lsRb && Array.isArray(_lsRb)) {
+        var _lsRbIdx = _lsRb.findIndex(function(t){ return t.id===taskId; });
+        if(_lsRbIdx>=0) { _lsRb[_lsRbIdx][field]=_oldVal; localStorage.setItem('_cachedTasks', JSON.stringify(_lsRb)); }
+      }
+    } catch(_lsRe) {}
     el.value=_oldVal;
     console.error('[SELECT] 저장 실패 field='+field+':', e.message||e);
     alert('저장 실패: '+(e.message||String(e)));
