@@ -6334,7 +6334,6 @@ function renderKPIAccordion(kpis, tasks) {
         ${renderKpiGauge(kpi, taskList)}
       </div>
       ${(function(){
-        // 누적 달성 수치 집계 (Q1까지, Q1+Q2까지, Q1~Q3까지, 전체)
         var _isPct = (kpi.unit||'').trim()==='%' || Number(kpi.q4_target)===100;
         var _byQ = {q1:{done:0,total:0,raw:0},q2:{done:0,total:0,raw:0},q3:{done:0,total:0,raw:0},q4:{done:0,total:0,raw:0}};
         (taskList||[]).forEach(function(t){
@@ -6344,17 +6343,26 @@ function renderKPIAccordion(kpis, tasks) {
           if(t.status==='완료'||t.status==='done') _byQ[_q].done++;
           _byQ[_q].raw += Number(t._progressRaw!=null?t._progressRaw:(t.progress||0));
         });
-        // 누적합 계산
-        var _cum = {
-          q1: {done:_byQ.q1.done, total:_byQ.q1.total, raw:_byQ.q1.raw},
-          q2: {done:_byQ.q1.done+_byQ.q2.done, total:_byQ.q1.total+_byQ.q2.total, raw:_byQ.q1.raw+_byQ.q2.raw},
-          q3: {done:_byQ.q1.done+_byQ.q2.done+_byQ.q3.done, total:_byQ.q1.total+_byQ.q2.total+_byQ.q3.total, raw:_byQ.q1.raw+_byQ.q2.raw+_byQ.q3.raw},
-          q4: {done:_byQ.q1.done+_byQ.q2.done+_byQ.q3.done+_byQ.q4.done, total:_byQ.q1.total+_byQ.q2.total+_byQ.q3.total+_byQ.q4.total, raw:_byQ.q1.raw+_byQ.q2.raw+_byQ.q3.raw+_byQ.q4.raw}
+        // 전체 태스크 완료율 (% KPI용)
+        var _totalDone = _byQ.q1.done+_byQ.q2.done+_byQ.q3.done+_byQ.q4.done;
+        var _totalAll  = _byQ.q1.total+_byQ.q2.total+_byQ.q3.total+_byQ.q4.total;
+        var _overallPct = _totalAll>0 ? _totalDone/_totalAll : 0;
+        // 수치 KPI용 누적 raw
+        var _cumRaw = {
+          q1: _byQ.q1.raw,
+          q2: _byQ.q1.raw+_byQ.q2.raw,
+          q3: _byQ.q1.raw+_byQ.q2.raw+_byQ.q3.raw,
+          q4: _byQ.q1.raw+_byQ.q2.raw+_byQ.q3.raw+_byQ.q4.raw
         };
         function _qAch(q, tgt) {
-          var d=_cum[q]; if(!d||d.total===0) return null;
-          if(_isPct) return Math.round((d.done/d.total)*Number(tgt||0));
-          return d.raw;
+          if(_totalAll===0) return null;
+          if(_isPct) {
+            // % KPI: 전체 완료율 × 해당 분기 목표값
+            return Math.round(_overallPct * Number(tgt||0));
+          } else {
+            // 수치 KPI: 해당 분기까지 누적 raw
+            return _cumRaw[q]>0 ? _cumRaw[q] : null;
+          }
         }
         function _achSpan(q, tgt) {
           var v=_qAch(q,tgt);
