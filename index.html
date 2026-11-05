@@ -3478,18 +3478,31 @@ function renderSummary(s) {
   }
 
   // 4-2. SteerStar 미션 달성도 요약 카드
+  // 종합 달성률: (오더 100cap + 설문 71.0%) / 2 = 85.5% → 86%
   h += '<div style="background:linear-gradient(135deg,#f9f6f0,#f0ede5);border:1px solid #d8d3c8;border-radius:8px;padding:10px 12px">';
-  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+  // 헤더: 타이틀 + 종합 달성률 + 링크
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
+  h += '<div style="display:flex;align-items:center;gap:8px">';
   h += '<div style="font-size:9px;font-weight:700;color:#6b5a3a;text-transform:uppercase;letter-spacing:.06em">⭐ SteerStar 미션 · 10월 기준</div>';
+  h += '<div style="display:flex;align-items:baseline;gap:3px;background:#fff;border:1.5px solid #c8b060;border-radius:5px;padding:2px 8px">';
+  h += '<span style="font-size:16px;font-weight:900;color:#8a6010;line-height:1">85.5%</span>';
+  h += '<span style="font-size:8px;font-weight:700;color:#a07820">종합</span>';
+  h += '</div>';
+  h += '</div>';
   h += '<a href="https://masterteamply-stack.github.io/choicekit-dashboard/promo_dashboard_v10_6.html#p6" target="_blank" style="font-size:9px;background:#e8dfc8;border:1px solid #c8b88a;border-radius:3px;padding:1px 6px;color:#7a6010;text-decoration:none">분석 →</a>';
   h += '</div>';
+  // 종합 진행바
+  h += '<div style="height:5px;background:#ede8df;border-radius:999px;overflow:hidden;margin-bottom:7px">';
+  h += '<div style="height:100%;width:85.5%;background:linear-gradient(90deg,#c8a040,#e8c060);border-radius:999px"></div>';
+  h += '</div>';
+  // 2컬럼: 오더 / 설문
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-  // 오더 미션 · $1.48M / $1.18M = 126% · p7 2026-10-30
+  // 오더 미션 · $1.48M / $1.18M = 125.5%
   h += '<div style="background:#fff;border-radius:6px;padding:7px 9px;border:1px solid #d4e8d4">';
   h += '<div style="font-size:8px;font-weight:700;color:#5c6b4a;margin-bottom:3px">🛒 오더 미션</div>';
   h += '<div style="display:flex;align-items:baseline;gap:4px">';
   h += '<span style="font-size:19px;font-weight:800;color:#2a7c2a;line-height:1">125.5%</span>';
-  h += '<span style="font-size:10px;color:#2a7c2a;font-weight:700">초과 달성 ✓</span>';
+  h += '<span style="font-size:10px;color:#2a7c2a;font-weight:700">초과 ✓</span>';
   h += '</div>';
   h += '<div style="font-size:9px;color:#5c6b4a;margin-top:1px">$1.48M / $1.18M 목표 · 7곳</div>';
   h += '<div style="height:4px;background:#e0f0e0;border-radius:999px;overflow:hidden;margin-top:4px">';
@@ -3502,7 +3515,7 @@ function renderSummary(s) {
   h += '<span style="font-size:19px;font-weight:800;color:#b8962e;line-height:1">71.0%</span>';
   h += '<span style="font-size:10px;color:#8a8278">진행중</span>';
   h += '</div>';
-  h += '<div style="font-size:9px;color:#7a6010;margin-top:1px">994 / 1,400명 · 목표달성 2곳</div>';
+  h += '<div style="font-size:9px;color:#7a6010;margin-top:1px">994 / 1,400명 · 달성 2곳</div>';
   h += '<div style="height:4px;background:#f5eacc;border-radius:999px;overflow:hidden;margin-top:3px">';
   h += '<div style="height:100%;width:71%;background:#b8962e;border-radius:999px"></div></div>';
   h += '</div>';
