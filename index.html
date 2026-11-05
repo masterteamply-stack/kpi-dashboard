@@ -2743,7 +2743,12 @@ function renderKPICards(s) {
       sub:`완료 ${fmtNum(s.done)}건 · KPI ${fmtNum(s.kpiTotal||0)}개`,      icon:"📋" },
     { label:"완료율",      value:fmtPct(s.compRate),
       sub:_kpiProgStr,   icon:"✅" },
-    { label:"평균 진척도", value:fmtPct(Math.min(100,Math.max(0,s.avgProg||0))),   sub:`완료 ${fmtNum(s.done)}건 / 전체 ${fmtNum(s.total)}건`,    icon:"📈" },
+    { label:"KPI 달성률", value:(function(){
+        var _kl=state._lastKpis||[];
+        var _kDone=_kl.filter(function(k){return k.progress_status==='완료';}).length;
+        var _kTotal=_kl.length;
+        return _kTotal ? fmtPct((_kDone/_kTotal)*100) : '0%';
+      })(), sub:_kpiProgStr, icon:"🎯" },
     { label:"Marketing Lead", value: (function(){
         var _ml = computeMarketingLeads();
         var _now = new Date();
