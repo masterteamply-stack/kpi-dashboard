@@ -6759,8 +6759,19 @@ async function refreshDashboard() {
       fetchTasks().catch(function(e){ console.warn('Tasks fetch 실패:', e && e.message); return []; }),
       fetchKpisWithTasks().catch(e => { console.warn('KPI fetch:', e); return { kpis:[], tasks:[] }; })
     ]);
-    // progress: DB에서 받은 raw 수치 그대로 유지 (_progressRaw 동기화만)
+    // progress: DB에서 받은 raw 수치 + localStorage의 실제 입력값 복원
+    // DB progress 컬럼은 0~100 제약으로 클램핑되므로, localStorage에 저장한 실제값(_progressRaw)을 우선 사용
     tasksData.forEach(function(t) {
+      try {
+        var _stored = localStorage.getItem('task_praw_' + t.id);
+        if(_stored !== null && _stored !== undefined) {
+          var _storedNum = parseFloat(_stored);
+          if(!isNaN(_storedNum) && _storedNum > 0) {
+            t._progressRaw = _storedNum;
+            return;
+          }
+        }
+      } catch(_le) {}
       if (t._progressRaw == null) {
         t._progressRaw = Number(t.progress || 0);
       }
@@ -6776,7 +6787,15 @@ async function refreshDashboard() {
     // state.tasks에 있는 태스크는 그 값을 우선 사용
     var _syncedKpiTasks = (kpiResult.tasks||[]).map(function(kt) {
       var st = (state.tasks||[]).find(function(t){ return t.id === kt.id; });
-      if(st) return st; // state.tasks 값 우선
+      if(st) return st; // state.tasks 값 우선 (이미 localStorage 복원됨)
+      // state.tasks에 없는 경우 직접 localStorage 복원
+      try {
+        var _ks = localStorage.getItem('task_praw_' + kt.id);
+        if(_ks !== null) {
+          var _ksN = parseFloat(_ks);
+          if(!isNaN(_ksN) && _ksN > 0) { kt._progressRaw = _ksN; return kt; }
+        }
+      } catch(_le2) {}
       if(kt._progressRaw == null) kt._progressRaw = Number(kt.progress || 0);
       return kt;
     });
@@ -7460,12 +7479,19 @@ function _syncAfterTaskChange(task, changedFields) {
     var t2 = (state[k]||[]).find(function(t){ return t.id === task.id; });
     if(t2) Object.assign(t2, task);
   });
-  // KPI 게이지 재렌더
+  // KPI 게이지 + 분기별 달성 수치 재렌더
   if(changedFields.indexOf('progress') >= 0 || changedFields.indexOf('status') >= 0) {
     var kpi = (state._lastKpis||[]).find(function(k){ return k.id === task.kpi_id; });
     var ts  = (state._lastKpiTasks||[]).filter(function(t){ return t.kpi_id === task.kpi_id; });
-    var gEl = document.querySelector('.kpi-progress-wrap[data-kpi="'+task.kpi_id+'"]');
+    // 게이지 갱신 (data-gauge-kpi 속성 사용)
+    var gEl = document.querySelector('.kpi-progress-wrap[data-gauge-kpi="'+task.kpi_id+'"]');
     if(gEl && kpi) gEl.innerHTML = renderKpiGauge(kpi, ts);
+    // 분기별 달성 수치 갱신: 편집 중이 아닐 때만 아코디언 재렌더
+    var _ae2 = document.activeElement;
+    var _editing2 = _ae2 && (_ae2.contentEditable==='true' || _ae2.tagName==='INPUT' || _ae2.tagName==='SELECT');
+    if(kpi && ts.length > 0 && !_editing2) {
+      try { renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||[]); } catch(_re) {}
+    }
   }
   // 인라인 셀 업데이트
   document.querySelectorAll('[data-task-id="'+task.id+'"]').forEach(function(el) {
@@ -10141,13 +10167,15 @@ async function saveDrawerEdit(taskId) {
       }
     }
 
-    // 7. KPI 아코디언 내 해당 태스크 행 제목/담당자만 갱신 (전체 재렌더 금지)
+    // 7. KPI 아코디언 재렌더 (분기별 달성 수치 반영)
+    // 드로어 저장 직후이므로 편집 중 걱정 없이 전체 재렌더
+    renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||[]);
     var _trow = document.querySelector('.kpi-task-row[data-task-id="'+taskId+'"]');
     if(_trow) {
       var _titleEl = _trow.querySelector('.task-title-main');
       if(_titleEl) _titleEl.textContent = updates.title;
     } else {
-      // 행이 없으면 전체 재렌더 (최초 추가 등)
+      // 행이 없으면 추가 재렌더 (최초 추가 등)
       renderKPIAccordion(state._lastKpis||[], state._lastKpiTasks||[]);
     }
 
