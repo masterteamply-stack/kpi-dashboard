@@ -6733,9 +6733,13 @@ async function refreshDashboard() {
       try {
         var _testCtrl = new AbortController();
         var _testTimer = setTimeout(function(){ _testCtrl.abort(); }, 8000);
-        var _testUrl = window.__SUPABASE_URL__ + '/rest/v1/owners?select=id&limit=1';
+        var _testUrl = window.__SUPABASE_URL__ + '/rest/v1/tasks?select=id&limit=1';
         var _testResp = await fetch(_testUrl, {
-          headers: { 'apikey': window.__SUPABASE_ANON_KEY__, 'Authorization': 'Bearer ' + window.__SUPABASE_ANON_KEY__ },
+          headers: {
+            'apikey': window.__SUPABASE_ANON_KEY__,
+            'Authorization': 'Bearer ' + window.__SUPABASE_ANON_KEY__,
+            'Accept-Profile': 'public'
+          },
           signal: _testCtrl.signal
         });
         clearTimeout(_testTimer);
@@ -13887,7 +13891,7 @@ var CK_TARGET_BY_REGION = {
       window._supabaseOffline = true;
       console.warn('[Init] createClient 없음 — 오프라인 모드로 실행');
     } else {
-      try { state.sb = createClient(url, key); }
+      try { state.sb = createClient(url, key, { db: { schema: 'public' } }); }
       catch(e) {
         console.warn('[Init] Supabase 클라이언트 생성 실패 — 오프라인 전환:', e.message);
         window._supabaseOffline = true;
