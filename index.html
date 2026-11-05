@@ -494,6 +494,7 @@
       background:rgba(255,255,255,.06);border:1px solid var(--line);color:#c0d0e8;
     }
     .target-val{font-family:var(--font-display);font-weight:700;font-size:13px}
+    .target-result{display:block;font-family:var(--font-display);font-weight:600;font-size:11px;margin-top:2px;line-height:1.2}
     .result-val{font-size:11px;color:var(--muted);margin-top:2px}
     .kpi-tasks-wrap{
       background:rgba(0,0,0,.18);border-bottom:1px solid var(--line);
@@ -6332,46 +6333,75 @@ function renderKPIAccordion(kpis, tasks) {
       <div class="kpi-progress-wrap" data-gauge-kpi="${esc(kpi.id)}">
         ${renderKpiGauge(kpi, taskList)}
       </div>
-      <div class="target-cell" onclick="event.stopPropagation()">
-        <span class="kpi-editable target-val" contenteditable="true"
-          data-kpi-id="${esc(kpi.id)}" data-field="q1_target" data-type="number"
-          onblur="saveKpiField(this)"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
-          onpaste="event.preventDefault();var t=event.clipboardData.getData('text/plain').replace(/[^0-9.-]/g,'');document.execCommand('insertText',false,t)"
-          onfocus="this.dataset.orig=this.textContent;event.stopPropagation()"
-          title="목표값 수정"
-        >${fmtT(kpi.q1_target)}</span>
-      </div>
-      <div class="target-cell" onclick="event.stopPropagation()">
-        <span class="kpi-editable target-val" contenteditable="true"
-          data-kpi-id="${esc(kpi.id)}" data-field="q2_target" data-type="number"
-          onblur="saveKpiField(this)"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
-          onpaste="event.preventDefault();var t=event.clipboardData.getData('text/plain').replace(/[^0-9.-]/g,'');document.execCommand('insertText',false,t)"
-          onfocus="this.dataset.orig=this.textContent;event.stopPropagation()"
-          title="목표값 수정"
-        >${fmtT(kpi.q2_target)}</span>
-      </div>
-      <div class="target-cell" onclick="event.stopPropagation()">
-        <span class="kpi-editable target-val" contenteditable="true"
-          data-kpi-id="${esc(kpi.id)}" data-field="q3_target" data-type="number"
-          onblur="saveKpiField(this)"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
-          onpaste="event.preventDefault();var t=event.clipboardData.getData('text/plain').replace(/[^0-9.-]/g,'');document.execCommand('insertText',false,t)"
-          onfocus="this.dataset.orig=this.textContent;event.stopPropagation()"
-          title="목표값 수정"
-        >${fmtT(kpi.q3_target)}</span>
-      </div>
-      <div class="target-cell" onclick="event.stopPropagation()">
-        <span class="kpi-editable target-val" contenteditable="true"
-          data-kpi-id="${esc(kpi.id)}" data-field="q4_target" data-type="number"
-          onblur="saveKpiField(this)"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}if(event.key==='Escape'){this.textContent=this.dataset.orig;this.blur()}"
-          onpaste="event.preventDefault();var t=event.clipboardData.getData('text/plain').replace(/[^0-9.-]/g,'');document.execCommand('insertText',false,t)"
-          onfocus="this.dataset.orig=this.textContent;event.stopPropagation()"
-          title="목표값 수정"
-        >${fmtT(kpi.q4_target)}</span>
-      </div>
+      ${(function(){
+        // 분기별 달성 수치 집계
+        var _isPct = (kpi.unit||'').trim()==='%' || Number(kpi.q4_target)===100;
+        var _byQ = {q1:{done:0,total:0,raw:0},q2:{done:0,total:0,raw:0},q3:{done:0,total:0,raw:0},q4:{done:0,total:0,raw:0}};
+        (taskList||[]).forEach(function(t){
+          var _q = (t.quarter||'q1').toLowerCase().replace(/[^q1234]/g,'') || 'q1';
+          if(!_byQ[_q]) _q='q1';
+          _byQ[_q].total++;
+          if(t.status==='완료'||t.status==='done') _byQ[_q].done++;
+          _byQ[_q].raw += Number(t._progressRaw!=null?t._progressRaw:(t.progress||0));
+        });
+        function _qAch(q, tgt) {
+          var d=_byQ[q]; if(!d||d.total===0) return null;
+          if(_isPct) return d.total>0 ? Math.round((d.done/d.total)*Number(tgt||0)) : null;
+          return d.raw;
+        }
+        function _achSpan(q, tgt) {
+          var v=_qAch(q,tgt);
+          if(v===null||v===undefined) return '';
+          var color = Number(v)>=Number(tgt||0) ? '#22c55e' : '#ef4444';
+          return '<span class="target-result" style="color:'+color+'">'+fmtT(v)+'</span>';
+        }
+        return [
+          '<div class="target-cell" onclick="event.stopPropagation()">'+
+            '<span class="kpi-editable target-val" contenteditable="true"'+
+            ' data-kpi-id="'+esc(kpi.id)+'" data-field="q1_target" data-type="number"'+
+            ' onblur="saveKpiField(this)"'+
+            ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur()}if(event.key===\'Escape\'){this.textContent=this.dataset.orig;this.blur()}"'+
+            ' onpaste="event.preventDefault();var t=event.clipboardData.getData(\'text/plain\').replace(/[^0-9.-]/g,\'\');document.execCommand(\'insertText\',false,t)"'+
+            ' onfocus="this.dataset.orig=this.textContent;event.stopPropagation()"'+
+            ' title="목표값 수정"'+
+            '>'+fmtT(kpi.q1_target)+'</span>'+
+            _achSpan('q1',kpi.q1_target)+
+          '</div>',
+          '<div class="target-cell" onclick="event.stopPropagation()">'+
+            '<span class="kpi-editable target-val" contenteditable="true"'+
+            ' data-kpi-id="'+esc(kpi.id)+'" data-field="q2_target" data-type="number"'+
+            ' onblur="saveKpiField(this)"'+
+            ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur()}if(event.key===\'Escape\'){this.textContent=this.dataset.orig;this.blur()}"'+
+            ' onpaste="event.preventDefault();var t=event.clipboardData.getData(\'text/plain\').replace(/[^0-9.-]/g,\'\');document.execCommand(\'insertText\',false,t)"'+
+            ' onfocus="this.dataset.orig=this.textContent;event.stopPropagation()"'+
+            ' title="목표값 수정"'+
+            '>'+fmtT(kpi.q2_target)+'</span>'+
+            _achSpan('q2',kpi.q2_target)+
+          '</div>',
+          '<div class="target-cell" onclick="event.stopPropagation()">'+
+            '<span class="kpi-editable target-val" contenteditable="true"'+
+            ' data-kpi-id="'+esc(kpi.id)+'" data-field="q3_target" data-type="number"'+
+            ' onblur="saveKpiField(this)"'+
+            ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur()}if(event.key===\'Escape\'){this.textContent=this.dataset.orig;this.blur()}"'+
+            ' onpaste="event.preventDefault();var t=event.clipboardData.getData(\'text/plain\').replace(/[^0-9.-]/g,\'\');document.execCommand(\'insertText\',false,t)"'+
+            ' onfocus="this.dataset.orig=this.textContent;event.stopPropagation()"'+
+            ' title="목표값 수정"'+
+            '>'+fmtT(kpi.q3_target)+'</span>'+
+            _achSpan('q3',kpi.q3_target)+
+          '</div>',
+          '<div class="target-cell" onclick="event.stopPropagation()">'+
+            '<span class="kpi-editable target-val" contenteditable="true"'+
+            ' data-kpi-id="'+esc(kpi.id)+'" data-field="q4_target" data-type="number"'+
+            ' onblur="saveKpiField(this)"'+
+            ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur()}if(event.key===\'Escape\'){this.textContent=this.dataset.orig;this.blur()}"'+
+            ' onpaste="event.preventDefault();var t=event.clipboardData.getData(\'text/plain\').replace(/[^0-9.-]/g,\'\');document.execCommand(\'insertText\',false,t)"'+
+            ' onfocus="this.dataset.orig=this.textContent;event.stopPropagation()"'+
+            ' title="목표값 수정"'+
+            '>'+fmtT(kpi.q4_target)+'</span>'+
+            _achSpan('q4',kpi.q4_target)+
+          '</div>'
+        ].join('');
+      })()}
       <div onclick="event.stopPropagation()">
         <span class="kpi-editable" contenteditable="true"
           data-kpi-id="${esc(kpi.id)}" data-field="unit"
