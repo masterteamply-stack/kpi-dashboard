@@ -6429,30 +6429,27 @@ function renderKPIAccordion(kpis, tasks) {
             return _cumRaw[q]>0 ? _cumRaw[q] : null;
           }
         }
+        // 분기별 달성률(%) 계산: q_result / q_target × 100
+        // Q4 완료/달성 상태면 100%
+        var _isDone = kpi.progress_status==='완료'||kpi.progress_status==='달성';
+        function _qAchPct(q) {
+          var _res = parseFloat(kpi[q+'_result']||0);
+          var _tgt = parseFloat(kpi[q+'_target']||0);
+          // Q4 완료/달성이면 100%
+          if(q==='q4' && _isDone) return 100;
+          if(_tgt<=0) {
+            // 목표 없으면 task raw 기반
+            var _r = _qAch(q, null);
+            return null; // 목표 없으면 표시 안 함
+          }
+          if(_res<=0 && !_isDone) return null; // 실적도 없으면 표시 안 함
+          return Math.round((_res/_tgt)*100);
+        }
         function _achSpan(q, tgt) {
-          // Choice Kit: 분기별 실제 달성도 (p7 promo 대시보드 월별 오더 기준)
-          // 목표 $3.87M 대비 | Q1말: $216K=6% | Q2말: $1.37M=35% | Q3말: $3.07M=79% | Q4: 84%(10월기준)
-          var _CK_ID = '814b3f8c-eba7-4626-8cf4-e776cf7ac28f';
-          if(kpi.id === _CK_ID) {
-            var _ckAch = {q1:6, q2:35, q3:79, q4:84};
-            var _v = _ckAch[q];
-            if(_v===null||_v===undefined) return '';
-            var _c = _v>=Number(tgt||0) ? '#22c55e' : '#ef4444';
-            return '<span class="target-result" style="color:'+_c+'">'+_v+'</span>';
-          }
-          // SteerStar: 종합 달성률 (오더cap100+설문 평균 | Q3말추정: 오더93%+설문61%→77% | Q4: 85.5%)
-          var _SS_ID = '4c8d6d94-28eb-497a-86b2-5beee82e72fc';
-          if(kpi.id === _SS_ID) {
-            var _ssAch = {q1:null, q2:null, q3:77, q4:85.5};
-            var _v2 = _ssAch[q];
-            if(_v2===null||_v2===undefined) return '';
-            var _c2 = _v2>=Number(tgt||0) ? '#22c55e' : '#ef4444';
-            return '<span class="target-result" style="color:'+_c2+'">'+_v2+'</span>';
-          }
-          var v=_qAch(q,tgt);
-          if(v===null||v===undefined) return '';
-          var color = Number(v)>=Number(tgt||0) ? '#22c55e' : '#ef4444';
-          return '<span class="target-result" style="color:'+color+'">'+fmtT(v)+'</span>';
+          var pct = _qAchPct(q);
+          if(pct===null||pct===undefined) return '';
+          var _color = pct>=100 ? '#22c55e' : pct>=70 ? '#f59e0b' : '#ef4444';
+          return '<span class="target-result" style="color:'+_color+';font-weight:600">'+pct+'%</span>';
         }
         return [
           '<div class="target-cell" onclick="event.stopPropagation()">'+
