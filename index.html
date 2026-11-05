@@ -10951,8 +10951,9 @@ async function renderRegionOrderChart(tasks, kpis) {
     var ckSpU=d.ckSp/_KRW_USD;    // CK 집행비(USD)
     var pRoi=ckSpU>0?(d.ckA-ckSpU)/ckSpU*100:null;  // ROMI=(오더-집행비)/집행비
     var bg=i%2===0?'#fdfcf9':'#f8f5f0';
+    var _dispR = d.r==='EU'?'EUROPE':d.r==='SEA'?'ASIA':d.r==='OCE'?'KOREA + OCEANIA':d.r;
     h+='<tr style="background:'+bg+'">';
-    h+='<td style="'+tdS+';font-weight:700;color:#1a1714">'+d.r+'</td>';
+    h+='<td style="'+tdS+';font-weight:700;color:#1a1714">'+_dispR+'</td>';
     h+='<td style="'+tdS+';text-align:right;color:#1a6b3a;font-weight:700">'+(d.rev>0?fmtU(d.rev):'–')+'</td>';
     h+='<td style="'+tdS+';text-align:right;color:#6b4a3a">'+(d.spK>0?fmtK(d.spK):'–')+'</td>';
     h+='<td style="'+tdS+';text-align:right;font-weight:700;color:'+rCol(roi)+'">'+fmtP(roi)+'</td>';
