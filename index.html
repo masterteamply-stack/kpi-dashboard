@@ -6338,7 +6338,7 @@ function renderKPIAccordion(kpis, tasks) {
         var _isPct = (kpi.unit||'').trim()==='%' || Number(kpi.q4_target)===100;
         var _byQ = {q1:{done:0,total:0,raw:0},q2:{done:0,total:0,raw:0},q3:{done:0,total:0,raw:0},q4:{done:0,total:0,raw:0}};
         (taskList||[]).forEach(function(t){
-          var _q = (t.quarter||'q1').toLowerCase().replace(/[^q1234]/g,'') || 'q1';
+          var _q = (typeof parseQuarterKey==='function' ? parseQuarterKey(t.quarter) : null) || 'q1';
           if(!_byQ[_q]) _q='q1';
           _byQ[_q].total++;
           if(t.status==='완료'||t.status==='done') _byQ[_q].done++;
