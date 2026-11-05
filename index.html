@@ -3154,7 +3154,7 @@ function renderSummary(s) {
     var subGrowthPct = null; // 이달 순증 / 총 구독자 × 100
     if(isSub) {
       try {
-        var _SUB_RC_CUTOFF = '2026-09';
+        var _SUB_RC_CUTOFF = '2026-10';
         var _net = JSON.parse(localStorage.getItem('region_sub_net')||'{}');
         // cutoff 이후 키는 완전 무시
         Object.keys(_net).forEach(function(k){ if(k > _SUB_RC_CUTOFF) delete _net[k]; });
@@ -13848,7 +13848,7 @@ document.getElementById('subRegionModal').addEventListener('click', function(e){
 
 function _renderSubRegionModal(selMo) {
   var REGIONS = ['GLOBAL','MENA','EUROPE','NA','LATAM','ASIA','TH','RUS','MX','CIS','IN','BR'];
-  var CUTOFF  = '2026-09';
+  var CUTOFF  = '2026-10';
   var rsd = (function(){ try{ return JSON.parse(localStorage.getItem('region_sub_detail')||'{}'); }catch(e){return {};} })();
   var net = (function(){ try{ var n=JSON.parse(localStorage.getItem('region_sub_net')||'{}'); Object.keys(n).forEach(function(k){if(k>CUTOFF)delete n[k];}); return n; }catch(e){return {};} })();
   var grandTotal = Number(localStorage.getItem('region_sub_grand_total')||0);
