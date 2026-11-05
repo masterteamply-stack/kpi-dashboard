@@ -6504,6 +6504,18 @@ function renderKPIAccordion(kpis, tasks) {
           q3: _byQ.q1.total+_byQ.q2.total+_byQ.q3.total,
           q4: _byQ.q1.total+_byQ.q2.total+_byQ.q3.total+_byQ.q4.total
         };
+        // DB q_result 중 가장 최근(해당 분기 이전 포함) 누적값 propagation
+        // 예: Q1=48, Q2=null → Q2 실적에 48 반환 (누적이므로 최소 Q1 실적 이상)
+        function _getLatestCumResult(q) {
+          var _qs = ['q1','q2','q3','q4'];
+          var _qi = _qs.indexOf(q);
+          var _last = null;
+          for(var i=0; i<=_qi; i++) {
+            var _v = _parseQR(kpi[_qs[i]+'_result']);
+            if(_v!==null && _v>0) _last = _v;
+          }
+          return _last;
+        }
         function _achSpan(q, tgt) {
           var _tgtN = parseFloat(tgt||0);
           if(_tgtN<=0) return '';
@@ -6512,7 +6524,6 @@ function renderKPIAccordion(kpis, tasks) {
             return '<span class="target-result" style="color:#22c55e;font-weight:600">'+fmtT(_tgtN)+'</span>'+
                    '<span style="display:block;font-size:9px;color:#22c55e;font-weight:600;margin-top:1px">100%</span>';
           }
-          // Q1~해당분기 누적 기준 계산
           var _cumD = _cumDone[q]||0;
           var _cumT = _cumTotal[q]||0;
           var _cumRawQ = _cumRaw[q]||0;
@@ -6520,20 +6531,20 @@ function renderKPIAccordion(kpis, tasks) {
           var _isLeadsKpi = kpi.kpi_key==='B2D-04' || (kpi.unit||'').toUpperCase().indexOf('LEAD')>=0;
 
           if(_isRatioUnit) {
-            // ── % KPI: Q1~해당분기 누적 완료율 × 분기 누적 목표값 ──
-            // 우선순위 1: DB q_result (직접 입력된 누적 실적)
-            var _rn = _parseQR(kpi[q+'_result']);
-            if(_rn!==null && _rn>0) { _achVal = _rn; }
+            // ── % KPI: 누적 완료율 × 해당 분기 누적 목표값 ──
+            // 우선순위 1: 해당 분기 이전까지 가장 최근 q_result (누적 propagation)
+            var _latestR = _getLatestCumResult(q);
+            if(_latestR!==null) { _achVal = _latestR; }
             // 우선순위 2: Q1~해당분기 누적 태스크 완료율
             if(_achVal===null && _cumT>0) {
               _achVal = Math.round((_cumD/_cumT)*_tgtN);
             }
-            // 우선순위 3: 전체 완료율 (Q4 등 태스크 없는 분기)
+            // 우선순위 3: 전체 완료율 (태스크 없는 분기)
             if(_achVal===null && _totalAll>0) {
               _achVal = Math.round((_totalDone/_totalAll)*_tgtN);
             }
           } else {
-            // ── 수치형 KPI: 모든 소스 누적 기준 ──
+            // ── 수치형 KPI: 누적 기준 ──
             // 우선순위 1: dkpi 월별 캐시 Q1~해당분기 누적합
             var _dkpiCum = _getDkpiCumSum(q);
             if(_dkpiCum!==null) _achVal = _dkpiCum;
@@ -6546,10 +6557,10 @@ function renderKPIAccordion(kpis, tasks) {
             if(_achVal===null && !_isLeadsKpi && _cumRawQ>0) {
               _achVal = _cumRawQ;
             }
-            // 우선순위 4: DB q_result 텍스트 파싱
+            // 우선순위 4: q_result propagation (최근 입력된 누적 실적 사용)
             if(_achVal===null) {
-              var _rn2 = _parseQR(kpi[q+'_result']);
-              if(_rn2!==null && _rn2>0) _achVal = _rn2;
+              var _latestR2 = _getLatestCumResult(q);
+              if(_latestR2!==null) _achVal = _latestR2;
             }
           }
 
