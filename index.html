@@ -6429,27 +6429,25 @@ function renderKPIAccordion(kpis, tasks) {
             return _cumRaw[q]>0 ? _cumRaw[q] : null;
           }
         }
-        // 분기별 달성률(%) 계산: q_result / q_target × 100
-        // Q4 완료/달성 상태면 100%
         var _isDone = kpi.progress_status==='완료'||kpi.progress_status==='달성';
-        function _qAchPct(q) {
-          var _res = parseFloat(kpi[q+'_result']||0);
-          var _tgt = parseFloat(kpi[q+'_target']||0);
-          // Q4 완료/달성이면 100%
-          if(q==='q4' && _isDone) return 100;
-          if(_tgt<=0) {
-            // 목표 없으면 task raw 기반
-            var _r = _qAch(q, null);
-            return null; // 목표 없으면 표시 안 함
-          }
-          if(_res<=0 && !_isDone) return null; // 실적도 없으면 표시 안 함
-          return Math.round((_res/_tgt)*100);
-        }
         function _achSpan(q, tgt) {
-          var pct = _qAchPct(q);
-          if(pct===null||pct===undefined) return '';
-          var _color = pct>=100 ? '#22c55e' : pct>=70 ? '#f59e0b' : '#ef4444';
-          return '<span class="target-result" style="color:'+_color+';font-weight:600">'+pct+'%</span>';
+          var _tgtN = parseFloat(tgt||0);
+          // 실적값: 태스크 기반 _qAch 계산
+          var _ach = _qAch(q, tgt);
+          // Q4이고 완료/달성 상태면 목표값 = 실적 (100%)
+          if(q==='q4' && _isDone && _tgtN>0) {
+            var _color100 = '#22c55e';
+            var _disp = _isPct ? '100%' : fmtT(_tgtN);
+            return '<span class="target-result" style="color:'+_color100+';font-weight:600">'+_disp+'</span>'+
+                   '<span style="display:block;font-size:9px;color:#22c55e;font-weight:600;margin-top:1px">100%</span>';
+          }
+          if(_ach===null||_ach===undefined) return '';
+          // 달성률 % 계산
+          var _pct = (_tgtN>0) ? Math.round((_ach/_tgtN)*100) : null;
+          var _achColor = (_pct!==null && _pct>=100) ? '#22c55e' : (_pct!==null && _pct>=70) ? '#f59e0b' : '#ef4444';
+          var _achDisp = _isPct ? fmtT(_ach) : fmtT(_ach);
+          var _pctStr = _pct!==null ? '<span style="display:block;font-size:9px;color:'+_achColor+';font-weight:600;margin-top:1px">'+_pct+'%</span>' : '';
+          return '<span class="target-result" style="color:'+_achColor+'">'+_achDisp+'</span>'+_pctStr;
         }
         return [
           '<div class="target-cell" onclick="event.stopPropagation()">'+
