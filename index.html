@@ -6756,17 +6756,25 @@ async function refreshDashboard() {
 
           window.__STATIC_OWNERS = ([{"id": "5a2001ff-9f9d-4958-bd57-be8996c83c1a", "name": "이기환"}, {"id": "344bd318-a845-4d88-8ab2-e15801434e0a", "name": "송현진"}, {"id": "3aab5e3b-c911-440f-aead-33565aa20bd1", "name": "송하영"}, {"id": "d79cdd4c-7368-4126-8d78-2af86f670812", "name": "이다혜"}, {"id": "eec10a33-f20a-4b3f-ba51-9f7845cf6f78", "name": "장우석"}, {"id": "4eaf823f-4a42-4d2b-a12c-59703e81767b", "name": "박정림"}]);
           window.__SNAPSHOT_TS = '2026-11-02T00:00:00+09:00';
-          // localStorage 미리 적재
+          // localStorage 미리 적재: _cachedTasks는 사용자가 직접 수정한 최신 캐시를 보존
           try {
-            localStorage.setItem('_cachedTasks', JSON.stringify(window.__STATIC_TASKS));
+            // ★ _cachedTasks: 이미 존재하는 캐시 우선 (사용자 변경사항 보존) ★
+            var _existingCache = localStorage.getItem('_cachedTasks');
+            if(!_existingCache) {
+              localStorage.setItem('_cachedTasks', JSON.stringify(window.__STATIC_TASKS));
+            }
             localStorage.setItem('_cachedTasksVer', '2026-v4');
+            // KPI/Owner는 스냅샷 항상 사용 (사용자가 직접 수정 불가)
             localStorage.setItem('_cachedKpis', JSON.stringify(window.__STATIC_KPIS));
             localStorage.setItem('_cachedKpisVer', '2026-v4');
             localStorage.setItem('_cachedOwners', JSON.stringify(window.__STATIC_OWNERS.map(function(o){return o.name;})));
           } catch(_ls) {}
           // state에 즉시 복사 (오프라인 모드에서 computeSummary/renderSummary 정상 동작 위해)
           if (typeof state !== 'undefined') {
-            state.tasks   = window.__STATIC_TASKS;
+            // _cachedTasks가 있으면 그것 사용, 없으면 스냅샷
+            var _stateTasksSrc = null;
+            try { _stateTasksSrc = JSON.parse(localStorage.getItem('_cachedTasks')||'null'); } catch(_e2) {}
+            state.tasks   = _stateTasksSrc || window.__STATIC_TASKS;
             state.kpis    = window.__STATIC_KPIS;
             state._lastKpis = window.__STATIC_KPIS;
             state.owners  = window.__STATIC_OWNERS;
