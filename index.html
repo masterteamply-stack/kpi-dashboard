@@ -6532,11 +6532,8 @@ function renderKPIAccordion(kpis, tasks) {
         function _achSpan(q, tgt) {
           var _tgtN = parseFloat(tgt||0);
           if(_tgtN<=0) return '';
-          // 완료/달성 KPI는 목표값=실적으로 100% 처리
-          if(_isDone) {
-            return '<span class="target-result" style="color:#22c55e;font-weight:600">'+fmtT(_tgtN)+'</span>'+
-                   '<span style="display:block;font-size:9px;color:#22c55e;font-weight:600;margin-top:1px">100%</span>';
-          }
+          // 완료/달성 KPI는 실제 실적 계산하되 색상은 초과달성(초록)으로 표시
+          // (목표값=실적 고정 → 각 분기별 실적 차이 미반영 문제 해결)
           var _cumD = _cumDone[q]||0;
           var _cumT = _cumTotal[q]||0;
           var _cumRawQ = _cumRaw[q]||0;
@@ -6582,11 +6579,19 @@ function renderKPIAccordion(kpis, tasks) {
             }
           }
 
-          if(_achVal===null || _achVal===0) return '';
+          if(_achVal===null || _achVal===0) {
+            // 실적 없어도 완료/달성 KPI는 목표값=100%로 표시
+            if(_isDone) {
+              return '<span class="target-result" style="color:#22c55e;font-weight:600">'+fmtT(_tgtN)+'</span>'+
+                     '<span style="display:block;font-size:9px;color:#22c55e;font-weight:600;margin-top:1px">100%</span>';
+            }
+            return '';
+          }
           _pct = _isRatioUnit
             ? ((_tgtN>0) ? Math.round((_achVal/_tgtN)*100) : 0)
             : Math.round((_achVal/_tgtN)*100);
-          var _achColor = _pct>=100?'#22c55e':_pct>=70?'#f59e0b':'#ef4444';
+          // 완료/달성 KPI는 최소 초록색
+          var _achColor = (_isDone || _pct>=100)?'#22c55e':_pct>=70?'#f59e0b':'#ef4444';
           var _overStr = (_pct>100)
             ? '<span style="display:inline-block;font-size:8px;background:#22c55e;color:#fff;border-radius:3px;padding:0 3px;margin-left:2px;font-weight:700">+'+(_pct-100)+'%</span>'
             : '';
