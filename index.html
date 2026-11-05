@@ -2731,24 +2731,37 @@ function buildBuckets(tasks) {
 // ── 7. Render ──────────────────────────────────────────────
 function renderKPICards(s) {
   // KPI 완료 반영: 완료된 KPI 하위 태스크는 완료로 간주(computeSummary에서 처리됨)
-  const _kpiProgStr = (function(){
+  // KPI 달성률: 각 KPI의 (실적합/목표합) 평균. 목표 없는 KPI는 progress_status==='완료'를 100%로 처리
+  const _kpiAchData = (function(){
     var _kl = state._lastKpis||[];
+    var _total = _kl.length;
+    var _ratios = [];
+    _kl.forEach(function(k){
+      var tgt = ['q1','q2','q3','q4'].reduce(function(a,q){ return a + (parseFloat(k[q+'_target'])||0); },0);
+      var res = ['q1','q2','q3','q4'].reduce(function(a,q){ return a + (parseFloat(k[q+'_result'])||0); },0);
+      if(tgt > 0) {
+        _ratios.push(Math.min(res/tgt, 1)); // 100% cap
+      } else if(k.progress_status === '완료') {
+        _ratios.push(1);
+      } else if(k.progress_status === '진행 중') {
+        _ratios.push(0.5);
+      } else {
+        _ratios.push(0);
+      }
+    });
+    var _avg = _ratios.length ? _ratios.reduce(function(a,b){return a+b;},0)/_ratios.length : 0;
     var _kDone = _kl.filter(function(k){return k.progress_status==='완료';}).length;
-    var _kTotal = _kl.length;
     var _kInProg = _kl.filter(function(k){return k.progress_status==='진행 중';}).length;
-    return 'KPI 완료 '+fmtNum(_kDone)+'개 / '+fmtNum(_kTotal)+'개 · 진행중 '+fmtNum(_kInProg)+'개';
+    return { avg: _avg, total: _total, done: _kDone, inProg: _kInProg };
   })();
+  const _kpiProgStr = 'KPI 완료 '+fmtNum(_kpiAchData.done)+'개 / '+fmtNum(_kpiAchData.total)+'개 · 진행중 '+fmtNum(_kpiAchData.inProg)+'개';
   const items=[
     { label:"전체 업무",   value:fmtNum(s.total),
       sub:`완료 ${fmtNum(s.done)}건 · KPI ${fmtNum(s.kpiTotal||0)}개`,      icon:"📋" },
     { label:"완료율",      value:fmtPct(s.compRate),
       sub:_kpiProgStr,   icon:"✅" },
-    { label:"KPI 달성률", value:(function(){
-        var _kl=state._lastKpis||[];
-        var _kDone=_kl.filter(function(k){return k.progress_status==='완료';}).length;
-        var _kTotal=_kl.length;
-        return _kTotal ? fmtPct((_kDone/_kTotal)*100) : '0%';
-      })(), sub:_kpiProgStr, icon:"🎯" },
+    { label:"KPI 달성률", value:fmtPct(_kpiAchData.avg*100),
+      sub:'목표 대비 실적 기준 · '+fmtNum(_kpiAchData.total)+'개 KPI 평균', icon:"🎯" },
     { label:"Marketing Lead", value: (function(){
         var _ml = computeMarketingLeads();
         var _now = new Date();
