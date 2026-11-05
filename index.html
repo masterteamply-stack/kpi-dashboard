@@ -6521,84 +6521,124 @@ function renderKPIAccordion(kpis, tasks) {
         // 연간 목표값 (Q4 target 기준)
         var _annualTgt = parseFloat(kpi.q4_target||0);
 
-        // ── 분기별 개별 실적 반환 ──
-        // q: 'q1'~'q4', 반환값: 해당 분기만의 실적 (누적 아님)
+        // ── 분기별 개별 실적 반환 (해당 분기 월만) ──
+        // 수치형/LEADS: 월별 데이터 합산 (해당 분기 3개월만)
+        // % KPI: q_result 그 자체가 누적 달성률이므로 _getQActual 미사용
         function _getQActual(q) {
           var _isLeadsKpi = kpi.kpi_key==='B2D-04' || (kpi.unit||'').toUpperCase().indexOf('LEAD')>=0;
-          var _qIdx = {q1:0, q2:1, q3:2, q4:3};
-          var _qi = _qIdx[q];
-
-          if(_isRatioUnit) {
-            // % KPI: 해당 분기의 태스크 완료율 × q4 target
-            // 태스크 없으면 q_result 순수 숫자
-            if(_byQ[q].total>0) {
-              return _byQ[q].done>0 ? Math.round((_byQ[q].done/_byQ[q].total)*_annualTgt) : 0;
-            } else if(_totalAll>0) {
-              // 전체 완료율 기반 (분기 태스크 없는 경우)
-              return Math.round((_totalDone/_totalAll)*_annualTgt);
-            } else {
-              // 태스크 없음 → q_result 순수 숫자
-              return _parseQRpct(kpi[q+'_result']);
-            }
-          } else if(_isLeadsKpi) {
-            // LEADS: 해당 분기 월만 합산
+          if(_isLeadsKpi) {
+            // LEADS: 해당 분기 3개월만
             var _r = _getLeadsSum(_qMonthRanges[q]);
             if(_r!==null) return _r;
-            // fallback: q_result
             return _getQResult(q);
           } else {
-            // 수치형: dkpi 해당 분기 월만 합산
+            // 수치형: dkpi 해당 분기 3개월만
             var _d = _getDkpiSum(_qMonthRanges[q]);
             if(_d!==null) return _d;
-            // fallback: 태스크 raw (해당 분기만)
             if(_byQ[q].raw>0) return _byQ[q].raw;
-            // fallback: q_result
             return _getQResult(q);
           }
         }
 
-        // ── Q1~해당분기 누적 실적 합산 ──
+        // ── Q1~해당분기 누적 실적 합산 (수치형/LEADS 전용) ──
         function _getCumActual(q) {
-          var _qs = ['q1','q2','q3','q4'];
-          var _qi = _qs.indexOf(q);
-          var _sum = 0; var _hasAny = false;
-          for(var i=0; i<=_qi; i++) {
-            var _v = _getQActual(_qs[i]);
-            if(_v!==null && _v>0) { _sum+=_v; _hasAny=true; }
+          var _isLeadsKpi = kpi.kpi_key==='B2D-04' || (kpi.unit||'').toUpperCase().indexOf('LEAD')>=0;
+          if(_isLeadsKpi) {
+            // o2o monthly Q1~해당분기 전체 합산
+            var _rc = _getLeadsSum(_cumMonthRanges[q]);
+            if(_rc!==null) return _rc;
+          } else {
+            // dkpi Q1~해당분기 전체 합산
+            var _dc = _getDkpiSum(_cumMonthRanges[q]);
+            if(_dc!==null) return _dc;
+            // fallback: 태스크 raw 누적
+            if(_cumRaw[q]>0) return _cumRaw[q];
           }
-          return _hasAny ? _sum : null;
+          // 최종 fallback: q_result 최신값
+          var _qs3 = ['q1','q2','q3','q4'];
+          var _qi3 = _qs3.indexOf(q);
+          var _last = null;
+          for(var i=0; i<=_qi3; i++) {
+            var _v = _getQResult(_qs3[i]);
+            if(_v!==null && _v>0) _last = _v;
+          }
+          return _last;
+        }
+
+        // ── % KPI용 누적 달성% 계산 ──
+        // q_result가 "현재까지 누적 달성률"을 직접 담고 있음
+        // 가장 최근 분기(해당 분기 이하)의 q_result를 사용
+        function _getPctCumResult(q) {
+          var _qs3 = ['q1','q2','q3','q4'];
+          var _qi3 = _qs3.indexOf(q);
+          var _last = null;
+          for(var i=0; i<=_qi3; i++) {
+            var _v = _parseQRpct(kpi[_qs3[i]+'_result']);
+            if(_v!==null) _last = _v;
+          }
+          return _last;
         }
 
         function _achSpan(q, tgt) {
           var _tgtN = parseFloat(tgt||0);
           if(_tgtN<=0) return '';
 
-          // 해당 분기 실적
-          var _qActual = _getQActual(q);
+          var _qActualDisplay = null; // 화면에 표시할 해당 분기 실적값
+          var _cumPct = null;         // 누적 달성% (연간 목표 대비)
 
-          // 완료/달성이고 실적 없으면 목표=달성으로 표시
-          if((_qActual===null || _qActual===0) && _isDone) {
-            var _annTgt = _annualTgt>0 ? _annualTgt : _tgtN;
-            return '<span class="target-result" style="color:#22c55e;font-weight:600">'+
-                   (_isRatioUnit ? '100%' : fmtT(_annTgt))+'</span>'+
-                   '<span style="display:block;font-size:9px;color:#22c55e;font-weight:600;margin-top:1px">100%</span>';
+          if(_isRatioUnit) {
+            // ── % KPI ──
+            // 표시값: 해당 분기 q_result (달성률%)
+            var _qr = _parseQRpct(kpi[q+'_result']);
+            if(_qr!==null) {
+              _qActualDisplay = _qr; // 해당 분기 달성률
+            } else if(_totalAll>0) {
+              // 태스크 완료율 × 분기 목표
+              var _pRate = (_byQ[q].total>0) ? _byQ[q].done/_byQ[q].total : _totalDone/_totalAll;
+              _qActualDisplay = Math.round(_pRate*_tgtN);
+            }
+            // 누적 달성%: 가장 최근 q_result (q_result 자체가 누적 달성률)
+            _cumPct = _getPctCumResult(q);
+            if(_cumPct===null && _totalAll>0) {
+              _cumPct = Math.round((_totalDone/_totalAll)*100);
+            }
+          } else {
+            // ── 수치형/LEADS KPI ──
+            // 표시값: 해당 분기만의 실적
+            _qActualDisplay = _getQActual(q);
+            if(_qActualDisplay===null || _qActualDisplay===0) {
+              if(_isDone) {
+                return '<span class="target-result" style="color:#22c55e;font-weight:600">'+fmtT(_tgtN)+'</span>'+
+                       '<span style="display:block;font-size:9px;color:#22c55e;font-weight:600;margin-top:1px">누적 100%</span>';
+              }
+              return '';
+            }
+            // 누적 달성%: Q1~해당분기 합산 ÷ 연간 목표
+            var _cumA = _getCumActual(q);
+            if(_cumA!==null && _annualTgt>0) {
+              _cumPct = Math.round((_cumA/_annualTgt)*100);
+            }
           }
-          if(_qActual===null || _qActual===0) return '';
 
-          // Q1~해당분기 누적 실적 & 연간 목표 대비 누적 달성%
-          var _cumActual = _getCumActual(q);
-          var _cumPct = (_cumActual!==null && _annualTgt>0)
-            ? Math.round((_cumActual/_annualTgt)*100)
-            : (_isRatioUnit ? Math.round((_qActual/_tgtN)*100) : null);
+          if(_qActualDisplay===null || _qActualDisplay===0) {
+            if(_isDone) {
+              return '<span class="target-result" style="color:#22c55e;font-weight:600">'+
+                     (_isRatioUnit?'100%':fmtT(_tgtN))+'</span>'+
+                     '<span style="display:block;font-size:9px;color:#22c55e;font-weight:600;margin-top:1px">누적 100%</span>';
+            }
+            return '';
+          }
 
-          var _achColor = _cumPct!==null ? ((_isDone||_cumPct>=100)?'#22c55e':_cumPct>=70?'#f59e0b':'#ef4444') : '#6b7280';
+          var _achColor = _cumPct!==null
+            ? ((_isDone||_cumPct>=100)?'#22c55e':_cumPct>=70?'#f59e0b':'#ef4444')
+            : '#6b7280';
           var _overStr = (_cumPct!==null && _cumPct>100)
             ? '<span style="display:inline-block;font-size:8px;background:#22c55e;color:#fff;border-radius:3px;padding:0 3px;margin-left:2px;font-weight:700">+'+(_cumPct-100)+'%</span>'
             : '';
           var _pctStr = (_cumPct!==null)
             ? '<span style="display:block;font-size:9px;color:'+_achColor+';font-weight:600;margin-top:1px">누적 '+_cumPct+'%</span>'
             : '';
-          var _displayVal = _isRatioUnit ? (_qActual+'%') : fmtT(_qActual);
+          var _displayVal = _isRatioUnit ? (_qActualDisplay+'%') : fmtT(_qActualDisplay);
           return '<span class="target-result" style="color:'+_achColor+'">'+_displayVal+_overStr+'</span>'+_pctStr;
         }
         return [
