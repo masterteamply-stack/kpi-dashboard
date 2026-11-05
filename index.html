@@ -6384,19 +6384,20 @@ function renderKPIAccordion(kpis, tasks) {
           }
         }
         function _achSpan(q, tgt) {
-          // Choice Kit: 분기별 실제 달성도 고정값 (p7 기준)
+          // Choice Kit: 분기별 실제 달성도 (p7 promo 대시보드 월별 오더 기준)
+          // 목표 $3.87M 대비 | Q1말: $216K=6% | Q2말: $1.37M=35% | Q3말: $3.07M=79% | Q4: 84%(10월기준)
           var _CK_ID = '814b3f8c-eba7-4626-8cf4-e776cf7ac28f';
           if(kpi.id === _CK_ID) {
-            var _ckAch = {q1:null, q2:null, q3:84, q4:84};
+            var _ckAch = {q1:6, q2:35, q3:79, q4:84};
             var _v = _ckAch[q];
             if(_v===null||_v===undefined) return '';
             var _c = _v>=Number(tgt||0) ? '#22c55e' : '#ef4444';
             return '<span class="target-result" style="color:'+_c+'">'+_v+'</span>';
           }
-          // SteerStar: 종합 달성률 고정값 (오더100cap+설문71 평균, p7 기준)
+          // SteerStar: 종합 달성률 (오더cap100+설문 평균 | Q3말추정: 오더93%+설문61%→77% | Q4: 85.5%)
           var _SS_ID = '4c8d6d94-28eb-497a-86b2-5beee82e72fc';
           if(kpi.id === _SS_ID) {
-            var _ssAch = {q1:null, q2:null, q3:null, q4:85.5};
+            var _ssAch = {q1:null, q2:null, q3:77, q4:85.5};
             var _v2 = _ssAch[q];
             if(_v2===null||_v2===undefined) return '';
             var _c2 = _v2>=Number(tgt||0) ? '#22c55e' : '#ef4444';
