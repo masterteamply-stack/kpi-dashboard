@@ -9466,16 +9466,40 @@ async function saveInlineTask(kpiId) {
     // state에 즉시 추가 (Realtime과 무관하게 로컬 즉시 반영)
     if(data) {
       data._progressRaw = data.progress;
+      // 중복 없이 모든 태스크 state 배열에 추가
       ['tasks','_lastKpiTasks','_allTasks','_allKpiTasks'].forEach(function(k){
         if(Array.isArray(state[k]) && !state[k].find(function(x){return x.id===data.id;})) state[k].push(data);
       });
+      // 부분 갱신 (전체 refreshDashboard 대신 최소한의 UI 업데이트)
       _reRenderAfterRt(data, ['status','progress','owner_id','kpi_id']);
-      // 태스크 목록 리렌더 (현재 KPI 패널)
-      var _kpiPanel = document.getElementById('kpiDetailPanel');
-      if(_kpiPanel && _kpiPanel.style.display!=='none') {
-        var _openKpi = (state._lastKpis||[]).find(function(k){return k.id===kpiId;});
-        if(_openKpi && typeof openKpiDetail==='function') openKpiDetail(kpiId);
-      }
+      // KPI accordion 내 태스크 행만 갱신 (전체 rerender 없이)
+      (function(){
+        var _taskRow = document.querySelector('.kpi-tasks-wrap[data-kpi-id="'+kpiId+'"]');
+        if(_taskRow) {
+          // 해당 KPI의 태스크만 accordion에 추가 (tbody에 행 추가)
+          var _tbody = _taskRow.querySelector('tbody');
+          if(_tbody) {
+            // 이미 행이 있으면 추가 안 함
+            if(!_tbody.querySelector('tr[data-task-id="'+data.id+'"]')) {
+              var _tr = document.createElement('tr');
+              _tr.setAttribute('data-task-id', data.id);
+              _tr.style.cssText='background:#f8faf8';
+              _tr.innerHTML='<td colspan="99" style="padding:4px 8px;font-size:11px;color:#2a7c2a">✓ '+
+                (data.title||'').replace(/</g,'&lt;')+' 저장됨</td>';
+              _tbody.appendChild(_tr);
+              setTimeout(function(){
+                if(_tr.parentNode) _tr.style.opacity='0';
+                setTimeout(function(){ if(_tr.parentNode) _tr.remove(); }, 1000);
+              }, 2000);
+            }
+          }
+        }
+        // KPI 패널이 열려 있으면 열린 패널 갱신
+        var _kpiPanel = document.getElementById('kpiDetailPanel');
+        if(_kpiPanel && _kpiPanel.style.display!=='none') {
+          if(typeof openKpiDetail==='function') openKpiDetail(kpiId);
+        }
+      })();
       openDetailDrawer(data.id);
     }
   } catch(e) {
@@ -10758,9 +10782,22 @@ async function renderRegionOrderChart(tasks, kpis) {
   const b2bData  = (() => { try { return JSON.parse(localStorage.getItem('revenue_by_region')||'{}'); } catch(e){return {};} })();
   const ecomData = (() => { try { return JSON.parse(localStorage.getItem('ecom_by_region')||'{}'); } catch(e){return {};} })();
 
+  // 지역명 정규화: EU→EUROPE, SEA→ASIA, OCE→KOREA+OCEANIA, KR/Korea→KOREA, Domestic→ASEAN
+  function _normRegion(r) {
+    var _u = (r||'').trim().toUpperCase();
+    if(_u==='EU') return 'EUROPE';
+    if(_u==='SEA') return 'ASIA';
+    if(_u==='OCE' || _u==='OCEANIA') return 'KOREA + OCEANIA';
+    if(_u==='KR' || _u==='KOREA') return 'KOREA';
+    if(_u==='DOMESTIC') return 'ASEAN';
+    // 대소문자 통일된 원본 반환
+    var _known = {'NA':'NA','LATAM':'LATAM','MENA':'MENA','CIS':'CIS','EUROPE':'EUROPE','ASIA':'ASIA','GLOBAL':'GLOBAL','ASEAN':'ASEAN'};
+    return _known[_u] || (r||'').trim() || 'GLOBAL';
+  }
+
   const revByRegion = {};
   for(const r of new Set([...Object.keys(b2bData),...Object.keys(ecomData)])) {
-    var _rk = r==='KR'?'KOREA':r==='Domestic'?'ASEAN':r;
+    var _rk = _normRegion(r);
     const b2b  = Object.values(b2bData[r]||{}).reduce(function(s,v){return s+Number(v||0);},0);
     const ecom = Object.values(ecomData[r]||{}).reduce(function(s,v){return s+Number(v||0);},0);
     revByRegion[_rk] = (revByRegion[_rk]||0)+b2b+ecom;
@@ -10772,39 +10809,40 @@ async function renderRegionOrderChart(tasks, kpis) {
   if(_tcReg) {
     _tcReg.forEach(function(r){
       if(r.amount<=0) return;
-      var _reg=(r.region||'GLOBAL').toUpperCase();
+      var _reg=_normRegion(r.region||'GLOBAL');
       spendByRegion[_reg]=(spendByRegion[_reg]||0)+r.amount;
     });
   } else {
     // fallback: tasks.spend
     for(const t of tasks) {
-      var _r=((t.region||'').trim().toUpperCase()||'GLOBAL');
-      if(_r==='KR'||_r==='KOREA') _r='KOREA'; else if(_r==='DOMESTIC') _r='ASEAN';
+      var _r=_normRegion((t.region||'').trim()||'GLOBAL');
       const v=Number(t.spend||0);
       if(v>0) spendByRegion[_r]=(spendByRegion[_r]||0)+v;
     }
   }
 
-  // Choice Kit 지역별 오더 금액
-  const ckByRegion = (state.choiceKitOrder&&state.choiceKitOrder.byRegion) ? state.choiceKitOrder.byRegion : {};
+  // Choice Kit 지역별 오더 금액 (정규화 적용)
+  const ckByRegion = {};
+  if(state.choiceKitOrder&&state.choiceKitOrder.byRegion) {
+    Object.entries(state.choiceKitOrder.byRegion).forEach(function(e){
+      var _rn=_normRegion(e[0]);
+      ckByRegion[_rn]=(ckByRegion[_rn]||0)+e[1];
+    });
+  }
 
   // CK 마케팅예산(₩) — 법인/지사/영업 광고선전비 예산 시트 기준
-  // Promo + BizRewards 합계 (KRW)
+  // Promo + BizRewards 합계 (KRW) — KOREA+OCEANIA 합산
   const ckBudByRegion = {
-    'NA':      31003131,  // marketing.csv 기준
-    'LATAM':   15712468,
-    'MENA':    20355000,
-    'CIS':     25200000,
-    'ASIA':    81318810,
-    'KOREA':    4000000,
-    'OCEANIA':  2000000,
+    'NA':              31003131,
+    'LATAM':           15712468,
+    'MENA':            20355000,
+    'CIS':             25200000,
+    'ASIA':            81318810,
+    'KOREA + OCEANIA':  6000000,  // KOREA 4,000,000 + OCEANIA 2,000,000 합산
   };
   // CK 집행비/예산: marketing.csv 실시간 fetch (캐시 30분)
-  const REG_NORM = {
-    'NA':'NA','LATAM':'LATAM','MENA':'MENA','CIS':'CIS',
-    'EUROPE':'EUROPE','ASIA':'ASIA','Korea':'GLOBAL',
-    'Oceania':'ASEAN','ASEAN':'ASEAN','GLOBAL':'GLOBAL',
-  };
+  // _normRegion 함수로 통합 — REG_NORM 하드코딩 대신 _normRegion 사용
+  const REG_NORM_CSV = function(r) { return _normRegion(r); };
   const _parseMktCsv = function(csvText) {
     const lines = csvText.trim().split('\n');
     const hdr   = lines[0].split(',');
@@ -10815,7 +10853,7 @@ async function renderRegionOrderChart(tasks, kpis) {
     const spend = {}, budget = {};
     for (let i = 1; i < lines.length; i++) {
       const cols = lines[i].split(',');
-      const reg  = REG_NORM[(cols[iReg]||'').trim()] || (cols[iReg]||'').trim().toUpperCase();
+      const reg  = REG_NORM_CSV((cols[iReg]||'').trim());
       const cur  = (cols[iCur]||'KRW').trim();
       if (cur !== 'KRW') continue;
       const act  = parseFloat((cols[iAct]||'0').replace(/[^\d.]/g,'')) || 0;
@@ -10874,18 +10912,20 @@ async function renderRegionOrderChart(tasks, kpis) {
   try { _xlsxData = JSON.parse(sessionStorage.getItem('mkt_cost_xlsx')||'null'); } catch(_e){}
   const _xlsxSpend = _xlsxData ? (_xlsxData.by_region||{}) : {};
 
-  // 두 소스 합산 → ckSpendByRegion
+  // 두 소스 합산 → ckSpendByRegion (정규화 적용)
   const ckSpendByRegion = {};
   var _allRegKeys = new Set([...Object.keys(_csvSpend), ...Object.keys(_xlsxSpend)]);
   _allRegKeys.forEach(function(r){
-    ckSpendByRegion[r] = (_csvSpend[r]||0) + (_xlsxSpend[r]||0);
+    var _rn=_normRegion(r);
+    ckSpendByRegion[_rn] = (ckSpendByRegion[_rn]||0) + (_csvSpend[r]||0) + (_xlsxSpend[r]||0);
   });
 
-  // 예산은 xlsx budget + csv budget 합산
+  // 예산은 xlsx budget + csv budget 합산 (정규화 적용)
   const ckBudFromCsv = {};
   var _allBudKeys = new Set([...Object.keys(_csvBud), ...Object.keys(_xlsxData&&_xlsxData.by_budget||{})]);
   _allBudKeys.forEach(function(r){
-    ckBudFromCsv[r] = (_csvBud[r]||0) + ((_xlsxData&&_xlsxData.by_budget)||{})[r]||0;
+    var _rn=_normRegion(r);
+    ckBudFromCsv[_rn] = (ckBudFromCsv[_rn]||0) + (_csvBud[r]||0) + (((_xlsxData&&_xlsxData.by_budget)||{})[r]||0);
   });
 
   // Campaign Type별 집행 (HQ 테이블 하단 주석용)
@@ -10951,9 +10991,8 @@ async function renderRegionOrderChart(tasks, kpis) {
     var ckSpU=d.ckSp/_KRW_USD;    // CK 집행비(USD)
     var pRoi=ckSpU>0?(d.ckA-ckSpU)/ckSpU*100:null;  // ROMI=(오더-집행비)/집행비
     var bg=i%2===0?'#fdfcf9':'#f8f5f0';
-    var _dispR = d.r==='EU'?'EUROPE':d.r==='SEA'?'ASIA':d.r==='OCE'?'KOREA + OCEANIA':d.r;
     h+='<tr style="background:'+bg+'">';
-    h+='<td style="'+tdS+';font-weight:700;color:#1a1714">'+_dispR+'</td>';
+    h+='<td style="'+tdS+';font-weight:700;color:#1a1714">'+d.r+'</td>';
     h+='<td style="'+tdS+';text-align:right;color:#1a6b3a;font-weight:700">'+(d.rev>0?fmtU(d.rev):'–')+'</td>';
     h+='<td style="'+tdS+';text-align:right;color:#6b4a3a">'+(d.spK>0?fmtK(d.spK):'–')+'</td>';
     h+='<td style="'+tdS+';text-align:right;font-weight:700;color:'+rCol(roi)+'">'+fmtP(roi)+'</td>';
@@ -12956,9 +12995,8 @@ function setupRealtime() {
               if(Array.isArray(state[k]) && !state[k].find(function(x){return x.id===t.id;})) state[k].push(t);
             });
             _reRenderAfterRt(t, ['status','progress','owner_id','kpi_id']);
-            // 태스크 목록 리렌더
+            // 태스크 목록 리렌더: renderKpiTasksFiltered 없으면 최소 갱신만 (refreshDashboard 전체 리렌더 금지)
             if(typeof renderKpiTasksFiltered === 'function') renderKpiTasksFiltered();
-            else refreshDashboard();
           }
         } catch(e) { refreshDashboard(); }
       })
