@@ -6588,29 +6588,25 @@ function renderKPIAccordion(kpis, tasks) {
 
           if(_isRatioUnit) {
             // ── % KPI ──
-            // 표시값: 해당 분기 q_result (달성률%)
+            // 표시값: 해당 분기 q_result (달성률%) — 없으면 빈칸
             var _qr = _parseQRpct(kpi[q+'_result']);
             if(_qr!==null) {
               _qActualDisplay = _qr; // 해당 분기 달성률
-            } else if(_totalAll>0) {
-              // 태스크 완료율 × 분기 목표
-              var _pRate = (_byQ[q].total>0) ? _byQ[q].done/_byQ[q].total : _totalDone/_totalAll;
-              _qActualDisplay = Math.round(_pRate*_tgtN);
             }
+            // 완료 KPI이고 q_result가 없으면 → q4까지 완료된 경우에만 100% fallback
+            if(_qActualDisplay===null && _isDone && q==='q4') {
+              _qActualDisplay = 100;
+            }
+            // q_result가 없으면 표시 안 함 (10월 미입력 등)
+            if(_qActualDisplay===null) return '';
             // 누적 달성%: 가장 최근 q_result (q_result 자체가 누적 달성률)
             _cumPct = _getPctCumResult(q);
-            if(_cumPct===null && _totalAll>0) {
-              _cumPct = Math.round((_totalDone/_totalAll)*100);
-            }
+            if(_cumPct===null && _isDone) _cumPct = 100;
           } else {
             // ── 수치형/LEADS KPI ──
             // 표시값: 해당 분기만의 실적
             _qActualDisplay = _getQActual(q);
             if(_qActualDisplay===null || _qActualDisplay===0) {
-              if(_isDone) {
-                return '<span class="target-result" style="color:#22c55e;font-weight:600">'+fmtT(_tgtN)+'</span>'+
-                       '<span style="display:block;font-size:9px;color:#22c55e;font-weight:600;margin-top:1px">누적 100%</span>';
-              }
               return '';
             }
             // 누적 달성%: Q1~해당분기 합산 ÷ 연간 목표
@@ -6621,11 +6617,6 @@ function renderKPIAccordion(kpis, tasks) {
           }
 
           if(_qActualDisplay===null || _qActualDisplay===0) {
-            if(_isDone) {
-              return '<span class="target-result" style="color:#22c55e;font-weight:600">'+
-                     (_isRatioUnit?'100%':fmtT(_tgtN))+'</span>'+
-                     '<span style="display:block;font-size:9px;color:#22c55e;font-weight:600;margin-top:1px">누적 100%</span>';
-            }
             return '';
           }
 
