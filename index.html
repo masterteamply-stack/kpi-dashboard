@@ -6531,20 +6531,17 @@ function renderKPIAccordion(kpis, tasks) {
           var _isLeadsKpi = kpi.kpi_key==='B2D-04' || (kpi.unit||'').toUpperCase().indexOf('LEAD')>=0;
 
           if(_isRatioUnit) {
-            // ── % KPI: 누적 완료율 × 해당 분기 누적 목표값 ──
-            // 우선순위 1: 해당 분기 이전까지 가장 최근 q_result (누적 propagation)
-            var _latestR = _getLatestCumResult(q);
-            if(_latestR!==null) { _achVal = _latestR; }
-            // 우선순위 2: Q1~해당분기 누적 태스크 완료율
-            if(_achVal===null && _cumT>0) {
+            // ── % KPI: Q1~해당분기 누적 태스크 완료율 × 분기 누적 목표값 ──
+            // q_result 텍스트는 서술형이라 숫자 오파싱 위험 → 태스크 완료율 우선
+            if(_cumT>0) {
+              // Q1~해당분기 누적 완료건 / 누적 전체건 × 목표값
               _achVal = Math.round((_cumD/_cumT)*_tgtN);
-            }
-            // 우선순위 3: 전체 완료율 (태스크 없는 분기)
-            if(_achVal===null && _totalAll>0) {
+            } else if(_totalAll>0) {
+              // 해당 분기에 태스크 없으면 전체 완료율로 추정
               _achVal = Math.round((_totalDone/_totalAll)*_tgtN);
             }
           } else {
-            // ── 수치형 KPI: 누적 기준 ──
+            // ── 수치형 KPI: Q1~해당분기 누적 기준 ──
             // 우선순위 1: dkpi 월별 캐시 Q1~해당분기 누적합
             var _dkpiCum = _getDkpiCumSum(q);
             if(_dkpiCum!==null) _achVal = _dkpiCum;
@@ -6557,7 +6554,7 @@ function renderKPIAccordion(kpis, tasks) {
             if(_achVal===null && !_isLeadsKpi && _cumRawQ>0) {
               _achVal = _cumRawQ;
             }
-            // 우선순위 4: q_result propagation (최근 입력된 누적 실적 사용)
+            // 우선순위 4: q_result 텍스트에서 숫자 파싱 (가장 최근 입력 propagation)
             if(_achVal===null) {
               var _latestR2 = _getLatestCumResult(q);
               if(_latestR2!==null) _achVal = _latestR2;
