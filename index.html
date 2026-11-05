@@ -2739,17 +2739,56 @@ function renderKPICards(s) {
     var _kl = state._lastKpis||[];
     var _total = _kl.length;
     var _ratios = [];
+    // 현재 분기 판별 (11,12월=Q4 / 1~3월=Q1 / 4~6월=Q2 / 7~9월=Q3 / 10월=Q4)
+    var _now = new Date();
+    var _mo = _now.getMonth()+1; // 1~12
+    var _curQIdx = _mo<=3?0:_mo<=6?1:_mo<=9?2:3; // 0=Q1,1=Q2,2=Q3,3=Q4
+    var _qKeys = ['q1','q2','q3','q4'];
+    // parseResult: 텍스트 실적값에서 첫 번째 숫자 추출
+    function _parseR(v) {
+      if(!v && v!==0) return null;
+      var m = String(v).replace(/,/g,'').match(/[\d.]+/);
+      return m ? Number(m[0]) : null;
+    }
     _kl.forEach(function(k){
-      var tgt = ['q1','q2','q3','q4'].reduce(function(a,q){ return a + (parseFloat(k[q+'_target'])||0); },0);
-      var res = ['q1','q2','q3','q4'].reduce(function(a,q){ return a + (parseFloat(k[q+'_result'])||0); },0);
-      if(tgt > 0) {
-        _ratios.push(Math.min(res/tgt, 1)); // 100% cap
-      } else if(k.progress_status === '완료' || k.progress_status === '달성') {
-        _ratios.push(1);
-      } else if(k.progress_status === '진행 중') {
-        _ratios.push(0.5);
+      // 완료/달성 KPI는 100%
+      if(k.progress_status==='완료'||k.progress_status==='달성') {
+        _ratios.push(1); return;
+      }
+      // 현재 분기 목표와 실적 사용 (분기 목표가 누적값이므로 현재 분기 기준)
+      var _curQ = _qKeys[_curQIdx];
+      var _tgt = parseFloat(k[_curQ+'_target']||0);
+      // 실적: 텍스트 파싱 우선, 없으면 이전 분기까지 역순 탐색
+      var _res = null;
+      for(var _qi=_curQIdx; _qi>=0; _qi--) {
+        var _r = _parseR(k[_qKeys[_qi]+'_result']);
+        if(_r!==null && _r>0) { _res=_r; break; }
+      }
+      if(_tgt > 0 && _res!==null) {
+        // % 단위 KPI: 실적이 목표값(%) 대비 비율
+        var _unit = (k.unit||'').trim();
+        if(_unit.indexOf('%')>=0) {
+          // 실적이 이미 % 값이면 목표 % 대비 비율
+          _ratios.push(Math.min(_res/_tgt, 1.5));
+        } else {
+          _ratios.push(Math.min(_res/_tgt, 1.5));
+        }
+      } else if(_tgt > 0) {
+        // 실적 없음 → 태스크 완료율로 추정
+        var _kTasks = (state._lastKpiTasks||state.tasks||[]).filter(function(t){return t.kpi_id===k.id;});
+        if(_kTasks.length > 0) {
+          var _kDoneT = _kTasks.filter(function(t){return t.status==='완료'||t.status==='done';}).length;
+          var _kPct = _kDoneT / _kTasks.length;
+          _ratios.push(Math.min(_kPct, 1));
+        } else if(k.progress_status==='진행 중') {
+          _ratios.push(0); // 실적 없으면 0 (추정 금지)
+        } else {
+          _ratios.push(0);
+        }
       } else {
-        _ratios.push(0);
+        // 목표값 없는 KPI → progress_status 기반
+        if(k.progress_status==='진행 중') _ratios.push(0);
+        else _ratios.push(0);
       }
     });
     var _avg = _ratios.length ? _ratios.reduce(function(a,b){return a+b;},0)/_ratios.length : 0;
@@ -6436,31 +6475,45 @@ function renderKPIAccordion(kpis, tasks) {
         // 단위가 % 계열인지 여부 (달성도, 완료율, 적용률 등)
         var _unitStr = (kpi.unit||'').trim();
         var _isRatioUnit = _unitStr==='%' || _unitStr.indexOf('%')>=0;
+        // q_result 텍스트에서 첫 번째 숫자 추출
+        function _parseQR(v) {
+          if(!v && v!==0) return null;
+          var m = String(v).replace(/,/g,'').match(/[\d.]+/);
+          return m ? Number(m[0]) : null;
+        }
         function _achSpan(q, tgt) {
           var _tgtN = parseFloat(tgt||0);
           if(_tgtN<=0) return ''; // 목표 없으면 표시 안 함
-          // Q4 완료/달성이면 100%로 처리
-          if(q==='q4' && _isDone) {
+          // 완료/달성 KPI는 목표값=실적으로 100% 처리
+          if(_isDone) {
             return '<span class="target-result" style="color:#22c55e;font-weight:600">'+fmtT(_tgtN)+'</span>'+
                    '<span style="display:block;font-size:9px;color:#22c55e;font-weight:600;margin-top:1px">100%</span>';
           }
-          // 실적: 해당 분기 raw 합계 (누적 아닌 분기별)
           var _qRaw = _byQ[q] ? _byQ[q].raw : 0;
           var _qDone = _byQ[q] ? _byQ[q].done : 0;
           var _qTotal = _byQ[q] ? _byQ[q].total : 0;
+          // q_result 텍스트 파싱 (우선순위 1)
+          var _resultText = kpi[q+'_result'];
+          var _resultNum = _parseQR(_resultText);
           var _achVal, _pct;
-          if(_isRatioUnit) {
-            // % 단위 KPI: 해당 분기 태스크 완료율 × 목표값
-            var _qPct = _qTotal>0 ? _qDone/_qTotal : 0;
+          if(_resultNum!==null && _resultNum>0) {
+            // DB에 저장된 실적값이 있으면 그대로 사용
+            _achVal = _resultNum;
+            _pct = Math.round((_achVal/_tgtN)*100);
+          } else if(_isRatioUnit) {
+            // % 단위 KPI: 태스크 완료율 × 목표값
+            if(_qTotal===0) return '';
+            var _qPct = _qDone/_qTotal;
             _achVal = Math.round(_qPct * _tgtN);
-            _pct = _qTotal>0 ? Math.round((_achVal/_tgtN)*100) : null;
+            _pct = Math.round((_achVal/_tgtN)*100);
           } else {
             // 수치 KPI: 분기별 raw 합계
             if(_qRaw<=0) return '';
             _achVal = _qRaw;
             _pct = Math.round((_achVal/_tgtN)*100);
           }
-          if(_achVal===null||_achVal===undefined||(_achVal===0&&_qTotal===0)) return '';
+          if(!_achVal && _achVal!==0) return '';
+          if(_achVal===0 && _qTotal===0 && _resultNum===null) return '';
           var _achColor = (_pct!==null&&_pct>=100)?'#22c55e':(_pct!==null&&_pct>=70)?'#f59e0b':'#ef4444';
           var _pctStr = _pct!==null ? '<span style="display:block;font-size:9px;color:'+_achColor+';font-weight:600;margin-top:1px">'+_pct+'%</span>' : '';
           return '<span class="target-result" style="color:'+_achColor+'">'+fmtT(_achVal)+'</span>'+_pctStr;
