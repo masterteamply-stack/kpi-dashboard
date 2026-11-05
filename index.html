@@ -6430,24 +6430,37 @@ function renderKPIAccordion(kpis, tasks) {
           }
         }
         var _isDone = kpi.progress_status==='완료'||kpi.progress_status==='달성';
+        // 단위가 % 계열인지 여부 (달성도, 완료율, 적용률 등)
+        var _unitStr = (kpi.unit||'').trim();
+        var _isRatioUnit = _unitStr==='%' || _unitStr.indexOf('%')>=0;
         function _achSpan(q, tgt) {
           var _tgtN = parseFloat(tgt||0);
-          // 실적값: 태스크 기반 _qAch 계산
-          var _ach = _qAch(q, tgt);
-          // Q4이고 완료/달성 상태면 목표값 = 실적 (100%)
-          if(q==='q4' && _isDone && _tgtN>0) {
-            var _color100 = '#22c55e';
-            var _disp = _isPct ? '100%' : fmtT(_tgtN);
-            return '<span class="target-result" style="color:'+_color100+';font-weight:600">'+_disp+'</span>'+
+          if(_tgtN<=0) return ''; // 목표 없으면 표시 안 함
+          // Q4 완료/달성이면 100%로 처리
+          if(q==='q4' && _isDone) {
+            return '<span class="target-result" style="color:#22c55e;font-weight:600">'+fmtT(_tgtN)+'</span>'+
                    '<span style="display:block;font-size:9px;color:#22c55e;font-weight:600;margin-top:1px">100%</span>';
           }
-          if(_ach===null||_ach===undefined) return '';
-          // 달성률 % 계산
-          var _pct = (_tgtN>0) ? Math.round((_ach/_tgtN)*100) : null;
-          var _achColor = (_pct!==null && _pct>=100) ? '#22c55e' : (_pct!==null && _pct>=70) ? '#f59e0b' : '#ef4444';
-          var _achDisp = _isPct ? fmtT(_ach) : fmtT(_ach);
+          // 실적: 해당 분기 raw 합계 (누적 아닌 분기별)
+          var _qRaw = _byQ[q] ? _byQ[q].raw : 0;
+          var _qDone = _byQ[q] ? _byQ[q].done : 0;
+          var _qTotal = _byQ[q] ? _byQ[q].total : 0;
+          var _achVal, _pct;
+          if(_isRatioUnit) {
+            // % 단위 KPI: 해당 분기 태스크 완료율 × 목표값
+            var _qPct = _qTotal>0 ? _qDone/_qTotal : 0;
+            _achVal = Math.round(_qPct * _tgtN);
+            _pct = _qTotal>0 ? Math.round((_achVal/_tgtN)*100) : null;
+          } else {
+            // 수치 KPI: 분기별 raw 합계
+            if(_qRaw<=0) return '';
+            _achVal = _qRaw;
+            _pct = Math.round((_achVal/_tgtN)*100);
+          }
+          if(_achVal===null||_achVal===undefined||(_achVal===0&&_qTotal===0)) return '';
+          var _achColor = (_pct!==null&&_pct>=100)?'#22c55e':(_pct!==null&&_pct>=70)?'#f59e0b':'#ef4444';
           var _pctStr = _pct!==null ? '<span style="display:block;font-size:9px;color:'+_achColor+';font-weight:600;margin-top:1px">'+_pct+'%</span>' : '';
-          return '<span class="target-result" style="color:'+_achColor+'">'+_achDisp+'</span>'+_pctStr;
+          return '<span class="target-result" style="color:'+_achColor+'">'+fmtT(_achVal)+'</span>'+_pctStr;
         }
         return [
           '<div class="target-cell" onclick="event.stopPropagation()">'+
@@ -7443,7 +7456,12 @@ async function saveTaskSelectEdit(el) {
     if(state._activeKpiModal&&typeof refreshKpiDetailModal==='function') refreshKpiDetailModal();
     renderOwnerTable(state.tasks||[],state._lastKpis||[]);
     if(field==='status'||field==='progress'){
-      var _cs2 = computeSummary(state.tasks||[], state._lastKpis||[]);
+      // state.tasks + _lastKpiTasks 통합하여 최신 상태 반영
+      var _allT = (state.tasks||[]).slice();
+      (state._lastKpiTasks||[]).forEach(function(kt){
+        if(!_allT.find(function(t){return t.id===kt.id;})) _allT.push(kt);
+      });
+      var _cs2 = computeSummary(_allT, state._lastKpis||[]);
       renderSummary(_cs2);
       renderKPICards(_cs2);
     }
