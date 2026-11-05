@@ -36,7 +36,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
   <style>
@@ -1921,11 +1921,14 @@ window.__SUPABASE_ANON_KEY__ = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ
 const ATTACHMENT_BUCKET = "task-attachments";
 
 // Supabase CDN 로드 실패 가드: window.supabase가 없으면 즉시 오프라인 모드
-if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+// UMD 빌드: window.supabase.createClient (또는 window.supabase.default.createClient)
+const _sbLib = window.supabase || {};
+const _createClientFn = _sbLib.createClient || (_sbLib.default && _sbLib.default.createClient);
+if (!_createClientFn) {
   console.warn('[Init] Supabase CDN 로드 실패 — 오프라인 모드로 자동 전환');
   window._supabaseOffline = true;
 }
-const { createClient } = (window.supabase || {});
+const createClient = _createClientFn || null;
 
 // ── 1. State ───────────────────────────────────────────────
 const state = {
