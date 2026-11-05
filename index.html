@@ -3432,12 +3432,12 @@ function renderSummary(s) {
     h += '</div>';
     // KPI 히어로: 120% 목표 기준 달성률 + 잔여금액
     // 120% 목표 = $4.65M, 현재 $3.23M = 69.5% → 잔여 $1.42M
-    h += '<div style="margin-top:5px;background:linear-gradient(135deg,#fff8ee,#fef3e2);border:1.5px solid #c8901a;border-radius:7px;padding:8px 10px">';
-    // 상단: KPI 라벨
+    // 팀 KPI + 매출 2컬럼 그리드
+    h += '<div style="margin-top:5px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:stretch">';
+    // 좌: 팀 KPI 히어로
+    h += '<div style="background:linear-gradient(135deg,#fff8ee,#fef3e2);border:1.5px solid #c8901a;border-radius:7px;padding:8px 10px">';
     h += '<div style="font-size:7.5px;font-weight:800;color:#a07010;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">📌 팀 KPI · 120% 오더 달성 목표</div>';
-    // 메인 수치행
     h += '<div style="display:flex;align-items:flex-end;justify-content:space-between">';
-    // 좌: 달성률
     h += '<div>';
     h += '<div style="display:flex;align-items:baseline;gap:2px">';
     h += '<div style="font-size:34px;font-weight:900;color:#b87020;line-height:1">'+_ckTotalRate2+'</div>';
@@ -3445,14 +3445,12 @@ function renderSummary(s) {
     h += '</div>';
     h += '<div style="font-size:8px;color:#9a7030;font-weight:600;margin-top:1px">120% 목표 대비 달성 · $3.23M</div>';
     h += '</div>';
-    // 우: 잔여
     h += '<div style="text-align:right">';
     h += '<div style="font-size:9px;color:#c0401a;font-weight:700;margin-bottom:1px">잔여 목표</div>';
     h += '<div style="font-size:20px;font-weight:900;color:#c0401a;line-height:1">$1.42M</div>';
     h += '<div style="font-size:7.5px;color:#b06030;margin-top:1px">120% 목표 $4.65M까지</div>';
     h += '</div>';
     h += '</div>';
-    // 진행바: 69% 달성, 나머지 31% 강조
     h += '<div style="margin-top:7px;background:#e8d4a0;border-radius:3px;height:7px;overflow:hidden;position:relative">';
     h += '<div style="width:69%;height:100%;background:linear-gradient(90deg,#c17f3a,#e8a848);border-radius:3px"></div>';
     h += '<div style="position:absolute;top:0;left:69%;right:0;height:100%;background:repeating-linear-gradient(90deg,#f5ddb0 0,#f5ddb0 4px,#e8d4a0 4px,#e8d4a0 8px);border-radius:0 3px 3px 0"></div>';
@@ -3461,21 +3459,22 @@ function renderSummary(s) {
     h += '<span style="color:#b87020;font-weight:700">달성 69%</span>';
     h += '<span style="color:#c0401a;font-weight:700">잔여 31% · Q4 예상커버 76%</span>';
     h += '</div>';
-    // 보조: 고객사 현황
     h += '<div style="margin-top:5px;padding-top:5px;border-top:1px solid #e8d4a0;display:flex;gap:10px">';
     h += '<div style="font-size:8px;color:#8a8278">목표달성 <span style="font-weight:800;color:#3a6b3a">'+_ckCustAchieved2+'사</span></div>';
     h += '<div style="font-size:8px;color:#8a8278">120%+ <span style="font-weight:800;color:#b87020">'+_ckCustOver2+'사</span></div>';
     h += '<div style="font-size:8px;color:#b0a898;margin-left:auto">' + (state.choiceKitOrder.count ? fmtNum(state.choiceKitOrder.count)+'건' : '') + '</div>';
     h += '</div>';
     h += '</div>';
+    // 우: 매출(B2B) 카드 (좁은 너비)
     if(_revTotalDisp) {
-      h += '<div style="margin-top:5px;padding-top:5px;border-top:1px solid #e8e4dc;display:flex;align-items:center;justify-content:space-between">';
-      h += '<div><div style="font-size:9px;color:#8a8278;font-weight:600">매출 (B2B)</div>';
-      h += '<div style="font-size:13px;font-weight:800;color:#3a6b3a">' + _revTotalDisp + '</div>';
-      if(_thisMonthDisp) h += '<div style="font-size:9px;color:#5c6b4a">' + _thisMonthDisp + '</div>';
-      h += '</div><button onclick="openRevenueInput()" style="background:none;border:1px solid #b8ccaa;border-radius:4px;padding:3px 7px;font-size:11px;cursor:pointer;color:#5c6b4a">✏️</button></div>';
+      h += '<div style="background:#f0f5f0;border:1.5px solid #b8ccaa;border-radius:7px;padding:8px 10px;min-width:90px;display:flex;flex-direction:column;justify-content:space-between">';
+      h += '<div style="font-size:7.5px;font-weight:800;color:#5c6b4a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">매출 (B2B)</div>';
+      h += '<div style="font-size:18px;font-weight:900;color:#2a5a2a;line-height:1">' + _revTotalDisp + '</div>';
+      if(_thisMonthDisp) h += '<div style="font-size:8px;color:#5c6b4a;margin-top:3px">' + _thisMonthDisp + '</div>';
+      h += '<button onclick="openRevenueInput()" style="margin-top:6px;background:none;border:1px solid #b8ccaa;border-radius:4px;padding:3px 0;font-size:10px;cursor:pointer;color:#5c6b4a;width:100%">✏️ 수정</button>';
+      h += '</div>';
     }
-    h += '</div>';
+    h += '</div>'; // end 2col grid
   }
 
   // 4-2. SteerStar 미션 달성도 요약 카드
