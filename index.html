@@ -6454,7 +6454,7 @@ function renderKPIAccordion(kpis, tasks) {
           var m = String(v).replace(/,/g,'').match(/[\d.]+/);
           return m ? Number(m[0]) : null;
         }
-        // 월별 dkpi 데이터에서 해당 분기 월 범위 합산
+        // 월별 dkpi 데이터에서 해당 분기 월 범위 합산 (actual 또는 result 필드 모두 인식)
         var _qMonthRanges = {q1:['01','02','03'],q2:['04','05','06'],q3:['07','08','09'],q4:['10','11','12']};
         function _getDkpiQSum(q) {
           try {
@@ -6464,33 +6464,44 @@ function renderKPIAccordion(kpis, tasks) {
             _months.forEach(function(mm){
               var _d = _mData['2026-'+mm];
               if(!_d) return;
-              var _v = _d.actual!=null ? Number(_d.actual) : (_d.result!=null ? Number(_d.result) : null);
-              if(_v!=null && !isNaN(_v)){ _sum+=_v; _hasAny=true; }
+              // actual 우선, 없으면 result 필드 사용
+              var _v = (_d.actual!=null) ? Number(_d.actual) : ((_d.result!=null) ? Number(_d.result) : null);
+              if(_v!=null && !isNaN(_v) && _v>0){ _sum+=_v; _hasAny=true; }
             });
             return _hasAny ? _sum : null;
           } catch(e){ return null; }
         }
-        // B2D-04 (LEADS) 전용: o2o_lead_data monthly + tasks 기여분 분기 합산
+        // B2D-04 (LEADS) 전용: o2o_lead_data monthly 분기 합산 (누적이므로 최신월 값 사용)
         function _getLeadsQSum(q) {
           try {
             var _ld = JSON.parse(localStorage.getItem('o2o_lead_data')||'{}');
-            var _months = _qMonthRanges[q]||[];
-            var _sum = 0; var _hasAny = false;
-            // 1순위: monthly 필드 (상세 이벤트 데이터)
             var _mo = _ld.monthly||{};
+            var _months = _qMonthRanges[q]||[];
+            // 누적 합산 (월별 개별 이벤트 리드 수)
+            var _sum = 0; var _hasAny = false;
             _months.forEach(function(mm){ var _v=Number(_mo['2026-'+mm]||0); if(_v>0){_sum+=_v;_hasAny=true;} });
-            // 2순위: tasks._task_monthly
-            if(!_hasAny) {
-              var _tm = _ld._task_monthly||{};
-              _months.forEach(function(mm){ var _v=Number(_tm['2026-'+mm]||0); if(_v>0){_sum+=_v;_hasAny=true;} });
-              if(!_hasAny && q==='q4' && _ld._task_total>0){ _sum=_ld._task_total; _hasAny=true; }
-            }
+            if(_hasAny) return _sum;
+            // fallback: _task_monthly
+            var _tm = _ld._task_monthly||{};
+            _months.forEach(function(mm){ var _v=Number(_tm['2026-'+mm]||0); if(_v>0){_sum+=_v;_hasAny=true;} });
             return _hasAny ? _sum : null;
           } catch(e){ return null; }
         }
+        // 누적형 KPI용: Q3까지 누적 실적을 Q4 fallback으로 사용 (% 단위 KPI)
+        function _getLatestQResult(q) {
+          // 현재 분기 또는 직전 분기 q_result 텍스트에서 숫자 파싱
+          var _r = _parseQR(kpi[q+'_result']);
+          if(_r!==null && _r>0) return _r;
+          // Q4는 Q3 실적으로 fallback (아직 Q4 미확정)
+          if(q==='q4') {
+            var _r3 = _parseQR(kpi['q3_result']);
+            if(_r3!==null && _r3>0) return _r3;
+          }
+          return null;
+        }
         function _achSpan(q, tgt) {
           var _tgtN = parseFloat(tgt||0);
-          if(_tgtN<=0) return ''; // 목표 없으면 표시 안 함
+          if(_tgtN<=0) return '';
           // 완료/달성 KPI는 목표값=실적으로 100% 처리
           if(_isDone) {
             return '<span class="target-result" style="color:#22c55e;font-weight:600">'+fmtT(_tgtN)+'</span>'+
@@ -6498,44 +6509,43 @@ function renderKPIAccordion(kpis, tasks) {
           }
           var _qDone = _byQ[q] ? _byQ[q].done : 0;
           var _qTotal = _byQ[q] ? _byQ[q].total : 0;
-          // q_result 텍스트 파싱 (우선순위 1)
-          var _resultText = kpi[q+'_result'];
-          var _resultNum = _parseQR(_resultText);
-          var _achVal, _pct;
+          var _achVal = null, _pct = null;
+
+          // 우선순위 1: DB q_result 텍스트 파싱 (직접 입력값)
+          var _resultNum = _parseQR(kpi[q+'_result']);
           if(_resultNum!==null && _resultNum>0) {
-            // DB에 저장된 실적값이 있으면 그대로 사용
             _achVal = _resultNum;
-            _pct = Math.round((_achVal/_tgtN)*100);
-          } else {
-            // dkpi 월별 데이터 합산 우선 (수치 KPI에 적합)
+          }
+          // 우선순위 2: dkpi 월별 캐시 합산 (actual 또는 result 필드)
+          if(_achVal===null) {
             var _dkpiSum = _getDkpiQSum(q);
-            // LEADS KPI는 o2o_lead_data tasks 기여분도 확인
-            var _isLeads = (kpi.unit||'').toUpperCase().indexOf('LEAD')>=0 || kpi.kpi_key==='B2D-04';
-            if(_dkpiSum===null && _isLeads) {
-              _dkpiSum = _getLeadsQSum(q);
-            }
-            if(_dkpiSum!==null && _dkpiSum>0) {
-              _achVal = _dkpiSum;
-              _pct = Math.round((_achVal/_tgtN)*100);
-            } else if(_isRatioUnit) {
-              // % 단위 KPI: 태스크 완료율 × 목표값
-              if(_qTotal===0) return '';
-              var _qPct = _qDone/_qTotal;
-              _achVal = Math.round(_qPct * _tgtN);
-              _pct = Math.round((_achVal/_tgtN)*100);
-            } else {
-              return ''; // 데이터 없음
-            }
+            if(_dkpiSum!==null) _achVal = _dkpiSum;
           }
-          if(!_achVal && _achVal!==0) return '';
-          if(_achVal===0 && _qTotal===0 && _resultNum===null) return '';
-          var _achColor = (_pct!==null&&_pct>=100)?'#22c55e':(_pct!==null&&_pct>=70)?'#f59e0b':'#ef4444';
-          // 초과달성 표시 (목표 대비 110% 이상)
-          var _overStr = '';
-          if(_pct!==null && _pct>100) {
-            _overStr = '<span style="display:inline-block;font-size:8px;background:#22c55e;color:#fff;border-radius:3px;padding:0 3px;margin-left:2px;font-weight:700">+'+(_pct-100)+'%</span>';
+          // 우선순위 3: LEADS KPI → o2o_lead_data monthly 합산
+          if(_achVal===null && (kpi.kpi_key==='B2D-04' || (kpi.unit||'').toUpperCase().indexOf('LEAD')>=0)) {
+            var _leadsSum = _getLeadsQSum(q);
+            if(_leadsSum!==null) _achVal = _leadsSum;
           }
-          var _pctStr = _pct!==null ? '<span style="display:block;font-size:9px;color:'+_achColor+';font-weight:600;margin-top:1px">'+_pct+'%</span>' : '';
+          // 우선순위 4: % 단위 KPI → 태스크 완료율로 계산
+          if(_achVal===null && _isRatioUnit && _qTotal>0) {
+            _achVal = Math.round((_qDone/_qTotal)*_tgtN);
+          }
+          // 우선순위 5: % 단위 KPI Q4 → Q3 실적 또는 전체 태스크 완료율로 추정 (진행 중 표시)
+          if(_achVal===null && _isRatioUnit && q==='q4') {
+            // 전체 태스크(전분기 포함) 완료율로 Q4 목표 대비 추정
+            var _allDone = _byQ.q1.done+_byQ.q2.done+_byQ.q3.done+_byQ.q4.done;
+            var _allTotal = _byQ.q1.total+_byQ.q2.total+_byQ.q3.total+_byQ.q4.total;
+            if(_allTotal>0) _achVal = Math.round((_allDone/_allTotal)*_tgtN);
+          }
+
+          if(_achVal===null || _achVal===0) return '';
+          _pct = Math.round((_achVal/_tgtN)*100);
+          var _achColor = _pct>=100?'#22c55e':_pct>=70?'#f59e0b':'#ef4444';
+          // 초과달성 배지
+          var _overStr = (_pct>100)
+            ? '<span style="display:inline-block;font-size:8px;background:#22c55e;color:#fff;border-radius:3px;padding:0 3px;margin-left:2px;font-weight:700">+'+(_pct-100)+'%</span>'
+            : '';
+          var _pctStr = '<span style="display:block;font-size:9px;color:'+_achColor+';font-weight:600;margin-top:1px">'+_pct+'%</span>';
           return '<span class="target-result" style="color:'+_achColor+'">'+fmtT(_achVal)+_overStr+'</span>'+_pctStr;
         }
         return [
