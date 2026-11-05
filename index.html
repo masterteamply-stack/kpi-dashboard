@@ -1305,8 +1305,7 @@ try {
         "NA":     455000,
         "LATAM":  476000,
         "KOREA":   92000,
-        "MENA":    13000,
-        "OCEANIA":     0
+        "MENA":    13000
       },
       lastUpdated: new Date().toISOString(),
       _src: 'promo_dashboard_v10_6',
@@ -9119,7 +9118,7 @@ async function renderDkpiSheetBody(kpiKey) {
   if(kpiKey === 'revenue') {
     const saved = (() => { try { return JSON.parse(localStorage.getItem('revenue_by_region')||'{}'); } catch(e){return {};} })();
     // saved에 데이터 있는 지역만 동적으로 표시 (없으면 기본 목록)
-    const _STD_REGIONS = ['RUS','CIS','LATAM','MENA','EUROPE','NA','ASIA','KOREA','OCEANIA'];
+    const _STD_REGIONS = ['RUS','CIS','LATAM','MENA','EUROPE','NA','ASIA','KOREA'];
     // 저장값 키 + 표준 목록 합집합으로 항상 전체 권역 표시
     const regions = [...new Set([..._STD_REGIONS, ...Object.keys(saved)])].sort(
       (a,b) => _STD_REGIONS.indexOf(a) - _STD_REGIONS.indexOf(b)
@@ -11083,12 +11082,12 @@ async function renderRegionOrderChart(tasks, kpis) {
   const b2bData  = (() => { try { return JSON.parse(localStorage.getItem('revenue_by_region')||'{}'); } catch(e){return {};} })();
   const ecomData = (() => { try { return JSON.parse(localStorage.getItem('ecom_by_region')||'{}'); } catch(e){return {};} })();
 
-  // 지역명 정규화: EU→EUROPE, SEA→ASIA, OCE→KOREA+OCEANIA, KR/Korea→KOREA, Domestic→ASEAN
+  // 지역명 정규화: EU→EUROPE, SEA→ASIA, OCE→KOREA, KR/Korea→KOREA, Domestic→ASEAN
   function _normRegion(r) {
     var _u = (r||'').trim().toUpperCase();
     if(_u==='EU') return 'EUROPE';
     if(_u==='SEA') return 'ASIA';
-    if(_u==='OCE' || _u==='OCEANIA') return 'KOREA + OCEANIA';
+    if(_u==='OCE' || _u==='OCEANIA') return 'KOREA';
     if(_u==='KR' || _u==='KOREA') return 'KOREA';
     if(_u==='DOMESTIC') return 'ASEAN';
     // 대소문자 통일된 원본 반환
@@ -11132,14 +11131,14 @@ async function renderRegionOrderChart(tasks, kpis) {
   }
 
   // CK 마케팅예산(₩) — 법인/지사/영업 광고선전비 예산 시트 기준
-  // Promo + BizRewards 합계 (KRW) — KOREA+OCEANIA 합산
+  // Promo + BizRewards 합계 (KRW) — KOREA 합산
   const ckBudByRegion = {
     'NA':              31003131,
     'LATAM':           15712468,
     'MENA':            20355000,
     'CIS':             25200000,
     'ASIA':            81318810,
-    'KOREA + OCEANIA':  6000000,  // KOREA 4,000,000 + OCEANIA 2,000,000 합산
+    'KOREA':  4000000,
   };
   // CK 집행비/예산: marketing.csv 실시간 fetch (캐시 30분)
   // _normRegion 함수로 통합 — REG_NORM 하드코딩 대신 _normRegion 사용
@@ -12960,16 +12959,16 @@ function initDkpiDefaultData() {
     localStorage.setItem("dkpi_monthly_B2D-11",JSON.stringify(_clkD));
     // ── region_sub: 버전이 오래됐으면 최신 데이터로 업데이트 ──
     var _subVer = localStorage.getItem('region_sub_ver');
-    if(_subVer !== '2026-10-v1'){
+    if(_subVer !== '2026-10-v2'){
       // 10월까지 포함한 최신 데이터로 전면 교체 (RUS 10월 미확인 → 0 처리)
-      var _rs={"GLOBAL":{"total":285953,"monthly":{"2026-01":1893,"2026-02":-202,"2026-03":243,"2026-04":-1352,"2026-05":3976,"2026-06":3242,"2026-07":-479,"2026-08":-515,"2026-09":-241,"2026-10":1017}},"MENA":{"total":554583,"monthly":{"2026-01":2021,"2026-02":921,"2026-03":-1256,"2026-04":-973,"2026-05":1779,"2026-06":9938,"2026-07":318,"2026-08":-646,"2026-09":-338,"2026-10":-909}},"EUROPE":{"total":64885,"monthly":{"2026-01":1029,"2026-02":1312,"2026-03":363,"2026-04":151,"2026-05":1913,"2026-06":1572,"2026-07":-179,"2026-08":-170,"2026-09":-98,"2026-10":-178}},"NA":{"total":883,"monthly":{"2026-04":175,"2026-05":6,"2026-06":2,"2026-07":7,"2026-08":25,"2026-09":66,"2026-10":13}},"LATAM":{"total":244370,"monthly":{"2026-01":1012,"2026-02":383,"2026-03":479,"2026-04":109,"2026-05":5986,"2026-06":4121,"2026-07":433,"2026-08":-105,"2026-09":171,"2026-10":399}},"ASIA":{"total":25418,"monthly":{"2026-03":64,"2026-04":20,"2026-05":775,"2026-06":157,"2026-07":80,"2026-08":57,"2026-09":109,"2026-10":-2098}},"TH":{"total":96464,"monthly":{"2026-01":-38,"2026-02":-47,"2026-03":-732,"2026-04":-115,"2026-05":-100,"2026-06":-153,"2026-07":49,"2026-08":0,"2026-09":-44,"2026-10":-353}},"RUS":{"total":86216,"monthly":{"2026-01":5037,"2026-02":1520,"2026-03":1563,"2026-04":1534,"2026-05":1515,"2026-06":4138,"2026-07":2251,"2026-08":1363,"2026-09":896}},"MX":{"total":5907,"monthly":{"2026-10":-361}},"CIS":{"total":51947,"monthly":{"2026-01":3566,"2026-02":2349,"2026-03":985,"2026-04":782,"2026-05":4789,"2026-06":3713,"2026-07":63,"2026-08":-141,"2026-09":2775,"2026-10":4285}},"IN":{"total":12100,"monthly":{"2026-04":4500,"2026-05":12,"2026-06":183,"2026-07":1145,"2026-08":1350,"2026-09":814,"2026-10":1587}},"BR":{"total":7793,"monthly":{"2026-01":395,"2026-02":1244,"2026-03":974,"2026-04":678,"2026-05":2207,"2026-06":2215,"2026-07":-28,"2026-08":-44,"2026-09":-6,"2026-10":158}}};
+      var _rs={"GLOBAL":{"total":285953,"monthly":{"2026-01":1893,"2026-02":-202,"2026-03":243,"2026-04":-1352,"2026-05":3976,"2026-06":3242,"2026-07":-479,"2026-08":-515,"2026-09":-241,"2026-10":1017}},"MENA":{"total":554583,"monthly":{"2026-01":2021,"2026-02":921,"2026-03":-1256,"2026-04":-973,"2026-05":1779,"2026-06":9938,"2026-07":318,"2026-08":-646,"2026-09":-338,"2026-10":-909}},"EUROPE":{"total":64885,"monthly":{"2026-01":1029,"2026-02":1312,"2026-03":363,"2026-04":151,"2026-05":1913,"2026-06":1572,"2026-07":-179,"2026-08":-170,"2026-09":-98,"2026-10":-178}},"NA":{"total":883,"monthly":{"2026-04":175,"2026-05":6,"2026-06":2,"2026-07":7,"2026-08":25,"2026-09":66,"2026-10":13}},"LATAM":{"total":244370,"monthly":{"2026-01":1012,"2026-02":383,"2026-03":479,"2026-04":109,"2026-05":5986,"2026-06":4121,"2026-07":433,"2026-08":-105,"2026-09":171,"2026-10":399}},"ASIA":{"total":25418,"monthly":{"2026-03":64,"2026-04":20,"2026-05":775,"2026-06":157,"2026-07":80,"2026-08":57,"2026-09":109,"2026-10":-2098}},"TH":{"total":96464,"monthly":{"2026-01":-38,"2026-02":-47,"2026-03":-732,"2026-04":-115,"2026-05":-100,"2026-06":-153,"2026-07":49,"2026-08":0,"2026-09":-44,"2026-10":-353}},"RUS":{"total":86216,"monthly":{"2026-01":5037,"2026-02":1520,"2026-03":1563,"2026-04":1534,"2026-05":1515,"2026-06":4138,"2026-07":2251,"2026-08":1363,"2026-09":896,"2026-10":0}},"MX":{"total":5907,"monthly":{"2026-10":-361}},"CIS":{"total":51947,"monthly":{"2026-01":3566,"2026-02":2349,"2026-03":985,"2026-04":782,"2026-05":4789,"2026-06":3713,"2026-07":63,"2026-08":-141,"2026-09":2775,"2026-10":4285}},"IN":{"total":12100,"monthly":{"2026-04":4500,"2026-05":12,"2026-06":183,"2026-07":1145,"2026-08":1350,"2026-09":814,"2026-10":1587}},"BR":{"total":7793,"monthly":{"2026-01":395,"2026-02":1244,"2026-03":974,"2026-04":678,"2026-05":2207,"2026-06":2215,"2026-07":-28,"2026-08":-44,"2026-09":-6,"2026-10":158}}};
       setSharedConfig("region_sub_detail", _rs);
       setSharedConfig("region_sub_net",{"2026-01":14915,"2026-02":11980,"2026-03":2695,"2026-04":1192,"2026-05":23991,"2026-06":30295,"2026-07":2515,"2026-08":638,"2026-09":5799,"2026-10":3560});
       setSharedConfig("region_sub_grand_total", "1436519");
       localStorage.setItem('region_sub_detail', JSON.stringify(_rs));
       localStorage.setItem('region_sub_net', JSON.stringify({"2026-01":14915,"2026-02":11980,"2026-03":2695,"2026-04":1192,"2026-05":23991,"2026-06":30295,"2026-07":2515,"2026-08":638,"2026-09":5799,"2026-10":3560}));
       localStorage.setItem('region_sub_grand_total', '1436519');
-      localStorage.setItem("region_sub_ver","2026-10-v1");
+      localStorage.setItem("region_sub_ver","2026-10-v2");
     }
     // ── region_sub_net 미래월 키 정리 (항상 실행) ──
     // 10월 이후 키(11·12월)가 남아있으면 제거 후 재저장
@@ -13779,8 +13778,7 @@ function renderRegionOrderBarChart() {
   var RC = {
     ASIA:'rgba(74,107,124,.8)', NA:'rgba(92,107,74,.8)',
     CIS:'rgba(180,100,60,.8)', MENA:'rgba(140,90,160,.8)',
-    GLOBAL:'rgba(60,110,80,.8)', LATAM:'rgba(190,140,50,.8)',
-    OCEANIA:'rgba(80,130,160,.8)'
+    GLOBAL:'rgba(60,110,80,.8)', LATAM:'rgba(190,140,50,.8)'
   };
   var regions = Object.keys(byRegion).filter(function(r){return byRegion[r]>0;});
   regions.sort(function(a,b){return byRegion[b]-byRegion[a];});
@@ -13879,7 +13877,7 @@ function renderRegionOrderBarChart() {
 // Choice Kit 지역별 오더 목표 (marketing.csv 합산, $USD)
 var CK_TARGET_BY_REGION = {
   NA: 1185141, CIS: 1000000, LATAM: 1000000,
-  MENA: 420000, KOREA: 270000, ASIA: 0, OCEANIA: 0
+  MENA: 420000, KOREA: 270000, ASIA: 0
 };
 
 
