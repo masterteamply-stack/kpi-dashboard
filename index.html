@@ -7119,6 +7119,54 @@ function renderKpiGauge(kpi, taskList) {
       +'<div style="margin-top:4px"><a href="https://masterteamply-stack.github.io/choicekit-dashboard/promo_dashboard_v10_6.html#p7" target="_blank" style="font-size:9px;background:#f7f0e4;border:1px solid #d4b87a;border-radius:3px;padding:1px 7px;color:#9a6820;text-decoration:none;font-weight:600">상세 분석 →</a></div>';
   }
 
+  // ── 특별 처리: SteerStar 리포지셔닝 KPI → 오더+설문 종합 달성률 표시 ──
+  var _SS_KPI_ID = '4c8d6d94-28eb-497a-86b2-5beee82e72fc';
+  if(kpi.id === _SS_KPI_ID) {
+    // 오더 미션: $1.48M / $1.18M = 125.5% → 100 cap
+    var _ssOrderRate  = 125.5;
+    var _ssOrderCap   = 100;
+    // 설문 미션: 994 / 1,400명 = 71.0%
+    var _ssSurveyRate = 71.0;
+    var _ssSurveyCount = 994;
+    var _ssSurveyTarget = 1400;
+    // 종합: (100 + 71.0) / 2 = 85.5%
+    var _ssCombined   = Math.round((_ssOrderCap + _ssSurveyRate) / 2 * 10) / 10; // 85.5
+    var _ssCombinedDisp = _ssCombined % 1 === 0 ? _ssCombined : _ssCombined.toFixed(1);
+    var _ssColor = _ssCombined >= 80 ? '#5c8a3a' : _ssCombined >= 60 ? '#b8962e' : '#c04a30';
+    var _ssBw = Math.min(100, _ssCombined);
+    return ''
+      // 종합 달성률 헤더
+      + '<div style="display:flex;align-items:baseline;gap:5px;margin-bottom:3px">'
+      +   '<span class="kpi-gauge-pct" style="color:'+_ssColor+'">'+_ssCombinedDisp+'%</span>'
+      +   '<span style="font-size:9px;color:'+_ssColor+';font-weight:700">종합 달성률</span>'
+      + '</div>'
+      // 종합 게이지바
+      + '<div class="kpi-gauge-outer"><div class="kpi-gauge-bar" style="width:'+_ssBw+'%;background:linear-gradient(90deg,#c8a040,#e8c060)"></div></div>'
+      // 2줄 미션 요약
+      + '<div style="margin-top:5px;display:grid;grid-template-columns:1fr 1fr;gap:4px">'
+      // 오더
+      +   '<div style="background:#f0f8f0;border:1px solid #c8e0c0;border-radius:4px;padding:4px 6px">'
+      +     '<div style="font-size:8px;color:#5c6b4a;font-weight:700;margin-bottom:1px">🛒 오더</div>'
+      +     '<div style="display:flex;align-items:baseline;gap:3px">'
+      +       '<span style="font-size:14px;font-weight:900;color:#2a7c2a;line-height:1">'+_ssOrderRate+'%</span>'
+      +       '<span style="font-size:8px;color:#2a7c2a;font-weight:700">초과 ✓</span>'
+      +     '</div>'
+      +     '<div style="font-size:8px;color:#8a8278;margin-top:1px">$1.48M / $1.18M 목표</div>'
+      +   '</div>'
+      // 설문
+      +   '<div style="background:#fffbf0;border:1px solid #e8d8a0;border-radius:4px;padding:4px 6px">'
+      +     '<div style="font-size:8px;color:#7a6010;font-weight:700;margin-bottom:1px">📋 설문</div>'
+      +     '<div style="display:flex;align-items:baseline;gap:3px">'
+      +       '<span style="font-size:14px;font-weight:900;color:#b8962e;line-height:1">'+_ssSurveyRate+'%</span>'
+      +       '<span style="font-size:8px;color:#8a8278">진행중</span>'
+      +     '</div>'
+      +     '<div style="font-size:8px;color:#8a8278;margin-top:1px">'+_ssSurveyCount+'/'+_ssSurveyTarget+'명</div>'
+      +   '</div>'
+      + '</div>'
+      // 목표 안내
+      + '<div style="font-size:9px;color:#8a8278;margin-top:5px">연간 목표 <b style="color:#7a6020">86%</b> · 오더 100cap + 설문 평균</div>';
+  }
+
   // ── 0순위: KPI 완료 상태면 실제 달성률 또는 100% ──
   if(kpi.progress_status==='완료') {
     var _annT0=parseN(kpi.q4_target)||['q1','q2','q3','q4'].reduce(function(s,q){return s+(parseN(kpi[q+'_target'])||0);},0)||null;
