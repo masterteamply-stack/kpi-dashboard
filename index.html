@@ -6454,6 +6454,40 @@ function renderKPIAccordion(kpis, tasks) {
           var m = String(v).replace(/,/g,'').match(/[\d.]+/);
           return m ? Number(m[0]) : null;
         }
+        // 월별 dkpi 데이터에서 해당 분기 월 범위 합산
+        var _qMonthRanges = {q1:['01','02','03'],q2:['04','05','06'],q3:['07','08','09'],q4:['10','11','12']};
+        function _getDkpiQSum(q) {
+          try {
+            var _mData = (typeof getDkpiMonthly==='function') ? getDkpiMonthly(kpi.kpi_key) : {};
+            var _months = _qMonthRanges[q]||[];
+            var _sum = 0; var _hasAny = false;
+            _months.forEach(function(mm){
+              var _d = _mData['2026-'+mm];
+              if(!_d) return;
+              var _v = _d.actual!=null ? Number(_d.actual) : (_d.result!=null ? Number(_d.result) : null);
+              if(_v!=null && !isNaN(_v)){ _sum+=_v; _hasAny=true; }
+            });
+            return _hasAny ? _sum : null;
+          } catch(e){ return null; }
+        }
+        // B2D-04 (LEADS) 전용: o2o_lead_data monthly + tasks 기여분 분기 합산
+        function _getLeadsQSum(q) {
+          try {
+            var _ld = JSON.parse(localStorage.getItem('o2o_lead_data')||'{}');
+            var _months = _qMonthRanges[q]||[];
+            var _sum = 0; var _hasAny = false;
+            // 1순위: monthly 필드 (상세 이벤트 데이터)
+            var _mo = _ld.monthly||{};
+            _months.forEach(function(mm){ var _v=Number(_mo['2026-'+mm]||0); if(_v>0){_sum+=_v;_hasAny=true;} });
+            // 2순위: tasks._task_monthly
+            if(!_hasAny) {
+              var _tm = _ld._task_monthly||{};
+              _months.forEach(function(mm){ var _v=Number(_tm['2026-'+mm]||0); if(_v>0){_sum+=_v;_hasAny=true;} });
+              if(!_hasAny && q==='q4' && _ld._task_total>0){ _sum=_ld._task_total; _hasAny=true; }
+            }
+            return _hasAny ? _sum : null;
+          } catch(e){ return null; }
+        }
         function _achSpan(q, tgt) {
           var _tgtN = parseFloat(tgt||0);
           if(_tgtN<=0) return ''; // 목표 없으면 표시 안 함
@@ -6462,7 +6496,6 @@ function renderKPIAccordion(kpis, tasks) {
             return '<span class="target-result" style="color:#22c55e;font-weight:600">'+fmtT(_tgtN)+'</span>'+
                    '<span style="display:block;font-size:9px;color:#22c55e;font-weight:600;margin-top:1px">100%</span>';
           }
-          var _qRaw = _byQ[q] ? _byQ[q].raw : 0;
           var _qDone = _byQ[q] ? _byQ[q].done : 0;
           var _qTotal = _byQ[q] ? _byQ[q].total : 0;
           // q_result 텍스트 파싱 (우선순위 1)
@@ -6473,23 +6506,37 @@ function renderKPIAccordion(kpis, tasks) {
             // DB에 저장된 실적값이 있으면 그대로 사용
             _achVal = _resultNum;
             _pct = Math.round((_achVal/_tgtN)*100);
-          } else if(_isRatioUnit) {
-            // % 단위 KPI: 태스크 완료율 × 목표값
-            if(_qTotal===0) return '';
-            var _qPct = _qDone/_qTotal;
-            _achVal = Math.round(_qPct * _tgtN);
-            _pct = Math.round((_achVal/_tgtN)*100);
           } else {
-            // 수치 KPI: 분기별 raw 합계
-            if(_qRaw<=0) return '';
-            _achVal = _qRaw;
-            _pct = Math.round((_achVal/_tgtN)*100);
+            // dkpi 월별 데이터 합산 우선 (수치 KPI에 적합)
+            var _dkpiSum = _getDkpiQSum(q);
+            // LEADS KPI는 o2o_lead_data tasks 기여분도 확인
+            var _isLeads = (kpi.unit||'').toUpperCase().indexOf('LEAD')>=0 || kpi.kpi_key==='B2D-04';
+            if(_dkpiSum===null && _isLeads) {
+              _dkpiSum = _getLeadsQSum(q);
+            }
+            if(_dkpiSum!==null && _dkpiSum>0) {
+              _achVal = _dkpiSum;
+              _pct = Math.round((_achVal/_tgtN)*100);
+            } else if(_isRatioUnit) {
+              // % 단위 KPI: 태스크 완료율 × 목표값
+              if(_qTotal===0) return '';
+              var _qPct = _qDone/_qTotal;
+              _achVal = Math.round(_qPct * _tgtN);
+              _pct = Math.round((_achVal/_tgtN)*100);
+            } else {
+              return ''; // 데이터 없음
+            }
           }
           if(!_achVal && _achVal!==0) return '';
           if(_achVal===0 && _qTotal===0 && _resultNum===null) return '';
           var _achColor = (_pct!==null&&_pct>=100)?'#22c55e':(_pct!==null&&_pct>=70)?'#f59e0b':'#ef4444';
+          // 초과달성 표시 (목표 대비 110% 이상)
+          var _overStr = '';
+          if(_pct!==null && _pct>100) {
+            _overStr = '<span style="display:inline-block;font-size:8px;background:#22c55e;color:#fff;border-radius:3px;padding:0 3px;margin-left:2px;font-weight:700">+'+(_pct-100)+'%</span>';
+          }
           var _pctStr = _pct!==null ? '<span style="display:block;font-size:9px;color:'+_achColor+';font-weight:600;margin-top:1px">'+_pct+'%</span>' : '';
-          return '<span class="target-result" style="color:'+_achColor+'">'+fmtT(_achVal)+'</span>'+_pctStr;
+          return '<span class="target-result" style="color:'+_achColor+'">'+fmtT(_achVal)+_overStr+'</span>'+_pctStr;
         }
         return [
           '<div class="target-cell" onclick="event.stopPropagation()">'+
