@@ -2515,12 +2515,22 @@ async function applyOwnerPicker(popup, taskId) {
 
 function computeSummary(tasks, kpis) {
   const today = todayD();
-  const total    = tasks.length;
-  const done     = tasks.filter(t=>t.status==="done").length;
-  const inProg   = tasks.filter(t=>t.status==="in_progress").length;
-  const blocked  = tasks.filter(t=>t.status==="blocked").length;
-  const todo     = tasks.filter(t=>t.status==="todo").length;
-  const delayed  = tasks.filter(t=>t.status!=="done"&&t.due_date&&new Date(t.due_date)<today).length;
+  // KPI progress_status가 "완료"인 KPI의 하위 태스크는 완료로 간주
+  const _kpiList = kpis || state._lastKpis || [];
+  const _doneKpiIds = new Set(_kpiList.filter(k=>k.progress_status==='완료').map(k=>k.id));
+  // 태스크 가상 처리: 완료된 KPI 소속 태스크는 status를 "done"으로 간주
+  const _effTasks = tasks.map(t => {
+    if(t.kpi_id && _doneKpiIds.has(t.kpi_id) && t.status !== 'done') {
+      return Object.assign({}, t, {status:'done', _kpiDone:true});
+    }
+    return t;
+  });
+  const total    = _effTasks.length;
+  const done     = _effTasks.filter(t=>t.status==="done").length;
+  const inProg   = _effTasks.filter(t=>t.status==="in_progress").length;
+  const blocked  = _effTasks.filter(t=>t.status==="blocked").length;
+  const todo     = _effTasks.filter(t=>t.status==="todo").length;
+  const delayed  = _effTasks.filter(t=>t.status!=="done"&&t.due_date&&new Date(t.due_date)<today).length;
   // 배정 예산: 광고선전비 기준 (없으면 tasks.allocated_budget 합산)
   const _taskBudgetKrw = tasks.reduce((s,t)=>s+Number(t.allocated_budget||0),0);
   // tasks.spend = KRW 원화 → 금일 환율(1USD=1,502KRW)로 USD 환산
@@ -2567,10 +2577,11 @@ function computeSummary(tasks, kpis) {
   const leads    = tasks.reduce((s,t)=>s+Number(t.leads||0),0);
   // avgProg: status 기반 계산 (progress 필드는 raw 실적수치이므로 사용 불가)
   // done=100%, in_progress=50%, blocked=25%, todo=0%
+  // 완료된 KPI 소속 태스크는 _effTasks에서 이미 done으로 처리됨
   const avgProg = total ? (
     done * 100 +
-    tasks.filter(t=>t.status==='in_progress').length * 50 +
-    tasks.filter(t=>t.status==='blocked').length * 25
+    inProg * 50 +
+    blocked * 25
   ) / total : 0;
   const compRate = total ? (done/total)*100 : 0;
   // ROI = (B2B매출 - 마케팅집행비) / 마케팅집행비 × 100
@@ -10710,6 +10721,15 @@ async function saveKpiSelectField(sel) {
     // 스타일 동기화
     const sc = {'진행 중':'active','완료':'done','시작 전':'pending','보류':'pending'}[val]||'pending';
     sel.className = `kpi-status-select kpi-status-pill ${sc}`;
+    // KPI 완료 여부가 바뀌면 상단 요약 카드 즉시 갱신
+    // (완료된 KPI 하위 태스크를 완료로 간주하는 computeSummary 로직 반영)
+    if(field === 'progress_status') {
+      try {
+        var _cs = computeSummary(state.tasks||[], state._lastKpis||[]);
+        renderSummary(_cs);
+        if(typeof renderKPICards === 'function') renderKPICards(_cs);
+      } catch(_e2) {}
+    }
   } catch(e) { console.error(e); }
   sel.disabled = false;
 }
