@@ -7337,19 +7337,9 @@ function renderKpiGauge(kpi, taskList) {
     var cc=achvPct>=80?'':achvPct>=50?'warn':'danger';
     var bw=Math.min(100,achvPct);
 
-    var qDetail=[];
-    ['q1','q2','q3','q4'].forEach(function(q){
-      if(byQ[q]>0){
-        var qt=parseN(kpi[q+'_target']);
-        qDetail.push(q.toUpperCase()+':'+fmtV(byQ[q])+(qt?'/'+fmtV(qt):''));
-      }
-    });
-    var detailStr=qDetail.length?'<div style="font-size:9px;color:#8a8278;margin-top:2px">'+qDetail.join(' · ')+'</div>':'';
-
     return '<div style="display:flex;align-items:baseline;gap:4px;margin-bottom:3px"><span class="kpi-gauge-pct">'+achvPct+'%</span><span style="font-size:9px;color:#8a8278;font-weight:600">'+label+'</span></div>'
       +'<div class="kpi-gauge-outer"><div class="kpi-gauge-bar '+cc+'" style="width:'+bw+'%"></div></div>'
-      +'<div style="font-size:10px;color:#6b6259;margin-top:3px"><span style="color:#5c6b4a;font-weight:700">'+fmtV(actualVal)+'</span><span style="color:#8a8278"> / 연간목표 '+fmtV(targetVal)+'</span>'+(unit?'<span style="color:#8a8278;margin-left:2px">'+unit+'</span>':'')+'</div>'
-      +detailStr;
+      +'<div style="font-size:10px;color:#6b6259;margin-top:3px"><span style="color:#5c6b4a;font-weight:700">'+fmtV(actualVal)+'</span><span style="color:#8a8278"> / 연간목표 '+fmtV(targetVal)+'</span>'+(unit?'<span style="color:#8a8278;margin-left:2px">'+unit+'</span>':'')+'</div>';
   }
 }
 
