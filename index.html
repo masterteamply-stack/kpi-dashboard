@@ -6509,33 +6509,43 @@ function renderKPIAccordion(kpis, tasks) {
           }
           var _qDone = _byQ[q] ? _byQ[q].done : 0;
           var _qTotal = _byQ[q] ? _byQ[q].total : 0;
+          // 해당 분기까지 누적 태스크 progress (수치형 KPI에 사용)
+          var _cumRawQ = _cumRaw[q] || 0;
           var _achVal = null, _pct = null;
 
-          // 우선순위 1: DB q_result 텍스트 파싱 (직접 입력값)
-          var _resultNum = _parseQR(kpi[q+'_result']);
-          if(_resultNum!==null && _resultNum>0) {
-            _achVal = _resultNum;
-          }
-          // 우선순위 2: dkpi 월별 캐시 합산 (actual 또는 result 필드)
-          if(_achVal===null) {
+          if(_isRatioUnit) {
+            // ── % 계열 KPI: 태스크 완료율 × 분기 목표값 ──────────────
+            // 우선순위 1: DB q_result 직접 입력값
+            var _rn = _parseQR(kpi[q+'_result']);
+            if(_rn!==null && _rn>0) { _achVal = _rn; }
+            // 우선순위 2: 해당 분기 태스크 완료율
+            if(_achVal===null && _qTotal>0) {
+              _achVal = Math.round((_qDone/_qTotal)*_tgtN);
+            }
+            // 우선순위 3 (Q4 한정): 전체 태스크 누적 완료율로 추정
+            if(_achVal===null && q==='q4' && _totalAll>0) {
+              _achVal = Math.round((_totalDone/_totalAll)*_tgtN);
+            }
+          } else {
+            // ── 수치형 KPI: dkpi 월별 → LEADS → 태스크 progress 누적 → DB q_result ──
+            var _isLeadsKpi = kpi.kpi_key==='B2D-04' || (kpi.unit||'').toUpperCase().indexOf('LEAD')>=0;
+            // 우선순위 1: dkpi 월별 캐시 합산 (actual 또는 result 필드) — 가장 정밀한 소스
             var _dkpiSum = _getDkpiQSum(q);
             if(_dkpiSum!==null) _achVal = _dkpiSum;
-          }
-          // 우선순위 3: LEADS KPI → o2o_lead_data monthly 합산
-          if(_achVal===null && (kpi.kpi_key==='B2D-04' || (kpi.unit||'').toUpperCase().indexOf('LEAD')>=0)) {
-            var _leadsSum = _getLeadsQSum(q);
-            if(_leadsSum!==null) _achVal = _leadsSum;
-          }
-          // 우선순위 4: % 단위 KPI → 태스크 완료율로 계산
-          if(_achVal===null && _isRatioUnit && _qTotal>0) {
-            _achVal = Math.round((_qDone/_qTotal)*_tgtN);
-          }
-          // 우선순위 5: % 단위 KPI Q4 → Q3 실적 또는 전체 태스크 완료율로 추정 (진행 중 표시)
-          if(_achVal===null && _isRatioUnit && q==='q4') {
-            // 전체 태스크(전분기 포함) 완료율로 Q4 목표 대비 추정
-            var _allDone = _byQ.q1.done+_byQ.q2.done+_byQ.q3.done+_byQ.q4.done;
-            var _allTotal = _byQ.q1.total+_byQ.q2.total+_byQ.q3.total+_byQ.q4.total;
-            if(_allTotal>0) _achVal = Math.round((_allDone/_allTotal)*_tgtN);
+            // 우선순위 2: LEADS KPI → o2o_lead_data monthly 월별 합산 (B2D-04 전용)
+            if(_achVal===null && _isLeadsKpi) {
+              var _leadsSum = _getLeadsQSum(q);
+              if(_leadsSum!==null) _achVal = _leadsSum;
+            }
+            // 우선순위 3: 태스크 _progressRaw 누적합 (LEADS KPI 제외 — 태스크 progress가 연간누적이라 분기 오염됨)
+            if(_achVal===null && !_isLeadsKpi && _cumRawQ>0) {
+              _achVal = _cumRawQ;
+            }
+            // 우선순위 4: DB q_result 텍스트 파싱
+            if(_achVal===null) {
+              var _rn2 = _parseQR(kpi[q+'_result']);
+              if(_rn2!==null && _rn2>0) _achVal = _rn2;
+            }
           }
 
           if(_achVal===null || _achVal===0) return '';
