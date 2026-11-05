@@ -2743,9 +2743,17 @@ function renderKPICards(s) {
         var _diff = _curTot - _prvTot;
         var _diffStr = (_diff >= 0 ? '▲' : '▼') + fmtNum(Math.abs(_diff));
         var _pctStr = _prvTot > 0 ? (_diff >= 0 ? ' +' : ' ') + (_diff/_prvTot*100).toFixed(1) + '%' : '';
-        var _mo = _now.getMonth()+1;
+        // 이달 데이터 없으면 직전 달 기준으로 표시
+        var _dispMo, _dispTot;
+        if(_curTot > 0) {
+          _dispMo = _now.getMonth()+1; _dispTot = _curTot;
+        } else {
+          _dispMo = _now.getMonth(); // 직전 달 번호 (0→12월 보정 불필요: getMonth()는 1~11)
+          if(_dispMo === 0) _dispMo = 12;
+          _dispTot = _prvTot;
+        }
         // sub를 window에 임시 저장해 value와 공유
-        window._mlCardSub = _mo+'월 '+fmtNum(_curTot)+'회';
+        window._mlCardSub = _dispMo+'월 '+fmtNum(_dispTot)+'회';
         return fmtNum(_ml.total);  // 하단과 동일한 total
       })(),
       sub: (function(){
