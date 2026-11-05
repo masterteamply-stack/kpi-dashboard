@@ -2517,7 +2517,7 @@ function computeSummary(tasks, kpis) {
   const today = todayD();
   // KPI progress_status가 "완료"인 KPI의 하위 태스크는 완료로 간주
   const _kpiList = kpis || state._lastKpis || [];
-  const _doneKpiIds = new Set(_kpiList.filter(k=>k.progress_status==='완료').map(k=>k.id));
+  const _doneKpiIds = new Set(_kpiList.filter(k=>k.progress_status==='완료'||k.progress_status==='달성').map(k=>k.id));
   // 태스크 가상 처리: 완료된 KPI 소속 태스크는 status를 "done"으로 간주
   const _effTasks = tasks.map(t => {
     if(t.kpi_id && _doneKpiIds.has(t.kpi_id) && t.status !== 'done') {
@@ -2589,7 +2589,7 @@ function computeSummary(tasks, kpis) {
   // KPI 수 집계
   const kpiList  = kpis || state._lastKpis || [];
   const kpiTotal = kpiList.length;
-  const kpiDone  = kpiList.filter(k=>k.progress_status==='완료').length;
+  const kpiDone  = kpiList.filter(k=>k.progress_status==='완료'||k.progress_status==='달성').length;
   const avgProgCapped = Math.min(100, Math.max(0, avgProg||0));
     const budget   = _budgetPlanAnnual > 0 ? _budgetPlanAnnual : _taskBudgetKrw;
   return { total,done,inProg,blocked,todo,delayed,budget,spend,spendKrw:_totalSpendKrw,revenue,leads,avgProg:avgProgCapped,compRate,roi,kpiTotal,kpiDone,thisMonthRev:_thisMonthRev };
@@ -2741,7 +2741,7 @@ function renderKPICards(s) {
       var res = ['q1','q2','q3','q4'].reduce(function(a,q){ return a + (parseFloat(k[q+'_result'])||0); },0);
       if(tgt > 0) {
         _ratios.push(Math.min(res/tgt, 1)); // 100% cap
-      } else if(k.progress_status === '완료') {
+      } else if(k.progress_status === '완료' || k.progress_status === '달성') {
         _ratios.push(1);
       } else if(k.progress_status === '진행 중') {
         _ratios.push(0.5);
@@ -2750,7 +2750,7 @@ function renderKPICards(s) {
       }
     });
     var _avg = _ratios.length ? _ratios.reduce(function(a,b){return a+b;},0)/_ratios.length : 0;
-    var _kDone = _kl.filter(function(k){return k.progress_status==='완료';}).length;
+    var _kDone = _kl.filter(function(k){return k.progress_status==='완료'||k.progress_status==='달성';}).length;
     var _kInProg = _kl.filter(function(k){return k.progress_status==='진행 중';}).length;
     return { avg: _avg, total: _total, done: _kDone, inProg: _kInProg };
   })();
@@ -6185,7 +6185,7 @@ function renderKPIAccordion(kpis, tasks) {
 
     // fmtT는 전역에 정의됨
 
-  const statusPillClass = s => ({'진행 중':'active','완료':'done','시작 전':'pending'}[s]||'pending');
+  const statusPillClass = s => ({'진행 중':'active','완료':'done','달성':'done','시작 전':'pending'}[s]||'pending');
 
   const colLabels = window._colLabels || {
     kpiName:'KPI명 / 목표', owners:'담당자', status:'진행상태', progress:'목표 대비 실적',
@@ -6390,6 +6390,7 @@ function renderKPIAccordion(kpis, tasks) {
           onchange="saveKpiSelectField(this)">
           <option value="진행 중" ${'진행 중'===kpi.progress_status?'selected':''}>● 진행 중</option>
           <option value="완료" ${'완료'===kpi.progress_status?'selected':''}>● 완료</option>
+          <option value="달성" ${'달성'===kpi.progress_status?'selected':''}>● 달성</option>
           <option value="시작 전" ${'시작 전'===kpi.progress_status?'selected':''}>● 시작 전</option>
           <option value="보류" ${'보류'===kpi.progress_status?'selected':''}>● 보류</option>
         </select>
@@ -7251,7 +7252,7 @@ function renderKpiGauge(kpi, taskList) {
   }
 
   // ── 0순위: KPI 완료 상태면 실제 달성률 또는 100% ──
-  if(kpi.progress_status==='완료') {
+  if(kpi.progress_status==='완료'||kpi.progress_status==='달성') {
     var _annT0=parseN(kpi.q4_target)||['q1','q2','q3','q4'].reduce(function(s,q){return s+(parseN(kpi[q+'_target'])||0);},0)||null;
     var _rawSum0=taskList.reduce(function(s,t){return s+Number(t._progressRaw!=null?t._progressRaw:(t.progress||0));},0);
     var _rate0, _act0, _tgt0;
@@ -8018,7 +8019,7 @@ function calcKpiModalProgress(kpi2, tasks2) {
 
   // ── 0순위: KPI 완료 상태면 실제 달성률 계산 후 반환 ──
   // progress_status === '완료'이면 실적 합산/목표로 실제 달성률 표시 (100% 이상 가능)
-  if(kpi2.progress_status === '완료') {
+  if(kpi2.progress_status === '완료' || kpi2.progress_status === '달성') {
     var _totRaw = (tasks2||[]).reduce(function(s,t){
       return s + Number(t._progressRaw!=null?t._progressRaw:(t.progress||0));
     }, 0);
@@ -10746,7 +10747,7 @@ async function saveKpiSelectField(sel) {
     const k = (state._lastKpis||[]).find(k=>k.id===kpiId);
     if(k) k[field] = val;
     // 스타일 동기화
-    const sc = {'진행 중':'active','완료':'done','시작 전':'pending','보류':'pending'}[val]||'pending';
+    const sc = {'진행 중':'active','완료':'done','달성':'done','시작 전':'pending','보류':'pending'}[val]||'pending';
     sel.className = `kpi-status-select kpi-status-pill ${sc}`;
     // KPI 완료 여부가 바뀌면 상단 요약 카드 즉시 갱신
     // (완료된 KPI 하위 태스크를 완료로 간주하는 computeSummary 로직 반영)
@@ -11463,7 +11464,7 @@ function renderKpiPanelForTheme(theme, kpis, tasks) {
       .filter(Boolean);
     const _uniqueOwners = [...new Set([..._kpiOwners, ..._taskOwners])].slice(0,2);
     const owners = _uniqueOwners.join(', ');
-    const sc  = {'진행 중':'active','완료':'done','시작 전':'pending','보류':'pending'}[kpi.progress_status]||'pending';
+    const sc  = {'진행 중':'active','완료':'done','달성':'done','시작 전':'pending','보류':'pending'}[kpi.progress_status]||'pending';
     const barColor = rate>=80?'#5c6b4a':rate>=50?'#b8962e':'#9e4a3a';
     const barW = Math.min(rate, 100);
     return `
