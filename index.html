@@ -13091,8 +13091,11 @@ function initDkpiDefaultData() {
   // target만 갱신, 사용자가 입력한 result/data는 절대 덮어쓰지 않음
   try {
     // ── B2D-10 Engagement: target 갱신, result 보존 ──
+    // 2026-10 업데이트: 47,024,265 (지역합계: Global 149,373 + LATAM 13,719,496 + MENA 20,344,326 + EURASIA 6,697,574 + Europe 360,858 + Brazil 5,546,209 + ASIA 6,004 + TH 0 + ID 21,026 + RUS 179,399 · 2026-11-06)
     var _engT={"2026-01":7466667,"2026-02":7466667,"2026-03":7466666,"2026-04":10803333,"2026-05":10803333,"2026-06":10803334,"2026-07":11063333,"2026-08":11063333,"2026-09":11063334,"2026-10":11443333,"2026-11":11443333,"2026-12":11443334};
-    var _engR={"2026-01":4381186,"2026-02":5685770,"2026-03":6128704,"2026-04":2719219,"2026-05":5059873,"2026-06":11482977,"2026-07":7108975,"2026-08":13479296,"2026-09":14117206,"2026-10":46063185};
+    var _engR={"2026-01":4381186,"2026-02":5685770,"2026-03":6128704,"2026-04":2719219,"2026-05":5059873,"2026-06":11482977,"2026-07":7108975,"2026-08":13479296,"2026-09":14117206,"2026-10":47024265};
+    // ── B2D-10 Engagement 10월 지역별 breakdown ──
+    var _engRegion2610 = {"Global":149373,"LATAM":13719496,"MENA":20344326,"EURASIA":6697574,"Europe":360858,"Brazil":5546209,"ASIA":6004,"TH":0,"ID":21026,"RUS":179399};
     var _engD=(function(){try{return JSON.parse(localStorage.getItem("dkpi_monthly_B2D-10")||"{}");}catch(e){return {};}})();
     Object.keys(_engT).forEach(function(mo){if(!_engD[mo])_engD[mo]={};_engD[mo].target=_engT[mo];if(_engR[mo]!==undefined)_engD[mo].result=_engR[mo];else if(!("result" in _engD[mo]))_engD[mo].result=null;});
     localStorage.setItem("dkpi_monthly_B2D-10",JSON.stringify(_engD));
@@ -13106,8 +13109,11 @@ function initDkpiDefaultData() {
       });
     }catch(e){}})();
     // ── B2D-11 Click: target 갱신, result 보존 ──
+    // 2026-10 업데이트: 822,320 (지역합계: Global 4,542 + LATAM 250,294 + MENA 266,378 + EURASIA 182,077 + Europe 34,215 + Brazil 69,347 + ASIA 479 + TH 0 + ID 14,055 + RUS 933 · 2026-11-06)
     var _clkT={"2026-01":83604,"2026-02":125405,"2026-03":209009,"2026-04":334414,"2026-05":334414,"2026-06":376216,"2026-07":376216,"2026-08":418018,"2026-09":418018,"2026-10":418018,"2026-11":543423,"2026-12":543423};
-    var _clkR={"2026-01":97900,"2026-02":105568,"2026-03":141947,"2026-04":177904,"2026-05":699000,"2026-06":1035650,"2026-07":1379919,"2026-08":417644,"2026-09":381851,"2026-10":541798};
+    var _clkR={"2026-01":97900,"2026-02":105568,"2026-03":141947,"2026-04":177904,"2026-05":699000,"2026-06":1035650,"2026-07":1379919,"2026-08":417644,"2026-09":381851,"2026-10":822320};
+    // ── B2D-11 Click 10월 지역별 breakdown ──
+    var _clkRegion2610 = {"Global":4542,"LATAM":250294,"MENA":266378,"EURASIA":182077,"Europe":34215,"Brazil":69347,"ASIA":479,"TH":0,"ID":14055,"RUS":933};
     var _clkD=(function(){try{return JSON.parse(localStorage.getItem("dkpi_monthly_B2D-11")||"{}");}catch(e){return {};}})();
     Object.keys(_clkT).forEach(function(mo){if(!_clkD[mo])_clkD[mo]={};_clkD[mo].target=_clkT[mo];if(_clkR[mo]!==undefined)_clkD[mo].result=_clkR[mo];else if(!("result" in _clkD[mo]))_clkD[mo].result=null;});
     localStorage.setItem("dkpi_monthly_B2D-11",JSON.stringify(_clkD));
