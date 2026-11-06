@@ -1284,28 +1284,28 @@ try {
 (function(){
   try {
     var ckCache = {
-      total:   3243920,   // $3.24M — 당해 캠페인 연관 오더 합산 (promo 대시보드 camps() a26 기준)
-      count:   5248,      // 오더 전환 SKU 종수 (ord_sku 합산 2026-11-06 기준)
+      total:   3440000,   // $3.44M — 당해 캠페인 연관 오더 합산 · 원장 ~2026-10-20 기준
+      count:   5248,      // 오더 전환 SKU 종수 (ord_sku 합산 기준)
       monthly: {
-        // promo 대시보드 $3.24M 기준 (2026-11-06 업데이트)
-        "2026-01":   2574,
-        "2026-02":  17384,
-        "2026-03": 189722,
-        "2026-04": 313012,
-        "2026-05": 325388,
-        "2026-06": 482026,
-        "2026-07": 741408,
-        "2026-08": 266257,
-        "2026-09": 646832,
-        "2026-10": 259317   // 10월 부분집계 (3.24M 기준 비율 환산)
+        // promo 대시보드 $3.44M 기준 (2026-11-06 업데이트)
+        "2026-01":   2730,
+        "2026-02":  18435,
+        "2026-03": 201190,
+        "2026-04": 331932,
+        "2026-05": 345056,
+        "2026-06": 511162,
+        "2026-07": 786223,
+        "2026-08": 282351,
+        "2026-09": 685930,
+        "2026-10": 274991   // 10월 부분집계
       },
       byRegion: {
-        "CIS":   1363120,
-        "ASIA":   679054,
-        "NA":     346221,
-        "LATAM":  740437,
-        "KOREA":   91592,
-        "MENA":    23496
+        "CIS":   1445515,
+        "ASIA":   720100,
+        "NA":     367148,
+        "LATAM":  785193,
+        "KOREA":   97128,
+        "MENA":    24916
       },
       lastUpdated: new Date().toISOString(),
       _src: 'promo_dashboard_v10_6',
@@ -3480,7 +3480,7 @@ function renderSummary(s) {
      72,  // KR
      100,300  // MENA Dynatrade·MESK
     ].forEach(function(r){if(r>=100)_ckCustAchieved2++;if(r>=120)_ckCustOver2++;});
-    var _ckTotalRate2 = 84; // $3.24M / $3.87M (전년$3.21M×1.2) = 83.9% → 84%
+    var _ckTotalRate2 = 87; // $3.44M / $3.94M (전년$3.27M×1.2) = 87.3% → 87%
     var _ckOverRate2 = Math.round(_ckCustOver2/57*100); // 120%+ 달성 비율 (전체 57사 기준)
     h += '<div style="background:#f5f2ed;border-radius:6px;padding:7px 10px">';
     h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">';
@@ -3491,7 +3491,7 @@ function renderSummary(s) {
     h += '</div>';
     h += '</div>';
     // KPI 히어로: 120% 목표 기준 달성률 + 잔여금액
-    // 120% 목표 = $3.87M (전년 $3.21M×1.2), 현재 $3.24M = 84% → 잔여 $0.62M
+    // 120% 목표 = $3.94M (전년 $3.27M×1.2), 현재 $3.44M = 87% → 잔여 $0.50M
     // 팀 KPI + 매출 2컬럼 그리드
     h += '<div style="margin-top:5px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:stretch">';
     // 좌: 팀 KPI 히어로
@@ -3503,21 +3503,21 @@ function renderSummary(s) {
     h += '<div style="font-size:34px;font-weight:900;color:#b87020;line-height:1">'+_ckTotalRate2+'</div>';
     h += '<div style="font-size:15px;font-weight:800;color:#b87020">%</div>';
     h += '</div>';
-    h += '<div style="font-size:8px;color:#9a7030;font-weight:600;margin-top:1px">120% 목표 대비 달성 · $3.24M</div>';
+    h += '<div style="font-size:8px;color:#9a7030;font-weight:600;margin-top:1px">120% 목표 대비 달성 · $3.44M</div>';
     h += '</div>';
     h += '<div style="text-align:right">';
     h += '<div style="font-size:9px;color:#c0401a;font-weight:700;margin-bottom:1px">잔여 목표</div>';
-    h += '<div style="font-size:20px;font-weight:900;color:#c0401a;line-height:1">$0.62M</div>';
-    h += '<div style="font-size:7.5px;color:#b06030;margin-top:1px">120% 목표 $3.87M까지</div>';
+    h += '<div style="font-size:20px;font-weight:900;color:#c0401a;line-height:1">$0.50M</div>';
+    h += '<div style="font-size:7.5px;color:#b06030;margin-top:1px">120% 목표 $3.94M까지</div>';
     h += '</div>';
     h += '</div>';
     h += '<div style="margin-top:7px;background:#e8d4a0;border-radius:3px;height:7px;overflow:hidden;position:relative">';
-    h += '<div style="width:84%;height:100%;background:linear-gradient(90deg,#c17f3a,#e8a848);border-radius:3px"></div>';
-    h += '<div style="position:absolute;top:0;left:84%;right:0;height:100%;background:repeating-linear-gradient(90deg,#f5ddb0 0,#f5ddb0 4px,#e8d4a0 4px,#e8d4a0 8px);border-radius:0 3px 3px 0"></div>';
+    h += '<div style="width:87%;height:100%;background:linear-gradient(90deg,#c17f3a,#e8a848);border-radius:3px"></div>';
+    h += '<div style="position:absolute;top:0;left:87%;right:0;height:100%;background:repeating-linear-gradient(90deg,#f5ddb0 0,#f5ddb0 4px,#e8d4a0 4px,#e8d4a0 8px);border-radius:0 3px 3px 0"></div>';
     h += '</div>';
     h += '<div style="margin-top:3px;display:flex;justify-content:space-between;font-size:7px;color:#b0a898">';
-    h += '<span style="color:#b87020;font-weight:700">달성 84%</span>';
-    h += '<span style="color:#c0401a;font-weight:700">잔여 16% · 잔여 $0.62M</span>';
+    h += '<span style="color:#b87020;font-weight:700">달성 87%</span>';
+    h += '<span style="color:#c0401a;font-weight:700">잔여 13% · 잔여 $0.50M</span>';
     h += '</div>';
     h += '<div style="margin-top:5px;padding-top:5px;border-top:1px solid #e8d4a0;display:flex;gap:10px">';
     h += '<div style="font-size:8px;color:#8a8278">목표달성 <span style="font-weight:800;color:#3a6b3a">'+_ckCustAchieved2+'사</span></div>';
@@ -3925,8 +3925,8 @@ function showCKCustomerKpi() {
     {name:'GULF MOTORS',                no:'289204', reg:'MENA',  target:20000,   actual:0,       rate:0},
     {name:'TECHNICAL AUTO',             no:'289205', reg:'MENA',  target:20000,   actual:100,     rate:0}
   ];
-  // 연관 오더 합계: $3.24M / 목표 $3.87M (전년 $3.21M×1.2) = 84% · 2026-11-06 기준
-  var _totalTgt = 3865389, _totalAct = 3243920, _totalRate = 84;
+  // 연관 오더 합계: $3.44M / 목표 $3.94M (전년 $3.27M×1.2) = 87% · 2026-11-06 기준
+  var _totalTgt = 3940000, _totalAct = 3440000, _totalRate = 87;
   var _achieved = _ckCustData.filter(function(c){return c.rate>=100;}).length;
 
   var h = '';
@@ -7388,20 +7388,20 @@ function renderKpiGauge(kpi, taskList) {
       } catch(_e){}
       return state.choiceKitOrder || null;
     })();
-    var _ckTotal = _ckOrd ? (_ckOrd.total||0) : 3243920; // 2026-11-06 기준 $3.24M (promo 대시보드 camps() 기준)
+    var _ckTotal = _ckOrd ? (_ckOrd.total||0) : 3440000; // 2026-11-06 기준 $3.44M (promo 대시보드 camps() 기준)
     var _ckCnt   = _ckOrd ? (_ckOrd.count||0) : 5248;    // 2026-11-06 기준 ord_sku 합산
-    var _ckRate  = 84; // $3.24M / $3.87M 목표 = 83.9% → 84% · 2026-11-06
+    var _ckRate  = 87; // $3.44M / $3.94M 목표 = 87.3% → 87% · 2026-11-06
     var _ckColor = _ckRate >= 80 ? '#3d7a2e' : _ckRate >= 50 ? '#b8962e' : '#c04a30';
     var _ckBw    = Math.min(100, _ckRate);
     var _ckFmt   = function(v){ if(v>=1000000) return '$'+(v/1000000).toFixed(2)+'M'; if(v>=1000) return '$'+(v/1000).toFixed(0)+'K'; return '$'+v; };
     return '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px">'
       +'<span class="kpi-gauge-pct" style="color:'+_ckColor+'">'+_ckRate+'%</span>'
-      +'<span style="font-size:9px;color:#c17f3a;font-weight:700">캠페인 연관 오더 · 목표 $3.87M</span>'
+      +'<span style="font-size:9px;color:#c17f3a;font-weight:700">캠페인 연관 오더 · 목표 $3.94M</span>'
       +'</div>'
       +'<div class="kpi-gauge-outer"><div class="kpi-gauge-bar" style="width:'+_ckBw+'%;background:#c17f3a"></div></div>'
       +'<div style="font-size:10px;color:#6b6259;margin-top:3px">'
         +'<span style="color:#c17f3a;font-weight:700">'+_ckFmt(_ckTotal)+'</span>'
-        +'<span style="color:#8a8278"> / $3.87M · '+new Intl.NumberFormat('ko-KR').format(_ckCnt)+'건</span>'
+        +'<span style="color:#8a8278"> / $3.94M · '+new Intl.NumberFormat('ko-KR').format(_ckCnt)+'건</span>'
       +'</div>'
       +'<div style="margin-top:4px"><a href="https://masterteamply-stack.github.io/choicekit-dashboard/promo_dashboard_v10_6.html#p7" target="_blank" style="font-size:9px;background:#f7f0e4;border:1px solid #d4b87a;border-radius:3px;padding:1px 7px;color:#9a6820;text-decoration:none;font-weight:600">상세 분석 →</a></div>';
   }
